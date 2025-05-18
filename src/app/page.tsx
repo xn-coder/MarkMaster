@@ -1,26 +1,98 @@
 
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { StudentForm } from '@/components/app/student-form';
-import { MarksheetDisplay } from '@/components/app/marksheet-display';
-import type { StudentFormData, MarksheetData, MarksheetSubject } from '@/types';
-import { generateFeedback, type GenerateFeedbackInput } from '@/ai/flows/generate-feedback';
-import { useToast } from "@/hooks/use-toast";
-import { Loader2 } from 'lucide-react';
+import Image from 'next/image';
 import { supabase } from '@/lib/supabase/client';
-import { Button } from '@/components/ui/button'; // Added Button import
+import { useToast } from "@/hooks/use-toast";
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardFooter
+} from "@/components/ui/card";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  LogOut,
+  RefreshCw,
+  PlusSquare,
+  Upload,
+  Download,
+  Search,
+  MoreHorizontal,
+  ChevronLeft,
+  ChevronRight,
+  Loader2
+} from 'lucide-react';
 
-export default function MarkMasterPage() {
-  const [marksheetData, setMarksheetData] = useState<MarksheetData | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isAuthLoading, setIsAuthLoading] = useState(true);
-  const { toast } = useToast();
+interface StudentRowData {
+  id: string; // Student Id
+  name: string;
+  academicYear: string;
+  studentClass: string;
+  faculty: string;
+}
+
+const mockStudents: StudentRowData[] = [
+  { id: '2004', name: 'Rohan', academicYear: '2025-2027', studentClass: '11th', faculty: 'SCIENCE' },
+  { id: '68532', name: 'Prashik Likhar', academicYear: '2018-2019', studentClass: '1st', faculty: 'COMMERCE' },
+  { id: '2001', name: 'Aniket', academicYear: '2021-2022', studentClass: '11th', faculty: 'ARTS' },
+  { id: '1005', name: 'Priya Sharma', academicYear: '2023-2025', studentClass: '12th', faculty: 'SCIENCE' },
+  { id: '1006', name: 'Amit Patel', academicYear: '2022-2024', studentClass: 'B.Com', faculty: 'COMMERCE' },
+  { id: '1007', name: 'Sneha Reddy', academicYear: '2024-2026', studentClass: '10th', faculty: 'GENERAL' },
+  { id: '1008', name: 'Vikram Singh', academicYear: '2023-2025', studentClass: 'B.A.', faculty: 'ARTS' },
+  { id: '1009', name: 'Sunita Devi', academicYear: '2021-2023', studentClass: '12th', faculty: 'ARTS' },
+  { id: '1010', name: 'Rajesh Kumar', academicYear: '2024-2028', studentClass: 'B.Tech', faculty: 'ENGINEERING' },
+  { id: '1011', name: 'Deepika Rao', academicYear: '2025-2027', studentClass: '11th', faculty: 'COMMERCE' },
+  { id: '1012', name: 'Arjun Mehta', academicYear: '2022-2023', studentClass: '10th', faculty: 'GENERAL' },
+];
+
+const ACADEMIC_YEARS = ['All Academic Years', '2025-2027', '2024-2028', '2024-2026', '2023-2025', '2022-2024', '2022-2023', '2021-2023', '2021-2022', '2018-2019'];
+const CLASSES = ['All Classes', '1st', '10th', '11th', '12th', 'B.A.', 'B.Com', 'B.Tech'];
+
+export default function AdminDashboardPage() {
   const router = useRouter();
-
-  // Effect to ensure client-side only rendering and check auth
+  const { toast } = useToast();
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isClient, setIsClient] = useState(false);
+
+  // Filters
+  const [academicYearFilter, setAcademicYearFilter] = useState('All Academic Years');
+  const [studentIdFilter, setStudentIdFilter] = useState('');
+  const [rollNoFilter, setRollNoFilter] = useState('');
+  const [studentNameFilter, setStudentNameFilter] = useState('');
+  const [classFilter, setClassFilter] = useState('All Classes');
+
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const [entriesPerPage, setEntriesPerPage] = useState(10);
+
   useEffect(() => {
     setIsClient(true);
     const checkAuthAndRedirect = async () => {
@@ -32,7 +104,7 @@ export default function MarkMasterPage() {
       }
     };
     checkAuthAndRedirect();
-    
+
     const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_OUT' || !session) {
         router.push('/login');
@@ -44,82 +116,35 @@ export default function MarkMasterPage() {
     };
   }, [router]);
 
-
-  const handleGenerateMarksheet = async (formData: StudentFormData) => {
-    setIsLoading(true);
-    try {
-      const subjectsWithFeedback: MarksheetSubject[] = await Promise.all(
-        formData.subjects.map(async (subject) => {
-          const percentage = (subject.marksObtained / subject.maxMarks) * 100;
-          let feedbackText = 'Feedback generation is not available at the moment.';
-          try {
-            const feedbackInput: GenerateFeedbackInput = {
-              studentName: formData.studentName,
-              subject: subject.subjectName,
-              marks: subject.marksObtained,
-              maxMarks: subject.maxMarks,
-            };
-            const feedbackResult = await generateFeedback(feedbackInput);
-            feedbackText = feedbackResult.feedback;
-          } catch (error) {
-            console.error(`Error generating feedback for ${subject.subjectName}:`, error);
-            toast({
-              title: "Feedback Error",
-              description: `Could not generate feedback for ${subject.subjectName}.`,
-              variant: "destructive",
-            });
-          }
-          return {
-            ...subject,
-            percentage: isNaN(percentage) ? 0 : percentage,
-            feedback: feedbackText,
-          };
-        })
-      );
-
-      const totalMarksObtained = subjectsWithFeedback.reduce((sum, sub) => sum + sub.marksObtained, 0);
-      const totalMaxMarks = subjectsWithFeedback.reduce((sum, sub) => sum + sub.maxMarks, 0);
-      const overallPercentageCalc = (totalMarksObtained / totalMaxMarks) * 100;
-      const overallPercentage = isNaN(overallPercentageCalc) ? 0 : overallPercentageCalc;
-      
-      setMarksheetData({
-        studentName: formData.studentName,
-        studentId: formData.studentId,
-        studentClass: formData.studentClass,
-        subjects: subjectsWithFeedback,
-        totalMarksObtained,
-        totalMaxMarks,
-        overallPercentage,
-      });
-
-    } catch (error) {
-      console.error("Error processing marksheet:", error);
-      toast({
-        title: "Error",
-        description: "An unexpected error occurred while generating the marksheet.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleCreateNew = () => {
-    setMarksheetData(null);
-  };
-  
   const handleLogout = async () => {
-    setIsLoading(true);
+    setIsLoggingOut(true);
     const { error } = await supabase.auth.signOut();
     if (error) {
       toast({ title: 'Logout Failed', description: error.message, variant: 'destructive' });
+      setIsLoggingOut(false);
     } else {
       toast({ title: 'Logged Out', description: 'You have been successfully logged out.' });
       // onAuthStateChange will handle redirect
     }
-    setIsLoading(false);
   };
+  
+  const filteredStudents = useMemo(() => {
+    return mockStudents.filter(student => {
+      if (academicYearFilter !== 'All Academic Years' && student.academicYear !== academicYearFilter) return false;
+      if (studentIdFilter && !student.id.toLowerCase().includes(studentIdFilter.toLowerCase())) return false;
+      // Roll No. filter logic would require roll no. in data
+      if (studentNameFilter && !student.name.toLowerCase().includes(studentNameFilter.toLowerCase())) return false;
+      if (classFilter !== 'All Classes' && student.studentClass !== classFilter) return false;
+      return true;
+    });
+  }, [academicYearFilter, studentIdFilter, studentNameFilter, classFilter]);
 
+  const paginatedStudents = useMemo(() => {
+    const startIndex = (currentPage - 1) * entriesPerPage;
+    return filteredStudents.slice(startIndex, startIndex + entriesPerPage);
+  }, [filteredStudents, currentPage, entriesPerPage]);
+
+  const totalPages = Math.ceil(filteredStudents.length / entriesPerPage);
 
   if (!isClient || isAuthLoading) {
     return (
@@ -130,43 +155,182 @@ export default function MarkMasterPage() {
   }
 
   return (
-    <main className="container mx-auto px-4 py-8 md:px-6 md:py-12 min-h-screen flex flex-col items-center bg-background text-foreground">
-      <header className="w-full mb-8 md:mb-12 text-center relative">
-        <h1 className="text-4xl md:text-5xl font-bold text-primary tracking-tight">
-          MarkMaster
-        </h1>
-        <p className="text-lg text-muted-foreground mt-2">
-          Your Modern Marksheet Generator with AI Feedback
-        </p>
-         <Button 
-          onClick={handleLogout} 
-          variant="outline" 
-          className="absolute top-0 right-0 mt-2 mr-2"
-          disabled={isLoading}
-        >
-          {isLoading ? <Loader2 className="animate-spin mr-2" /> : null} Logout
-        </Button>
+    <div className="min-h-screen bg-background text-foreground flex flex-col">
+      {/* College Header */}
+      <header className="bg-secondary text-secondary-foreground py-3 px-4 sm:px-6 lg:px-8 shadow-sm">
+        <div className="container mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Image
+              src="https://placehold.co/50x50.png"
+              alt="College Logo"
+              width={50}
+              height={50}
+              className="rounded-full"
+              data-ai-hint="college logo"
+            />
+            <div>
+              <h1 className="text-lg sm:text-xl font-bold text-primary">
+                SARYUG COLLEGE
+              </h1>
+              <p className="text-xs text-muted-foreground">
+                Affiliated By Bihar School Examination Board | [Estd. - 1983]
+              </p>
+              <p className="text-xs text-muted-foreground">[College Code: 53010]</p>
+            </div>
+          </div>
+          <Button variant="default" onClick={handleLogout} disabled={isLoggingOut} size="sm">
+            {isLoggingOut ? <Loader2 className="animate-spin" /> : <LogOut className="mr-2 h-4 w-4" />} Logout
+          </Button>
+        </div>
       </header>
 
-      {isLoading && !marksheetData && ( // Show main loading spinner only if not displaying marksheet
-        <div className="flex flex-col items-center justify-center space-y-4 p-8">
-          <Loader2 className="h-16 w-16 animate-spin text-primary" />
-          <p className="text-lg text-muted-foreground">Generating marksheet, please wait...</p>
-        </div>
-      )}
+      {/* Main Content Area */}
+      <main className="flex-grow container mx-auto px-4 py-6 md:px-6 md:py-8">
+        {/* Student Details Bar */}
+        <section className="mb-6">
+          <div className="bg-primary text-primary-foreground p-3 rounded-md shadow-md flex flex-col sm:flex-row justify-between items-center gap-2">
+            <h2 className="text-xl font-semibold">STUDENT DETAILS</h2>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" size="sm" className="bg-primary-foreground/10 hover:bg-primary-foreground/20 text-primary-foreground border-primary-foreground/30">
+                <RefreshCw className="mr-2 h-4 w-4" /> Refresh Data
+              </Button>
+              <Button variant="outline" size="sm" className="bg-primary-foreground/10 hover:bg-primary-foreground/20 text-primary-foreground border-primary-foreground/30">
+                <PlusSquare className="mr-2 h-4 w-4" /> Create New
+              </Button>
+              <Button variant="outline" size="sm" className="bg-primary-foreground/10 hover:bg-primary-foreground/20 text-primary-foreground border-primary-foreground/30">
+                <Upload className="mr-2 h-4 w-4" /> Import Data
+              </Button>
+              <Button variant="outline" size="sm" className="bg-primary-foreground/10 hover:bg-primary-foreground/20 text-primary-foreground border-primary-foreground/30">
+                <Download className="mr-2 h-4 w-4" /> Export to Excel
+              </Button>
+            </div>
+          </div>
+        </section>
 
-      {!marksheetData && !isLoading && (
-        <StudentForm onSubmit={handleGenerateMarksheet} isLoading={isLoading} />
-      )}
+        {/* Filter Card */}
+        <Card className="mb-6 shadow-md">
+          <CardContent className="pt-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 items-end">
+              <div className="lg:col-span-1">
+                <Label htmlFor="academicYear">Academic Year</Label>
+                <Select value={academicYearFilter} onValueChange={setAcademicYearFilter}>
+                  <SelectTrigger id="academicYear"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {ACADEMIC_YEARS.map(year => <SelectItem key={year} value={year}>{year}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="studentCollegeId">Student College Id</Label>
+                <Input id="studentCollegeId" placeholder="Student Id" value={studentIdFilter} onChange={e => setStudentIdFilter(e.target.value)} />
+              </div>
+              <div>
+                <Label htmlFor="rollNo">Roll No.</Label>
+                <Input id="rollNo" placeholder="Roll No." value={rollNoFilter} onChange={e => setRollNoFilter(e.target.value)} />
+              </div>
+              <div>
+                <Label htmlFor="studentName">Student Name</Label>
+                <Input id="studentName" placeholder="Student Name" value={studentNameFilter} onChange={e => setStudentNameFilter(e.target.value)} />
+              </div>
+              <div className="lg:col-span-1">
+                <Label htmlFor="class">Class</Label>
+                <Select value={classFilter} onValueChange={setClassFilter}>
+                  <SelectTrigger id="class"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {CLASSES.map(cls => <SelectItem key={cls} value={cls}>{cls}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button className="w-full lg:w-auto bg-primary hover:bg-accent">
+                <Search className="mr-2 h-4 w-4" /> Search
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
 
-      {marksheetData && ( // No !isLoading here so marksheet persists during logout loading
-        <MarksheetDisplay data={marksheetData} onCreateNew={handleCreateNew} />
-      )}
-      
-      <footer className="mt-auto pt-8 text-center text-sm text-muted-foreground print:hidden">
-        <p>&copy; {new Date().getFullYear()} MarkMaster. All rights reserved.</p>
+        {/* Student Table Card */}
+        <Card className="shadow-md">
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Label htmlFor="showEntries" className="text-sm">Show</Label>
+              <Select value={String(entriesPerPage)} onValueChange={(value) => setEntriesPerPage(Number(value))}>
+                <SelectTrigger id="showEntries" className="w-20 h-8 text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {[10, 25, 50].map(num => <SelectItem key={num} value={String(num)}>{num}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <span className="text-sm text-muted-foreground">entries</span>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader className="bg-primary text-primary-foreground">
+                  <TableRow>
+                    <TableHead className="text-white">Student Id</TableHead>
+                    <TableHead className="text-white">Student Name</TableHead>
+                    <TableHead className="text-white">Academic Year</TableHead>
+                    <TableHead className="text-white">Class</TableHead>
+                    <TableHead className="text-white">Faculty</TableHead>
+                    <TableHead className="text-white text-center">Action</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {paginatedStudents.length > 0 ? paginatedStudents.map((student) => (
+                    <TableRow key={student.id}>
+                      <TableCell>{student.id}</TableCell>
+                      <TableCell>{student.name}</TableCell>
+                      <TableCell>{student.academicYear}</TableCell>
+                      <TableCell>{student.studentClass}</TableCell>
+                      <TableCell>{student.faculty}</TableCell>
+                      <TableCell className="text-center">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem>View Marksheet</DropdownMenuItem>
+                            <DropdownMenuItem>Edit Student</DropdownMenuItem>
+                            <DropdownMenuItem>Delete Student</DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  )) : (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                        No students found.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+          <CardFooter className="flex items-center justify-between pt-4">
+            <p className="text-sm text-muted-foreground">
+              Showing {(currentPage - 1) * entriesPerPage + 1} to {Math.min(currentPage * entriesPerPage, filteredStudents.length)} of {filteredStudents.length} entries
+            </p>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>
+                <ChevronLeft className="h-4 w-4 mr-1" /> Previous
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages || totalPages === 0}>
+                Next <ChevronRight className="h-4 w-4 ml-1" />
+              </Button>
+            </div>
+          </CardFooter>
+        </Card>
+      </main>
+
+      {/* Footer */}
+      <footer className="py-4 text-center text-xs text-muted-foreground border-t border-border mt-auto">
+        <p>Copyright ©{new Date().getFullYear()} by Saryug College, Samastipur, Bihar. Design By Mantix.</p>
       </footer>
-    </main>
+    </div>
   );
 }
-
