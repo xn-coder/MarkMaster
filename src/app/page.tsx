@@ -1,25 +1,47 @@
+
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { StudentForm } from '@/components/app/student-form';
 import { MarksheetDisplay } from '@/components/app/marksheet-display';
 import type { StudentFormData, MarksheetData, MarksheetSubject } from '@/types';
 import { generateFeedback, type GenerateFeedbackInput } from '@/ai/flows/generate-feedback';
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from 'lucide-react';
+import { supabase } from '@/lib/supabase/client';
 
 export default function MarkMasterPage() {
   const [marksheetData, setMarksheetData] = useState<MarksheetData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
   const { toast } = useToast();
+  const router = useRouter();
 
-  // Effect to ensure client-side only rendering for this component
-  // Helps avoid potential hydration mismatches if any browser-specific APIs were used
-  // or if initial state relied on something not available at build time.
+  // Effect to ensure client-side only rendering and check auth
   const [isClient, setIsClient] = useState(false);
   useEffect(() => {
     setIsClient(true);
-  }, []);
+    const checkAuthAndRedirect = async () => {
+      const { data: { session }, error } = await supabase.auth.getSession();
+      if (error || !session) {
+        router.push('/login');
+      } else {
+        setIsAuthLoading(false);
+      }
+    };
+    checkAuthAndRedirect();
+    
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_OUT' || !session) {
+        router.push('/login');
+      }
+    });
+
+    return () => {
+      authListener.subscription.unsubscribe();
+    };
+  }, [router]);
 
 
   const handleGenerateMarksheet = async (formData: StudentFormData) => {
@@ -84,10 +106,21 @@ export default function MarkMasterPage() {
   const handleCreateNew = () => {
     setMarksheetData(null);
   };
+  
+  const handleLogout = async () => {
+    setIsLoading(true);
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      toast({ title: 'Logout Failed', description: error.message, variant: 'destructive' });
+    } else {
+      toast({ title: 'Logged Out', description: 'You have been successfully logged out.' });
+      // onAuthStateChange will handle redirect
+    }
+    setIsLoading(false);
+  };
 
-  if (!isClient) {
-    // Render nothing or a basic loading state on the server to prevent hydration issues
-    // Or, if the page is entirely client-rendered, this ensures no mismatch.
+
+  if (!isClient || isAuthLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -97,16 +130,24 @@ export default function MarkMasterPage() {
 
   return (
     <main className="container mx-auto px-4 py-8 md:px-6 md:py-12 min-h-screen flex flex-col items-center bg-background text-foreground">
-      <header className="mb-8 md:mb-12 text-center">
+      <header className="w-full mb-8 md:mb-12 text-center relative">
         <h1 className="text-4xl md:text-5xl font-bold text-primary tracking-tight">
           MarkMaster
         </h1>
         <p className="text-lg text-muted-foreground mt-2">
           Your Modern Marksheet Generator with AI Feedback
         </p>
+         <Button 
+          onClick={handleLogout} 
+          variant="outline" 
+          className="absolute top-0 right-0 mt-2 mr-2"
+          disabled={isLoading}
+        >
+          {isLoading ? <Loader2 className="animate-spin mr-2" /> : null} Logout
+        </Button>
       </header>
 
-      {isLoading && (
+      {isLoading && !marksheetData && ( // Show main loading spinner only if not displaying marksheet
         <div className="flex flex-col items-center justify-center space-y-4 p-8">
           <Loader2 className="h-16 w-16 animate-spin text-primary" />
           <p className="text-lg text-muted-foreground">Generating marksheet, please wait...</p>
@@ -117,7 +158,7 @@ export default function MarkMasterPage() {
         <StudentForm onSubmit={handleGenerateMarksheet} isLoading={isLoading} />
       )}
 
-      {marksheetData && !isLoading && (
+      {marksheetData && ( // No !isLoading here so marksheet persists during logout loading
         <MarksheetDisplay data={marksheetData} onCreateNew={handleCreateNew} />
       )}
       
