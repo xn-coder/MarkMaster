@@ -40,7 +40,7 @@ import {
 import {
   LogOut,
   RefreshCw,
-  PlusSquare,
+  FilePlus2, // Changed from PlusSquare
   Upload,
   Download,
   Search,
@@ -191,16 +191,16 @@ export default function AdminDashboardPage() {
           <div className="bg-primary text-primary-foreground p-3 rounded-md shadow-md flex flex-col sm:flex-row justify-between items-center gap-2">
             <h2 className="text-xl font-semibold">STUDENT DETAILS</h2>
             <div className="flex flex-wrap gap-2">
-              <Button variant="outline" size="sm" className="bg-primary-foreground/10 hover:bg-primary-foreground/20 text-primary-foreground border-primary-foreground/30">
+              <Button size="sm" className="bg-accent hover:bg-accent/90 text-accent-foreground">
                 <RefreshCw className="mr-2 h-4 w-4" /> Refresh Data
               </Button>
-              <Button variant="outline" size="sm" className="bg-primary-foreground/10 hover:bg-primary-foreground/20 text-primary-foreground border-primary-foreground/30">
-                <PlusSquare className="mr-2 h-4 w-4" /> Create New
+              <Button variant="ghost" size="sm" className="text-primary-foreground hover:bg-accent hover:text-accent-foreground">
+                <FilePlus2 className="mr-2 h-4 w-4" /> Create New
               </Button>
-              <Button variant="outline" size="sm" className="bg-primary-foreground/10 hover:bg-primary-foreground/20 text-primary-foreground border-primary-foreground/30">
+              <Button variant="ghost" size="sm" className="text-primary-foreground hover:bg-accent hover:text-accent-foreground">
                 <Upload className="mr-2 h-4 w-4" /> Import Data
               </Button>
-              <Button variant="outline" size="sm" className="bg-primary-foreground/10 hover:bg-primary-foreground/20 text-primary-foreground border-primary-foreground/30">
+              <Button variant="ghost" size="sm" className="text-primary-foreground hover:bg-accent hover:text-accent-foreground">
                 <Download className="mr-2 h-4 w-4" /> Export to Excel
               </Button>
             </div>
@@ -334,3 +334,4 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
+
