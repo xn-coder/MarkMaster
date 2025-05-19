@@ -29,46 +29,43 @@ export function MarksheetDisplay({ data, onCreateNew, isViewMode = false }: Mark
   const additionalSubjects = data.subjects.filter(s => s.category === 'Additional');
 
   const collegeNameColor = "#032781";
-  const marksheetBannerBgColor = "#DB2A2A";
+  const marksheetBannerBgColor = "#DB2A2A"; // A vibrant red
   const marksheetBannerTextColor = "#FFFFFF";
+
+  // Calculate approximate height of the college details block for MARKSHEET banner positioning
+  // This is an estimate and might need adjustment based on actual rendered height
+  const collegeDetailsBlockHeight = "h-[80px]"; // Estimate based on font sizes and lines
 
   return (
     <div className="print:p-0 print:m-0">
-      {/* A4 Sized Card with Outer Border */}
       <Card className="w-full max-w-[210mm] min-h-[297mm] mx-auto shadow-lg print:shadow-none border-2 border-black print:border-2 print:border-black my-4 print:my-0 print:mx-0 print:min-h-0 flex flex-col">
-        {/* Padding Div for double border effect - this div grows */}
         <div className="p-1 print:p-0.5 flex-grow flex flex-col">
-          {/* Inner Bordered Content Area - this div takes full height of parent */}
           <div className="border border-black print:border-black p-4 print:p-3 h-full flex flex-col relative">
             
-            {/* Website URL Top Right */}
-            <div className="absolute top-3 right-4 text-[10px] print:text-[8px] text-gray-700 print:text-black font-sans">
-              www.saryugcollege.com
-            </div>
-
-            {/* Header Section */}
-            <header className="mb-2 print:mb-1.5">
-              <div className="flex flex-col items-center justify-center mb-1 print:mb-0.5">
-                <div className="flex items-center">
-                    <div className="flex-shrink-0 mr-3 print:mr-2">
-                        <Image 
-                            src="/college-logo.png"
-                            alt="College Logo" 
-                            width={80} 
-                            height={80}
-                            className=""
-                            data-ai-hint="college logo" 
-                        />
-                    </div>
-                    <div className="flex flex-col text-left">
-                        <h1 className="text-2xl font-bold print:text-xl leading-tight font-serif" style={{ color: collegeNameColor }}>SARYUG COLLEGE</h1>
-                        <p className="text-sm font-semibold text-black print:text-xs leading-tight mt-0.5 font-sans">Chitragupta Nagar, Mohanpur, Samastipur, Bihar - 848101</p>
-                        <p className="text-[11px] text-black print:text-[9px] leading-tight mt-0.5 font-sans">Affiliated By Bihar School Examination Board | [Estd. - 1983]</p>
-                        <p className="text-[11px] text-black print:text-[9px] leading-tight font-sans">College Code: 53010</p>
-                    </div>
-                </div>
+            <header className="relative mb-2 print:mb-1.5">
+              <div className="absolute top-3 right-4 text-[10px] print:text-[8px] text-gray-700 print:text-black font-sans">
+                www.saryugcollege.com
               </div>
-              <div className="text-center mt-2 print:mt-1 mb-2 print:mb-1.5">
+
+              <div className="absolute top-3 left-4 print:top-2 print:left-3 z-10">
+                  <Image 
+                      src="/college-logo.png"
+                      alt="College Logo" 
+                      width={80} 
+                      height={80}
+                      className=""
+                      data-ai-hint="college logo" 
+                  />
+              </div>
+              
+              <div className={`absolute left-1/2 transform -translate-x-1/2 text-center w-full top-3 print:top-2 ${collegeDetailsBlockHeight} flex flex-col items-center`}>
+                  <h1 className="text-2xl font-bold print:text-xl leading-tight font-serif" style={{ color: collegeNameColor }}>SARYUG COLLEGE</h1>
+                  <p className="text-sm font-semibold text-black print:text-xs leading-tight mt-0.5 font-sans">Chitragupta Nagar, Mohanpur, Samastipur, Bihar - 848101</p>
+                  <p className="text-[11px] text-black print:text-[9px] leading-tight mt-0.5 font-sans">Affiliated By Bihar School Examination Board | [Estd. - 1983]</p>
+                  <p className="text-[11px] text-black print:text-[9px] leading-tight font-sans">College Code: 53010</p>
+              </div>
+
+              <div className="text-center mt-[95px] print:mt-[90px] mb-2 print:mb-1.5"> {/* Adjusted margin-top */}
                 <div 
                   className="inline-block px-8 py-1.5 rounded font-bold text-lg print:px-6 print:py-1 print:text-base"
                   style={{ backgroundColor: marksheetBannerBgColor, color: marksheetBannerTextColor }}
@@ -84,9 +81,8 @@ export function MarksheetDisplay({ data, onCreateNew, isViewMode = false }: Mark
               </h2>
             </div>
             
-            {/* Main Content Area - this div grows */}
             <div className="flex-grow flex flex-col space-y-1.5 text-sm print:text-[10px] font-sans mb-2 print:mb-1.5">
-              <div className="grid grid-cols-2 gap-x-6 gap-y-1 mb-3 print:mb-2">
+              <div className="grid grid-cols-2 gap-x-6 gap-y-1 mb-3 print:mb-2 text-black print:text-black">
                 <div>Student Name: <strong className="font-semibold">{data.studentName}</strong></div>
                 <div>Marksheet No: <strong className="font-semibold">{data.marksheetNo}</strong></div>
                 <div>Father Name: <strong className="font-semibold">{data.fatherName}</strong></div>
@@ -99,7 +95,6 @@ export function MarksheetDisplay({ data, onCreateNew, isViewMode = false }: Mark
                 <div>Class: <strong className="font-semibold">{data.classDisplay}</strong></div>
               </div>
 
-              {/* Table Section - this section grows */}
               <section className="flex-grow flex flex-col mb-3 print:mb-2">
                 <div className="overflow-x-auto flex-grow">
                   <Table className="border border-black border-collapse print:text-[9px] w-full">
@@ -176,22 +171,21 @@ export function MarksheetDisplay({ data, onCreateNew, isViewMode = false }: Mark
                     </TableBody>
                   </Table>
                 </div>
-              </section> {/* End table section */}
+              </section>
               
               <Separator className="my-2.5 print:my-1.5" />
 
-              <div className="grid grid-cols-2 items-start mt-1.5 print:mt-1 text-sm print:text-[10px]">
+              <div className="grid grid-cols-2 items-start mt-1.5 print:mt-1 text-sm print:text-[10px] text-black print:text-black">
                 <div>
                     <div>Result: <strong className={cn("font-semibold", data.overallResult === "Pass" ? "text-green-700" : "text-red-700")}>{data.overallResult} ({data.overallPercentageDisplay.toFixed(2)}%)</strong></div>
                     <div>Place: <strong className="font-semibold">{data.place}</strong></div>
                 </div>
                 <div className="text-right">Date of Issue: <strong className="font-semibold">{data.dateOfIssue}</strong></div>
               </div>
-            </div> {/* End flex-grow content area */}
+            </div>
             
-            {/* Signature Section - Pushed to bottom */}
-            <div className="mt-auto pt-10 print:pt-8">
-                <div className="flex justify-between text-sm print:text-[10px]">
+            <div className="mt-auto pt-10 print:pt-8"> {/* Ensures this section is at the bottom */}
+                <div className="flex justify-between text-sm print:text-[10px] text-black print:text-black">
                     <div className="text-center">
                         <hr className="border-black print:border-black mb-1 w-48 mx-auto" />
                         <span>Sign of Counter Clerk</span>
@@ -202,11 +196,10 @@ export function MarksheetDisplay({ data, onCreateNew, isViewMode = false }: Mark
                     </div>
                 </div>
             </div>
-          </div> {/* End inner border div */}
-        </div> {/* End outer padding div */}
-      </Card> {/* End Main Card */}
+          </div>
+        </div>
+      </Card>
 
-      {/* Action Buttons - Hidden on Print */}
       <div className="flex flex-col sm:flex-row justify-end gap-3 p-4 print:hidden mt-4">
         {!isViewMode && onCreateNew && (
           <Button variant="outline" onClick={onCreateNew}>
@@ -265,6 +258,7 @@ export function MarksheetDisplay({ data, onCreateNew, isViewMode = false }: Mark
           .print\\:mt-0 { margin-top: 0rem !important; }
           .print\\:mt-0\\.5 { margin-top: 0.125rem !important; }
           .print\\:mt-1 { margin-top: 0.25rem !important; }
+          .print\\:mt-\\[90px\\] { margin-top: 90px !important; } /* For MARKSHEET banner positioning */
           .print\\:pt-0 { padding-top: 0rem !important; }
           .print\\:pt-8 { padding-top: 2rem !important; }
 
@@ -273,12 +267,11 @@ export function MarksheetDisplay({ data, onCreateNew, isViewMode = false }: Mark
           
           .max-w-\\[210mm\\].min-h-\\[297mm\\] { 
             width: 100% !important; 
-            min-height: 0 !important; /* Reset min-height for print */
-            height: auto !important; /* Let content define height */
+            min-height: calc(297mm - 20mm) !important; /* Attempt to fill page height within margins */
             max-width: none !important; 
             box-sizing: border-box !important;
-            display: flex;
-            flex-direction: column;
+            display: flex !important;
+            flex-direction: column !important;
             page-break-inside: avoid !important;
           }
           
