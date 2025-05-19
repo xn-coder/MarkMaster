@@ -56,19 +56,8 @@ interface StudentRowData {
   faculty: string;
 }
 
-const mockStudents: StudentRowData[] = [
-  { id: '2004', name: 'Rohan Kumar', academicYear: '2025-2027', studentClass: '11th', faculty: 'SCIENCE' },
-  { id: '68532', name: 'Prashik Likhar', academicYear: '2018-2019', studentClass: '1st Year', faculty: 'COMMERCE' },
-  { id: '2001', name: 'Aniket Sharma', academicYear: '2021-2022', studentClass: '11th', faculty: 'ARTS' },
-  { id: '1005', name: 'Priya Singh', academicYear: '2023-2025', studentClass: '12th', faculty: 'SCIENCE' },
-  { id: '1006', name: 'Amit Patel', academicYear: '2022-2024', studentClass: '2nd Year', faculty: 'COMMERCE' },
-  { id: '1007', name: 'Sneha Reddy', academicYear: '2024-2026', studentClass: '10th', faculty: 'GENERAL' }, // Assuming 'GENERAL' faculty if not specific
-  { id: '1008', name: 'Vikram Singh Rathore', academicYear: '2023-2025', studentClass: 'B.A.', faculty: 'ARTS' },
-  { id: '1009', name: 'Sunita Devi', academicYear: '2021-2023', studentClass: '12th', faculty: 'ARTS' },
-  { id: '1010', name: 'Rajesh Kumar Verma', academicYear: '2024-2028', studentClass: 'B.Tech', faculty: 'SCIENCE' }, // Assuming ENGINEERING falls under SCIENCE
-  { id: '1011', name: 'Deepika Rao', academicYear: '2025-2027', studentClass: '11th', faculty: 'COMMERCE' },
-  { id: '1012', name: 'Arjun Mehta', academicYear: '2022-2023', studentClass: '10th', faculty: 'GENERAL' },
-];
+// Mock data removed, will fetch from Supabase
+// const mockStudents: StudentRowData[] = [ ... ];
 
 const ACADEMIC_YEARS = ['All Academic Years', '2025-2027', '2024-2028', '2024-2026', '2023-2025', '2022-2024', '2022-2023', '2021-2023', '2021-2022', '2018-2019'];
 const START_YEARS = ['All Start Years', ...Array.from({ length: new Date().getFullYear() + 1 - 2018 + 1 }, (_, i) => (2018 + i).toString()).reverse()];
@@ -88,13 +77,13 @@ export default function AdminDashboardPage() {
   const [isClient, setIsClient] = useState(false);
   const [isLoadingData, setIsLoadingData] = useState(false); 
 
-  const [displayedStudents, setDisplayedStudents] = useState<StudentRowData[]>([]);
+  const [allStudents, setAllStudents] = useState<StudentRowData[]>([]); // Stores all students fetched from DB
+  const [displayedStudents, setDisplayedStudents] = useState<StudentRowData[]>([]); // Students to show in table after filtering
 
   const [academicYearFilter, setAcademicYearFilter] = useState('All Academic Years');
   const [startYearFilter, setStartYearFilter] = useState('All Start Years');
   const [endYearFilter, setEndYearFilter] = useState('All End Years');
   const [studentIdFilter, setStudentIdFilter] = useState('');
-  // const [rollNoFilter, setRollNoFilter] = useState(''); // Roll No filter removed as per image
   const [studentNameFilter, setStudentNameFilter] = useState('');
   const [classFilter, setClassFilter] = useState('All Classes');
 
@@ -124,44 +113,80 @@ export default function AdminDashboardPage() {
     };
   }, [router]);
   
-  const handleLoadStudentData = () => {
+  const handleLoadStudentData = async () => {
     setIsLoadingData(true);
-    // In a real app, this would fetch from Supabase based on filters
-    setTimeout(() => {
-      setDisplayedStudents(mockStudents); // For now, load all mock students
-      setCurrentPage(1); // Reset to first page
+    const { data: students, error } = await supabase
+      .from('student_details')
+      .select('student_id, name, faculty, class, academic_year');
+
+    if (error) {
+      toast({ title: "Error Loading Students", description: error.message, variant: "destructive" });
+      setAllStudents([]);
+      setDisplayedStudents([]);
       setIsLoadingData(false);
-      toast({ title: "Student Data Loaded", description: "Mock student data has been loaded into the table." });
-    }, 1000);
+      return;
+    }
+
+    if (students) {
+      const formattedStudents: StudentRowData[] = students.map(s => ({
+        id: s.student_id,
+        name: s.name,
+        academicYear: s.academic_year, // This is the session string "YYYY-YYYY"
+        studentClass: s.class, // This is "11th", "12th", etc.
+        faculty: s.faculty,
+      }));
+      setAllStudents(formattedStudents);
+      setDisplayedStudents(formattedStudents); // Initially display all fetched students
+      setCurrentPage(1); // Reset to first page
+      toast({ title: "Student Data Loaded", description: `${formattedStudents.length} students loaded from the database.` });
+    } else {
+      setAllStudents([]);
+      setDisplayedStudents([]);
+      toast({ title: "No Students Found", description: "No student records were returned from the database." });
+    }
+    setIsLoadingData(false);
   };
 
-  const filteredStudents = useMemo(() => {
-    // if (displayedStudents.length === 0) return []; // Only filter if data is loaded
+  // Apply filters whenever filter values or allStudents change
+  useEffect(() => {
+    let filtered = allStudents;
 
-    return displayedStudents.filter(student => {
-      if (academicYearFilter !== 'All Academic Years' && student.academicYear !== academicYearFilter) return false;
-      // Add filtering for startYearFilter and endYearFilter if academicYear is split into start/end
-      if (studentIdFilter && !student.id.toLowerCase().includes(studentIdFilter.toLowerCase())) return false;
-      if (studentNameFilter && !student.name.toLowerCase().includes(studentNameFilter.toLowerCase())) return false;
-      if (classFilter !== 'All Classes' && student.studentClass !== classFilter) return false;
-      return true;
-    });
-  }, [displayedStudents, academicYearFilter, startYearFilter, endYearFilter, studentIdFilter, studentNameFilter, classFilter]);
+    if (academicYearFilter !== 'All Academic Years') {
+      filtered = filtered.filter(student => student.academicYear === academicYearFilter);
+    }
+    // Note: startYearFilter and endYearFilter might need more complex logic if academicYear is a range
+    // For simplicity, we're filtering on the exact academicYear string for now.
+    // If you need to filter by start/end year components, you'd parse student.academicYear.
+    
+    if (studentIdFilter) {
+      filtered = filtered.filter(student => student.id.toLowerCase().includes(studentIdFilter.toLowerCase()));
+    }
+    if (studentNameFilter) {
+      filtered = filtered.filter(student => student.name.toLowerCase().includes(studentNameFilter.toLowerCase()));
+    }
+    if (classFilter !== 'All Classes') {
+      filtered = filtered.filter(student => student.studentClass === classFilter);
+    }
+    
+    setDisplayedStudents(filtered);
+    setCurrentPage(1); // Reset to first page when filters change
+  }, [allStudents, academicYearFilter, studentIdFilter, studentNameFilter, classFilter /*, startYearFilter, endYearFilter*/]);
+
 
   const paginatedStudents = useMemo(() => {
     const startIndex = (currentPage - 1) * entriesPerPage;
-    return filteredStudents.slice(startIndex, startIndex + entriesPerPage);
-  }, [filteredStudents, currentPage, entriesPerPage]);
+    return displayedStudents.slice(startIndex, startIndex + entriesPerPage);
+  }, [displayedStudents, currentPage, entriesPerPage]);
 
-  const totalPages = Math.ceil(filteredStudents.length / entriesPerPage);
+  const totalPages = Math.ceil(displayedStudents.length / entriesPerPage);
 
   const handleViewMarksheet = (student: StudentRowData) => {
-    toast({ title: 'Action: View Marksheet', description: `Viewing marksheet for ${student.name} (ID: ${student.id})` });
+    toast({ title: 'Action: View Marksheet', description: `Viewing marksheet for ${student.name} (ID: ${student.id}) - Placeholder` });
     // router.push(`/marksheet/view/${student.id}`); // Example navigation for viewing
   };
 
   const handleEditStudent = (student: StudentRowData) => {
-    toast({ title: 'Action: Edit Student', description: `Editing details for ${student.name} (ID: ${student.id})` });
+    toast({ title: 'Navigating to Edit', description: `Editing details for ${student.name} (ID: ${student.id})` });
     router.push(`/marksheet/edit/${student.id}`);
   };
 
@@ -173,7 +198,7 @@ export default function AdminDashboardPage() {
       variant: 'destructive' 
     });
     // Actual deletion logic would go here, e.g., call Supabase
-    // setDisplayedStudents(prev => prev.filter(s => s.id !== student.id)); // Optimistic UI update
+    // setAllStudents(prev => prev.filter(s => s.id !== student.id)); // Optimistic UI update on allStudents
   };
 
 
@@ -194,7 +219,7 @@ export default function AdminDashboardPage() {
 
       <main className="flex-grow container mx-auto px-4 py-6 sm:px-6 lg:px-8">
          <div className="bg-primary text-primary-foreground p-3 rounded-md shadow-md mb-6">
-            <div className="container mx-auto px-0 sm:px-0 lg:px-0"> {/* No extra padding for this inner container */}
+            <div className="container mx-auto px-0 sm:px-0 lg:px-0">
               <div className="flex flex-col sm:flex-row justify-between items-center gap-2">
                 <h2 className="text-xl font-semibold">STUDENT DETAILS</h2>
                 <div className="flex flex-wrap gap-2">
@@ -225,7 +250,7 @@ export default function AdminDashboardPage() {
 
         <Card className="mb-6 shadow-md">
           <CardContent className="pt-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4 items-end"> {/* Adjusted to 6 columns */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4 items-end">
               <div>
                 <Label htmlFor="academicYear">Academic Session</Label>
                 <Select value={academicYearFilter} onValueChange={setAcademicYearFilter}>
@@ -257,7 +282,6 @@ export default function AdminDashboardPage() {
                 <Label htmlFor="studentCollegeId">Student College Id</Label>
                 <Input id="studentCollegeId" placeholder="Student Id" value={studentIdFilter} onChange={e => setStudentIdFilter(e.target.value)} />
               </div>
-              {/* Roll No. filter removed to match image */}
               <div>
                 <Label htmlFor="studentName">Student Name</Label>
                 <Input id="studentName" placeholder="Student Name" value={studentNameFilter} onChange={e => setStudentNameFilter(e.target.value)} />
@@ -327,8 +351,10 @@ export default function AdminDashboardPage() {
                   )) : (
                     <TableRow>
                       <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
-                        {displayedStudents.length === 0 && !isLoadingData && !filteredStudents.length ? 'Click "Load Student Data" above to view marksheet history, or use filters to search.' :
-                         isLoadingData ? 'Loading student data...' : 'No students found matching your filters.'}
+                        {allStudents.length === 0 && !isLoadingData ? 'Click "Load Student Data" above to view student records.' :
+                         isLoadingData ? 'Loading student data...' : 
+                         (allStudents.length > 0 && displayedStudents.length === 0) ? 'No students found matching your filters.' :
+                         'No student data available. Try loading or adding students.'}
                       </TableCell>
                     </TableRow>
                   )}
@@ -338,7 +364,7 @@ export default function AdminDashboardPage() {
           </CardContent>
           <CardFooter className="flex flex-col sm:flex-row items-center justify-between pt-4 gap-2">
             <p className="text-sm text-muted-foreground text-center sm:text-left">
-              Showing {paginatedStudents.length > 0 ? (currentPage - 1) * entriesPerPage + 1 : 0} to {Math.min(currentPage * entriesPerPage, filteredStudents.length)} of {filteredStudents.length} entries
+              Showing {paginatedStudents.length > 0 ? (currentPage - 1) * entriesPerPage + 1 : 0} to {Math.min(currentPage * entriesPerPage, displayedStudents.length)} of {displayedStudents.length} entries
             </p>
             <div className="flex gap-2">
               <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>
@@ -361,3 +387,4 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
+

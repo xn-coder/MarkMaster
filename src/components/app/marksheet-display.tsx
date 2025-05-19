@@ -30,35 +30,40 @@ export function MarksheetDisplay({ data, onCreateNew }: MarksheetDisplayProps) {
 
   return (
     <Card className="w-full max-w-4xl mx-auto shadow-lg print:shadow-none border-2 border-primary print:border-black">
-      {/* Printable Header: Only visible on print or if needed */}
       <div className="p-4 print:p-2">
-        <header className="text-center mb-4">
-          <div className="flex justify-center items-center mb-2">
-            <Image 
-                src="/college-logo.png"
-                alt="College Logo" 
-                width={60} 
-                height={60} 
-                className="mr-3"
-                data-ai-hint="college logo" 
-            />
-            <div>
-                <h1 className="text-2xl font-bold text-primary print:text-black">SARYUG COLLEGE</h1>
-                <p className="text-sm text-muted-foreground print:text-black">Chitragupta Nagar, Mohanpur, Samastipur, Bihar - 848101</p>
-                <p className="text-xs text-muted-foreground print:text-black">Affiliated By Bihar School Examination Board | [Estd. - 1983] | College Code: 53010</p>
+        <header className="mb-4">
+          <div className="flex items-center justify-between print:justify-start"> {/* Changed to justify-between for screen, justify-start for print to keep logo left */}
+            <div className="flex-shrink-0">
+                <Image 
+                    src="/college-logo.png"
+                    alt="College Logo" 
+                    width={60} 
+                    height={60} 
+                    className="mr-3 print:mr-2"
+                    data-ai-hint="college logo" 
+                />
             </div>
+            <div className="flex-grow text-center print:text-left print:ml-4">
+                <h1 className="text-2xl font-bold text-primary print:text-black print:text-xl">SARYUG COLLEGE</h1>
+                <p className="text-sm text-muted-foreground print:text-black print:text-xs">Chitragupta Nagar, Mohanpur, Samastipur, Bihar - 848101</p>
+                <p className="text-xs text-muted-foreground print:text-black print:text-[10px]">Affiliated By Bihar School Examination Board | [Estd. - 1983] | College Code: 53010</p>
+            </div>
+             {/* Optional: Spacer for screen view if logo is not wide enough to balance the right side for centering college details */}
+             <div className="w-[60px] flex-shrink-0 print:hidden"></div>
           </div>
-          <div className="inline-block bg-destructive text-destructive-foreground px-6 py-1 rounded font-semibold text-lg my-2 print:bg-gray-700 print:text-white">
-            MARKSHEET
+          <div className="text-center mt-2">
+            <div className="inline-block bg-destructive text-destructive-foreground px-6 py-1 rounded font-semibold text-lg my-2 print:bg-gray-700 print:text-white print:px-4 print:py-0.5 print:text-base">
+                MARKSHEET
+            </div>
           </div>
         </header>
 
-        <CardHeader className="text-left p-2 pt-0 mb-2">
-          <h2 className="text-xl font-semibold text-primary print:text-black border-b-2 border-primary print:border-black pb-1">Student Details</h2>
+        <CardHeader className="text-left p-2 pt-0 mb-2 print:p-1">
+          <h2 className="text-xl font-semibold text-primary print:text-black print:text-lg border-b-2 border-primary print:border-black pb-1">Student Details</h2>
         </CardHeader>
         
-        <CardContent className="space-y-1 p-2 text-sm">
-          <div className="grid grid-cols-2 gap-x-8 gap-y-1 mb-4">
+        <CardContent className="space-y-1 p-2 text-sm print:p-1 print:text-xs">
+          <div className="grid grid-cols-2 gap-x-8 gap-y-1 mb-4 print:gap-x-4">
             <div><strong>Student Name:</strong> {data.studentName}</div>
             <div><strong>Marksheet No:</strong> {data.marksheetNo}</div>
             <div><strong>Father Name:</strong> {data.fatherName}</div>
@@ -76,7 +81,7 @@ export function MarksheetDisplay({ data, onCreateNew }: MarksheetDisplayProps) {
               <Table className="border border-collapse print:text-xs">
                 <TableHeader className="bg-muted/50 print:bg-gray-200">
                   <TableRow>
-                    <TableHead className="w-[50px] border font-semibold print:border-black text-center">Sr. no.</TableHead>
+                    <TableHead className="w-[50px] border font-semibold print:border-black text-center print:w-[40px]">Sr. no.</TableHead>
                     <TableHead className="border font-semibold print:border-black">Subject</TableHead>
                     <TableHead className="text-center border font-semibold print:border-black">Total Marks</TableHead>
                     <TableHead className="text-center border font-semibold print:border-black">Passing Marks</TableHead>
@@ -148,13 +153,13 @@ export function MarksheetDisplay({ data, onCreateNew }: MarksheetDisplayProps) {
           
           <Separator className="my-4 print:my-2" />
 
-          <div className="grid grid-cols-2 gap-x-8 gap-y-1 mt-4 text-sm">
+          <div className="grid grid-cols-2 gap-x-8 gap-y-1 mt-4 text-sm print:gap-x-4">
             <div><strong>Result:</strong> <span className={cn("font-semibold", data.overallResult === "Pass" ? "text-green-600" : "text-red-600")}>{data.overallResult} ({data.overallPercentageDisplay.toFixed(2)}%)</span></div>
             <div><strong>Date of Issue:</strong> {data.dateOfIssue}</div>
             <div><strong>Place:</strong> {data.place}</div>
           </div>
 
-          <div className="mt-16 pt-8 flex justify-between text-sm print:mt-12 print:pt-6">
+          <div className="mt-16 pt-8 flex justify-between text-sm print:mt-12 print:pt-6 print:text-xs">
             <span>Sign of Counter Clerk</span>
             <span>Sign of Principal</span>
           </div>
@@ -177,32 +182,45 @@ export function MarksheetDisplay({ data, onCreateNew }: MarksheetDisplayProps) {
           body {
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
+            font-size: 10pt; /* Base font size for print */
           }
-          .print\\:hidden {
-            display: none !important;
-          }
-          .print\\:border-black {
-            border-color: black !important;
-          }
-          .print\\:text-black {
-            color: black !important;
-          }
-          .print\\:bg-gray-200 {
-            background-color: #E5E7EB !important; /* Light gray for header */
-          }
-           .print\\:bg-gray-100 {
-            background-color: #F3F4F6 !important; /* Lighter gray for sub-header rows */
-          }
-          .print\\:text-xs {
-            font-size: 0.75rem; /* 12px */
-            line-height: 1rem; /* 16px */
-          }
+          .print\\:hidden { display: none !important; }
+          .print\\:border-black { border-color: black !important; }
+          .print\\:text-black { color: black !important; }
+          .print\\:bg-gray-200 { background-color: #E5E7EB !important; }
+          .print\\:bg-gray-100 { background-color: #F3F4F6 !important; }
+          .print\\:text-xs { font-size: 0.7rem !important; line-height: 0.9rem !important; }
+          .print\\:text-sm { font-size: 0.75rem !important; line-height: 1rem !important; }
+          .print\\:text-base { font-size: 0.8rem !important; line-height: 1.1rem !important; }
+          .print\\:text-lg { font-size: 0.9rem !important; line-height: 1.2rem !important; }
+          .print\\:text-xl { font-size: 1rem !important; line-height: 1.3rem !important; }
+
+          .print\\:p-0\\.5 { padding: 0.125rem !important; }
           .print\\:p-1 { padding: 0.25rem !important; }
           .print\\:p-2 { padding: 0.5rem !important; }
+          .print\\:m-0 { margin: 0 !important; }
+          .print\\:mb-1 { margin-bottom: 0.25rem !important; }
+          .print\\:mb-2 { margin-bottom: 0.5rem !important; }
+          .print\\:mt-2 { margin-top: 0.5rem !important; }
           .print\\:mt-12 { margin-top: 3rem !important; }
           .print\\:pt-6 { padding-top: 1.5rem !important; }
           .print\\:shadow-none { box-shadow: none !important; }
+          .print\\:border-2 { border-width: 2px !important; }
+          .print\\:justify-start { justify-content: flex-start !important; }
+          .print\\:ml-4 { margin-left: 1rem !important; }
+          .print\\:w-\\[40px\\] { width: 40px !important; }
+          .print\\:text-\\[10px\\] { font-size: 10px !important; line-height: 12px !important;}
 
+          @page {
+            size: A4;
+            margin: 0.5in; /* Standard A4 margin */
+          }
+          /* Ensure card takes full printable area */
+          .max-w-4xl { 
+            max-width: 100% !important;
+            width: 100% !important;
+            border: 1px solid black !important; /* Simple border for print if main border doesn't show */
+          }
         }
       `}</style>
     </Card>
@@ -210,3 +228,4 @@ export function MarksheetDisplay({ data, onCreateNew }: MarksheetDisplayProps) {
 }
 
     
+
