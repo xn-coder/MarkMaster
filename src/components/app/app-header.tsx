@@ -11,13 +11,13 @@ import React, { useState } from 'react';
 
 interface AppHeaderProps {
   pageTitle?: string;
-  pageSubtitle?: string;
+  pageSubtitle?: string | React.ReactNode; // Allow ReactNode for more complex subtitles
   customRightContent?: React.ReactNode; 
 }
 
 export function AppHeader({
   pageTitle = "SARYUG COLLEGE",
-  pageSubtitle = "Affiliated By Bihar School Examination Board | [Estd. - 1983]\n[College Code: 53010]",
+  pageSubtitle, // Subtitle is now optional and can be complex
   customRightContent,
 }: AppHeaderProps) {
   const router = useRouter();
@@ -36,13 +36,42 @@ export function AppHeader({
     }
   };
 
-  const subtitleLines = pageSubtitle.split('\n');
-
   const defaultRightContent = (
     <Button variant="default" onClick={handleLogout} disabled={isLoggingOut} size="sm">
       {isLoggingOut ? <Loader2 className="animate-spin" /> : <LogOut className="mr-2 h-4 w-4" />} Logout
     </Button>
   );
+
+  const renderSubtitle = () => {
+    if (!pageSubtitle) return null;
+    if (typeof pageSubtitle === 'string') {
+      const lines = pageSubtitle.split('\n');
+      return lines.map((line, index) => {
+        if (line.trim().toLowerCase() === 'www.saryugcollege.com') {
+          return (
+            <p key={index} className="text-xs text-muted-foreground">
+              <a 
+                href="http://www.saryugcollege.com" 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="text-blue-600 hover:underline"
+              >
+                {line}
+              </a>
+            </p>
+          );
+        }
+        return (
+          <p key={index} className="text-xs text-muted-foreground">
+            {line}
+          </p>
+        );
+      });
+    }
+    // If pageSubtitle is already ReactNode
+    return pageSubtitle;
+  };
+
 
   return (
     <header className="bg-secondary text-secondary-foreground py-3 shadow-sm print:hidden">
@@ -64,11 +93,7 @@ export function AppHeader({
           <h1 className="text-lg sm:text-xl font-bold text-primary">
             {pageTitle}
           </h1>
-          {subtitleLines.map((line, index) => (
-            <p key={index} className="text-xs text-muted-foreground">
-              {line}
-            </p>
-          ))}
+          {renderSubtitle()}
         </div>
 
         {/* Right: Action Button */}
@@ -79,3 +104,4 @@ export function AppHeader({
     </header>
   );
 }
+

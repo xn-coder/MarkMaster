@@ -164,8 +164,8 @@ export default function NewMarksheetPage() {
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
       <AppHeader 
-        pageTitle="Create New Marksheet" // More specific title for this page
-        pageSubtitle="Enter Student and Subject Details" // More specific subtitle
+        pageTitle="Create New Marksheet"
+        pageSubtitle="Enter Student and Subject Details"
         customRightContent={
           <Button variant="outline" onClick={() => router.push('/')} size="sm">
             <ArrowLeft className="mr-2 h-4 w-4" /> Back to Dashboard
@@ -190,3 +190,4 @@ export default function NewMarksheetPage() {
     </div>
   );
 }
+

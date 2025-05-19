@@ -74,17 +74,20 @@ const ACADEMIC_YEARS = ['All Academic Years', '2025-2027', '2024-2028', '2024-20
 const YEARS = ['All Years', '2027', '2026', '2025', '2024', '2023', '2022', '2021', '2020', '2019', '2018'];
 const CLASSES = ['All Classes', '1st', '10th', '11th', '12th', 'B.A.', 'B.Com', 'B.Tech'];
 
+const dashboardSubtitle = `(Affiliated By Bihar School Examination Board, Patna)
+[Estd. - 1983] College Code: 53010
+Chitragupta Nagar, Mohanpur, Samastipur, Bihar - 848101
+www.saryugcollege.com`;
+
 export default function AdminDashboardPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [isClient, setIsClient] = useState(false);
-  const [isLoadingData, setIsLoadingData] = useState(false); // For "Load Student Data" button
+  const [isLoadingData, setIsLoadingData] = useState(false); 
 
-  // Student data state
   const [displayedStudents, setDisplayedStudents] = useState<StudentRowData[]>([]);
 
-  // Filters
   const [academicYearFilter, setAcademicYearFilter] = useState('All Academic Years');
   const [startYearFilter, setStartYearFilter] = useState('All Years');
   const [endYearFilter, setEndYearFilter] = useState('All Years');
@@ -93,7 +96,6 @@ export default function AdminDashboardPage() {
   const [studentNameFilter, setStudentNameFilter] = useState('');
   const [classFilter, setClassFilter] = useState('All Classes');
 
-  // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const [entriesPerPage, setEntriesPerPage] = useState(10);
 
@@ -122,7 +124,6 @@ export default function AdminDashboardPage() {
   
   const handleLoadStudentData = () => {
     setIsLoadingData(true);
-    // Simulate API call
     setTimeout(() => {
       setDisplayedStudents(mockStudents);
       setIsLoadingData(false);
@@ -131,14 +132,13 @@ export default function AdminDashboardPage() {
   };
 
   const filteredStudents = useMemo(() => {
-    if (displayedStudents.length === 0) return []; // Don't filter if no data loaded yet
+    if (displayedStudents.length === 0) return []; 
 
     return displayedStudents.filter(student => {
       if (academicYearFilter !== 'All Academic Years' && student.academicYear !== academicYearFilter) return false;
       if (studentIdFilter && !student.id.toLowerCase().includes(studentIdFilter.toLowerCase())) return false;
       if (studentNameFilter && !student.name.toLowerCase().includes(studentNameFilter.toLowerCase())) return false;
       if (classFilter !== 'All Classes' && student.studentClass !== classFilter) return false;
-      // Add logic for startYearFilter and endYearFilter if needed based on student.academicYear
       return true;
     });
   }, [displayedStudents, academicYearFilter, studentIdFilter, studentNameFilter, classFilter]);
@@ -149,6 +149,27 @@ export default function AdminDashboardPage() {
   }, [filteredStudents, currentPage, entriesPerPage]);
 
   const totalPages = Math.ceil(filteredStudents.length / entriesPerPage);
+
+  const handleViewMarksheet = (student: StudentRowData) => {
+    toast({ title: 'Action: View Marksheet', description: `Viewing marksheet for ${student.name} (ID: ${student.id})` });
+    // router.push(`/marksheet/${student.id}`); // Example navigation
+  };
+
+  const handleEditStudent = (student: StudentRowData) => {
+    toast({ title: 'Action: Edit Student', description: `Editing details for ${student.name} (ID: ${student.id})` });
+    // router.push(`/student/edit/${student.id}`); // Example navigation
+  };
+
+  const handleDeleteStudent = (student: StudentRowData) => {
+    // Add a confirmation dialog here in a real app
+    toast({ 
+      title: 'Action: Delete Student', 
+      description: `Deleting student ${student.name} (ID: ${student.id}) - Placeholder`,
+      variant: 'destructive' 
+    });
+    // Actual deletion logic would go here
+  };
+
 
   if (!isClient || isAuthLoading) {
     return (
@@ -162,12 +183,10 @@ export default function AdminDashboardPage() {
     <div className="min-h-screen bg-background text-foreground flex flex-col">
       <AppHeader 
         pageTitle="SARYUG COLLEGE" 
-        pageSubtitle="Student Result Management System" 
+        pageSubtitle={dashboardSubtitle} 
       />
 
-      {/* Main Content Area */}
       <main className="flex-grow container mx-auto px-4 py-6 sm:px-6 lg:px-8">
-        {/* Student Details Bar */}
         <section className="mb-6">
           <div className="bg-primary text-primary-foreground p-3 rounded-md shadow-md">
             <div className="flex flex-col sm:flex-row justify-between items-center gap-2">
@@ -198,7 +217,6 @@ export default function AdminDashboardPage() {
           </div>
         </section>
 
-        {/* Filter Card */}
         <Card className="mb-6 shadow-md">
           <CardContent className="pt-6">
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-4 items-end">
@@ -254,7 +272,6 @@ export default function AdminDashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Student Table Card */}
         <Card className="shadow-md">
           <CardHeader className="flex flex-row items-center gap-2">
               <Label htmlFor="showEntries" className="text-sm whitespace-nowrap">Show</Label>
@@ -297,9 +314,9 @@ export default function AdminDashboardPage() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem>View Marksheet</DropdownMenuItem>
-                            <DropdownMenuItem>Edit Student</DropdownMenuItem>
-                            <DropdownMenuItem>Delete Student</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleViewMarksheet(student)}>View Marksheet</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleEditStudent(student)}>Edit Student</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleDeleteStudent(student)} className="text-destructive focus:bg-destructive/10 focus:text-destructive">Delete Student</DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>
@@ -332,7 +349,6 @@ export default function AdminDashboardPage() {
         </Card>
       </main>
 
-      {/* Footer */}
       <footer className="py-4 border-t border-border mt-auto">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between text-xs text-muted-foreground">
             <p className="mb-2 sm:mb-0 text-center sm:text-left">Copyright ©{new Date().getFullYear()} by Saryug College, Samastipur, Bihar.</p>
@@ -342,3 +358,4 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
+
