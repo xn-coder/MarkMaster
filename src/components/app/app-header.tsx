@@ -81,8 +81,8 @@ export function AppHeader({
           <Image
             src="/college-logo.png" 
             alt="College Logo"
-            width={50}
-            height={50}
+            width={60} // Increased from 50
+            height={60} // Increased from 50
             className="rounded-full"
             data-ai-hint="college logo"
           />
@@ -104,4 +104,3 @@ export function AppHeader({
     </header>
   );
 }
-
