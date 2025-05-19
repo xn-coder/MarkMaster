@@ -36,65 +36,65 @@ export function MarksheetDisplay({ data, onCreateNew, isViewMode = false }: Mark
             alt="College Watermark"
             width={350} 
             height={350}
-            className="opacity-10 print:opacity-10" // Watermark opacity increased
+            className="opacity-10 print:opacity-10"
             data-ai-hint="college logo"
           />
         </div>
 
-        <div className="border border-black print:border-black p-3 print:p-2.5 flex-grow flex flex-col h-full relative z-10"> {/* Content above watermark */}
+        <div className="border border-black print:border-black p-3 print:p-2.5 flex flex-col h-full relative z-10"> {/* Content above watermark */}
           
-          <header className="mb-1 print:mb-0.5 relative h-[110px] print:h-[100px]">
-            <div className="absolute top-1 right-1 print:top-0.5 print:right-0.5">
-              <a 
-                href="http://www.saryugcollege.com" 
-                target="_blank" 
-                rel="noopener noreferrer" 
-                className="font-sans text-[10px] print:text-[8px] text-blue-600 hover:underline"
-              >
-                www.saryugcollege.com
-              </a>
-            </div>
-            
-            <div className="absolute top-3 left-4 print:top-2 print:left-3 z-20">
-                <Image 
-                    src="/college-logo.png"
-                    alt="College Logo" 
-                    width={70} 
-                    height={70}
-                    className=""
-                    data-ai-hint="college logo" 
-                />
-            </div>
-
-            <div className="absolute left-1/2 top-3 print:top-2 transform -translate-x-1/2 w-full px-20 print:px-16">
-                <div className="text-center">
-                    <h1 className="font-serif font-bold text-xl print:text-lg" style={{ color: '#032781' }}>SARYUG COLLEGE</h1>
-                    <p className="font-sans text-xs print:text-[10px] text-black font-semibold">
+          <header className="mb-1 print:mb-0.5 relative">
+            <div className="flex justify-between items-start mb-1 print:mb-0.5">
+                <div className="flex-shrink-0">
+                    <Image 
+                        src="/college-logo.png"
+                        alt="College Logo" 
+                        width={80} 
+                        height={80}
+                        className=""
+                        data-ai-hint="college logo" 
+                    />
+                </div>
+                <div className="flex-grow text-center px-2">
+                    <h1 className="font-serif font-bold text-2xl print:text-xl" style={{ color: '#032781' }}>SARYUG COLLEGE</h1>
+                    <p className="font-sans text-sm print:text-xs text-black font-semibold">
                       Chitragupta Nagar, Mohanpur, Samastipur, Bihar - 848101
                     </p>
-                    <p className="font-sans text-[10px] print:text-[9px] text-black">
+                    <p className="font-sans text-xs print:text-[10px] text-black">
                       Affiliated By Bihar School Examination Board | [Estd. - 1983]
                     </p>
-                    <p className="font-sans font-bold text-[10px] print:text-[9px] text-black mt-0.5">College Code: {data.collegeCode}</p>
+                    <p className="font-sans font-bold text-xs print:text-[10px] text-black mt-0.5">College Code: {data.collegeCode}</p>
+                </div>
+                <div className="flex-shrink-0 w-[80px] text-right"> {/* Spacer, or for website link */}
+                     <a 
+                        href="http://www.saryugcollege.com" 
+                        target="_blank" 
+                        rel="noopener noreferrer" 
+                        className="font-sans text-[10px] print:text-[8px] text-blue-600 hover:underline"
+                    >
+                        www.saryugcollege.com
+                    </a>
                 </div>
             </div>
             
-            <div 
-              className="absolute left-1/2 transform -translate-x-1/2 text-center rounded-md inline-block mx-auto"
-              style={{ backgroundColor: '#DB2A2A', top: '80px' }}
-            >
-              <h2 
-                className="text-white text-base print:text-sm font-bold uppercase px-4 py-1"
-              >
-                MARKSHEET
-              </h2>
+            <div className="text-center mt-1 print:mt-0.5 mb-2 print:mb-1">
+                <div 
+                className="rounded-md inline-block mx-auto"
+                style={{ backgroundColor: '#DB2A2A' }}
+                >
+                <h2 
+                    className="text-white text-base print:text-sm font-bold uppercase px-4 py-1"
+                >
+                    MARKSHEET
+                </h2>
+                </div>
             </div>
           </header>
 
-          <h3 className="text-center font-bold text-lg print:text-base underline decoration-1 underline-offset-2 mb-0.5 print:mb-0 text-black mt-3 print:mt-2">Student Details</h3>
-          <hr className="border-gray-300 print:border-gray-300 my-1 print:my-0.5" /> {/* Line below Student Details title */}
+          <h3 className="text-center font-bold text-lg print:text-base underline decoration-1 underline-offset-2 mb-2 print:mb-1.5 text-black">Student Details</h3>
+          {/* Removed hr from here */}
           
-          <div className="mb-2 print:mb-1.5 grid grid-cols-2 gap-x-6 gap-y-1 text-sm print:text-xs font-sans text-black">
+          <div className="mb-3 print:mb-2 grid grid-cols-2 gap-x-6 gap-y-1 text-sm print:text-xs font-sans text-black">
             <div>Student Name: <strong className="font-semibold">{data.studentName}</strong></div>
             <div className="text-right">Marksheet No: <strong className="font-semibold">{data.marksheetNo}</strong></div>
             
@@ -111,9 +111,7 @@ export function MarksheetDisplay({ data, onCreateNew, isViewMode = false }: Mark
             <div className="text-right">Class: <strong className="font-semibold">{data.classDisplay}</strong></div>
           </div>
           
-          {/* Removed hr from here */}
-
-          <section className="flex-grow flex flex-col mb-2 print:mb-1.5">
+          <section className="flex-grow flex flex-col mb-3 print:mb-2">
             <div className="overflow-x-auto flex-grow">
               <Table className="border border-black border-collapse w-full text-xs print:text-[10px]">
                 <TableHeader className="bg-gray-100 print:bg-gray-100">
@@ -122,7 +120,7 @@ export function MarksheetDisplay({ data, onCreateNew, isViewMode = false }: Mark
                     <TableHead className="min-w-[25%] border border-black font-bold text-black text-center align-middle p-0.5 print:p-0.25">Subject</TableHead>
                     <TableHead className="w-[12%] text-center border border-black font-bold text-black align-middle p-0.5 print:p-0.25">Total Marks</TableHead>
                     <TableHead className="w-[12%] text-center border border-black font-bold text-black align-middle p-0.5 print:p-0.25">Passing Marks</TableHead>
-                    <TableHead colSpan={2} className="w-[24%] text-center border border-black font-bold text-black align-middle p-0.5 print:p-0.25">Marks Obtained</TableHead>
+                    <TableHead colSpan={2} className="w-[24%] text-center border border-black font-bold text-black align-middle p-0.5 print:p-0.25 text-xs print:text-[9px]">Marks Obtained</TableHead>
                     <TableHead className="w-[14%] text-center border border-black font-bold text-black align-middle p-0.5 print:p-0.25">Total</TableHead>
                   </TableRow>
                   <TableRow className="border-b border-black bg-gray-100 print:bg-gray-100 hover:bg-transparent print:hover:bg-transparent dark:hover:bg-inherit">
@@ -196,15 +194,15 @@ export function MarksheetDisplay({ data, onCreateNew, isViewMode = false }: Mark
             </div>
           </section>
           
-          <div className="mt-2 print:mt-1.5 text-sm print:text-xs text-black">
+          <div className="mt-2 print:mt-1 text-sm print:text-xs text-black">
             <div className="flex justify-between items-center">
                 <div>Result: <strong className={cn("font-bold", data.overallResult === "Pass" ? "text-green-600 print:text-green-600" : "text-red-600 print:text-red-600")}>{data.overallResult} ({data.overallPercentageDisplay.toFixed(2)}%)</strong></div>
                 <div className="text-right">Place: <strong className="font-bold">{data.place}</strong></div>
             </div>
-            <div className="text-right mt-1">Date of Issue: <strong className="font-bold">{data.dateOfIssue}</strong></div>
+            <div className="text-right mt-1 print:mt-0.5">Date of Issue: <strong className="font-bold">{data.dateOfIssue}</strong></div>
           </div>
           
-          <div className="mt-auto pt-10 print:pt-8 text-xs print:text-[10px] text-black">
+          <div className="mt-auto pt-6 print:pt-4 text-xs print:text-[9px] text-black">
               <div className="flex justify-between">
                   <div className="text-center">
                       <hr className="border-black print:border-black mb-1 w-48 mx-auto" />
@@ -254,15 +252,15 @@ export function MarksheetDisplay({ data, onCreateNew, isViewMode = false }: Mark
 
 
           .print\\:border-black { border-color: black !important; }
-          .print\\:border-gray-300 { border-color: #D1D5DB !important; } /* Tailwind gray-300 */
+          .print\\:border-gray-300 { border-color: #D1D5DB !important; }
           .print\\:border-2 { border-width: 2px !important; }
           .print\\:border { border-width: 1px !important; }
           
           .print\\:text-black { color: black !important; }
           .print\\:bg-gray-100 { background-color: #F3F4F6 !important; } 
           .print\\:bg-white { background-color: white !important; }
-          .print\\:text-green-600 { color: #16A34A !important; } /* Tailwind green-600 */
-          .print\\:text-red-600 { color: #DC2626 !important; } /* Tailwind red-600 */
+          .print\\:text-green-600 { color: #16A34A !important; } 
+          .print\\:text-red-600 { color: #DC2626 !important; } 
           
           .print\\:text-\\[10px\\] { font-size: 10pt !important; line-height: 1.2 !important;}
           .print\\:text-\\[9px\\] { font-size: 9pt !important; line-height: 1.2 !important;}
@@ -276,27 +274,21 @@ export function MarksheetDisplay({ data, onCreateNew, isViewMode = false }: Mark
           .print\\:mb-0 { margin-bottom: 0 !important; }
           .print\\:mb-0\\.5 { margin-bottom: 2pt !important; }
           .print\\:mb-1 { margin-bottom: 4pt !important; }
-          .print\\:mb-1\\.5 { margin-bottom: 6pt !important; }
-          .print\\:mb-2 { margin-bottom: 8pt !important; }
+          .print\\:mb-1\\.5 { margin-bottom: 0.375rem !important; } /* 6pt */
+          .print\\:mb-2 { margin-bottom: 0.5rem !important; } /* 8pt */
           .print\\:mt-0\\.5 { margin-top: 2pt !important; }
           .print\\:mt-1 { margin-top: 4pt !important; }
-          .print\\:mt-1\\.5 { margin-top: 6pt !important; }
-          .print\\:mt-2 { margin-top: 8pt !important; }
-          .print\\:mt-3 { margin-top: 0.75rem !important; }
           .print\\:pt-0 { padding-top: 0 !important; }
-          .print\\:pt-8 { padding-top: 2rem !important; }
-          .print\\:pt-10 { padding-top: 2.5rem !important; }
-          .print\\:py-0\\.5 { padding-top: 2pt !important; padding-bottom: 2pt !important; }
-          .print\\:px-1 { padding-left: 4pt !important; padding-right: 4pt !important; }
-          .print\\:py-0\\.25 { padding-top: 1pt !important; padding-bottom: 1pt !important; }
-          .print\\:px-0\\.5 { padding-left: 2pt !important; padding-right: 2pt !important; }
+          .print\\:pt-4 { padding-top: 1rem !important; } /* Reduced from pt-8 for print */
+          .print\\:pt-6 { padding-top: 1.5rem !important; }
+
 
           .print\\:shadow-none { box-shadow: none !important; }
           
           .max-w-\\[210mm\\].min-h-\\[297mm\\] { 
             width: 100% !important; 
             height: auto !important; 
-            min-height: calc(297mm - 20mm) !important; 
+            min-height: 0 !important; /* Allow content to dictate height for print */
             max-width: none !important; 
             box-sizing: border-box !important;
             display: flex !important;
@@ -331,7 +323,7 @@ export function MarksheetDisplay({ data, onCreateNew, isViewMode = false }: Mark
             border-top-width: 1px !important;
           }
           hr.print\\:border-gray-300 {
-            border-color: #D1D5DB !important; /* Tailwind gray-300 */
+            border-color: #D1D5DB !important; 
             border-top-width: 1px !important;
           }
 
