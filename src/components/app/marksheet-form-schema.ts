@@ -18,7 +18,7 @@ export const subjectEntrySchema = z.object({
   practicalMarksObtained: z.coerce.number().min(0, 'Practical marks cannot be negative').optional().default(0),
 }).refine(data => (data.theoryMarksObtained || 0) + (data.practicalMarksObtained || 0) <= data.totalMarks, {
   message: 'Obtained marks (Theory + Practical) cannot exceed Total Marks',
-  path: ['theoryMarksObtained'], 
+  path: ['practicalMarksObtained'], // Changed path to practicalMarksObtained
 }).refine(data => data.passMarks <= data.totalMarks, {
   message: 'Pass Marks cannot exceed Total Marks',
   path: ['passMarks'],
@@ -35,7 +35,7 @@ export const marksheetFormSchema = z.object({
   academicYear: z.enum(ACADEMIC_YEAR_OPTIONS, { required_error: 'Academic year is required' }),
   section: z.string().min(1, 'Section is required (e.g., A)').max(10, 'Section too long'),
   sessionStartYear: z.coerce.number().min(1990, 'Year too old').max(currentYear + 1, `Year too far in future`),
-  sessionEndYear: z.coerce.number(), // Will be validated against sessionStartYear + 1
+  sessionEndYear: z.coerce.number(), 
   overallPassingThresholdPercentage: z.coerce.number().min(0, 'Percentage cannot be negative').max(100, 'Percentage cannot exceed 100'),
   subjects: z.array(subjectEntrySchema).min(1, 'At least one subject is required.'),
 }).refine(data => data.sessionEndYear === data.sessionStartYear + 1, {
@@ -43,3 +43,4 @@ export const marksheetFormSchema = z.object({
   path: ['sessionEndYear'],
 });
 
+    
