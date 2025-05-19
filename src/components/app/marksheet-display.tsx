@@ -26,12 +26,15 @@ export function MarksheetDisplay({ data, onCreateNew, isViewMode = false }: Mark
   const electiveSubjects = data.subjects.filter(s => s.category === 'Elective');
   const additionalSubjects = data.subjects.filter(s => s.category === 'Additional');
 
+  // College Name color: #032781
+  // MARKSHEET banner bg: #DB2A2A (approx)
+
   return (
-    <div className="print:p-0 print:m-0 bg-gray-100 print:bg-white py-8 print:py-0">
-      <Card className="w-full max-w-[210mm] min-h-[297mm] mx-auto shadow-lg print:shadow-none border-2 border-black print:border-2 print:border-black my-4 print:my-0 print:mx-0 bg-white flex flex-col">
-        <div className="border border-black print:border-black p-3 print:p-2.5 m-1 print:m-0.5 flex-grow flex flex-col">
+    <div className="print:p-0 print:m-0 bg-gray-100 print:bg-white py-8 print:py-0 flex justify-center">
+      <Card className="w-full max-w-[210mm] min-h-[297mm] mx-auto shadow-lg print:shadow-none border-2 border-black print:border-2 print:border-black my-4 print:my-0 print:mx-0 bg-white p-1 print:p-0.5 flex flex-col">
+        <div className="border border-black print:border-black p-3 print:p-2.5 flex-grow flex flex-col h-full">
           
-          <header className="mb-3 print:mb-2 text-center">
+          <header className="mb-3 print:mb-2 text-center relative">
             <div className="flex justify-between items-start mb-1 print:mb-0.5">
               <div className="w-1/4 flex justify-start pt-1 pl-1 print:pt-0 print:pl-0">
                 <Image 
@@ -44,41 +47,49 @@ export function MarksheetDisplay({ data, onCreateNew, isViewMode = false }: Mark
                 />
               </div>
               <div className="w-1/2 text-right pt-1 pr-1 print:pt-0 print:pr-0">
-                 {/* College Code was requested here by user, but not in visual. Assuming it's still needed. */}
-                 {/* <p className="font-bold text-xs print:text-[10px] text-black">College Code: {data.collegeCode}</p> */}
+                 {/* College Code aligned here in image under affiliation, more central */}
               </div>
             </div>
 
-            <h1 className="font-serif font-bold text-xl print:text-lg text-black">SARYUG COLLEGE</h1>
-            <p className="italic text-xs print:text-[10px] text-black">
+            <h1 className="font-serif font-bold text-xl print:text-lg" style={{ color: '#032781' }}>SARYUG COLLEGE</h1>
+            <p className="font-sans text-xs print:text-[10px] text-black font-semibold">
               Chitragupta Nagar, Mohanpur, Samastipur, Bihar - 848101
             </p>
-            <p className="italic text-xs print:text-[10px] text-black">
-              (Affiliated By Bihar School Examination Board, Patna) [Estd. - 1983]
+            <p className="font-sans italic text-[10px] print:text-[9px] text-black">
+              Affiliated By Bihar School Examination Board | [Estd. - 1983]
             </p>
-             <p className="font-bold text-xs print:text-[10px] text-black text-right mt-0.5">College Code: {data.collegeCode}</p>
-            <hr className="my-2 print:my-1 border-black" />
+            <p className="font-sans font-bold text-xs print:text-[10px] text-black text-right mt-0.5">College Code: {data.collegeCode}</p>
             
-            <h2 
-              className="text-base print:text-sm font-bold uppercase text-center my-2 print:my-1 py-1"
+            <div 
+              className="text-center my-2 print:my-1 py-1 px-4 rounded-md inline-block mx-auto"
+              style={{ backgroundColor: '#DB2A2A' }}
             >
-              MARKSHEET
-            </h2>
+              <h2 
+                className="text-white text-base print:text-sm font-bold uppercase"
+              >
+                MARKSHEET
+              </h2>
+            </div>
           </header>
 
+          <h3 className="text-center font-bold text-sm print:text-xs underline decoration-1 underline-offset-2 mb-2 print:mb-1 text-black">Student Details</h3>
+          
           <div className="mb-3 print:mb-2">
-            <h3 className="text-center font-bold text-sm print:text-xs underline decoration-1 underline-offset-2 mb-2 print:mb-1 text-black">Student Details</h3>
             <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm print:text-xs font-sans text-black">
-              <div>Student Name: <strong className="font-bold">{data.studentName}</strong></div>
-              <div className="text-right">Marksheet No: <strong className="font-bold">{data.marksheetNo}</strong></div>
-              <div>Father Name: <strong className="font-bold">{data.fatherName}</strong></div>
-              <div className="text-right">Mother Name: <strong className="font-bold">{data.motherName}</strong></div>
-              <div>Session: <strong className="font-bold">{data.sessionDisplay}</strong></div>
-              <div className="text-right">Roll No: <strong className="font-bold">{data.rollNumber}</strong></div>
-              <div>Date of Birth: <strong className="font-bold">{format(new Date(data.dateOfBirth), "dd-MM-yyyy")}</strong></div>
-              <div className="text-right">Gender: <strong className="font-bold">{data.gender}</strong></div>
-              <div>Faculty: <strong className="font-bold">{data.faculty}</strong></div>
-              <div className="text-right">Class: <strong className="font-bold">{data.classDisplay}</strong></div>
+              <div>Student Name: <strong className="font-semibold">{data.studentName}</strong></div>
+              <div className="text-right">Marksheet No: <strong className="font-semibold">{data.marksheetNo}</strong></div>
+              
+              <div>Father Name: <strong className="font-semibold">{data.fatherName}</strong></div>
+              <div className="text-right">Mother Name: <strong className="font-semibold">{data.motherName}</strong></div>
+
+              <div>Session: <strong className="font-semibold">{data.sessionDisplay}</strong></div>
+              <div className="text-right">Roll No: <strong className="font-semibold">{data.rollNumber}</strong></div>
+              
+              <div>Date of Birth: <strong className="font-semibold">{format(new Date(data.dateOfBirth), "dd-MM-yyyy")}</strong></div>
+              <div className="text-right">Gender: <strong className="font-semibold">{data.gender}</strong></div>
+              
+              <div>Faculty: <strong className="font-semibold">{data.faculty}</strong></div>
+              <div className="text-right">Class: <strong className="font-semibold">{data.classDisplay}</strong></div>
             </div>
           </div>
 
@@ -88,12 +99,20 @@ export function MarksheetDisplay({ data, onCreateNew, isViewMode = false }: Mark
                 <TableHeader className="bg-gray-100 print:bg-gray-100">
                   <TableRow className="border-b border-black hover:bg-transparent print:hover:bg-transparent dark:hover:bg-inherit">
                     <TableHead className="w-[8%] border border-black font-bold text-black text-center align-middle p-1 print:p-0.5">Sr. no.</TableHead>
-                    <TableHead className="min-w-[30%] border border-black font-bold text-black text-left align-middle p-1 print:p-0.5">Subject</TableHead>
+                    <TableHead className="min-w-[25%] border border-black font-bold text-black text-center align-middle p-1 print:p-0.5">Subject</TableHead>
                     <TableHead className="w-[12%] text-center border border-black font-bold text-black align-middle p-1 print:p-0.5">Total Marks</TableHead>
                     <TableHead className="w-[12%] text-center border border-black font-bold text-black align-middle p-1 print:p-0.5">Passing Marks</TableHead>
-                    <TableHead className="w-[12%] text-center border border-black font-bold text-black align-middle p-1 print:p-0.5">Theory</TableHead>
-                    <TableHead className="w-[12%] text-center border border-black font-bold text-black align-middle p-1 print:p-0.5">Practical</TableHead>
+                    <TableHead colSpan={2} className="w-[24%] text-center border border-black font-bold text-black align-middle p-1 print:p-0.5">Marks Obtained</TableHead>
                     <TableHead className="w-[14%] text-center border border-black font-bold text-black align-middle p-1 print:p-0.5">Total</TableHead>
+                  </TableRow>
+                  <TableRow className="border-b border-black bg-gray-100 print:bg-gray-100 hover:bg-transparent print:hover:bg-transparent dark:hover:bg-inherit">
+                    <TableHead className="border border-black p-1 print:p-0.5"></TableHead>
+                    <TableHead className="border border-black p-1 print:p-0.5"></TableHead>
+                    <TableHead className="border border-black p-1 print:p-0.5"></TableHead>
+                    <TableHead className="border border-black p-1 print:p-0.5"></TableHead>
+                    <TableHead className="text-center border border-black font-bold text-black align-middle p-1 print:p-0.5">Theory</TableHead>
+                    <TableHead className="text-center border border-black font-bold text-black align-middle p-1 print:p-0.5">Practical</TableHead>
+                    <TableHead className="border border-black p-1 print:p-0.5"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -103,7 +122,7 @@ export function MarksheetDisplay({ data, onCreateNew, isViewMode = false }: Mark
                     </TableRow>
                   )}
                   {compulsorySubjects.map((subject, index) => (
-                    <TableRow key={`comp-${index}`} className="border-b border-black h-[24px] print:h-[22px] hover:bg-transparent print:hover:bg-transparent dark:hover:bg-inherit text-xs print:text-[10px]">
+                    <TableRow key={`comp-${index}`} className="border-b border-black h-[24px] print:h-[22px] hover:bg-transparent print:hover:bg-transparent dark:hover:bg-inherit text-xs print:text-[9px]">
                       <TableCell className="text-center border border-black p-1 print:p-0.5 text-black">{index + 1}</TableCell>
                       <TableCell className="border border-black p-1 print:p-0.5 text-left text-black">{subject.subjectName}</TableCell>
                       <TableCell className="text-right border border-black p-1 print:p-0.5 text-black">{subject.totalMarks}</TableCell>
@@ -120,7 +139,7 @@ export function MarksheetDisplay({ data, onCreateNew, isViewMode = false }: Mark
                     </TableRow>
                   )}
                   {electiveSubjects.map((subject, index) => (
-                    <TableRow key={`elec-${index}`} className="border-b border-black h-[24px] print:h-[22px] hover:bg-transparent print:hover:bg-transparent dark:hover:bg-inherit text-xs print:text-[10px]">
+                    <TableRow key={`elec-${index}`} className="border-b border-black h-[24px] print:h-[22px] hover:bg-transparent print:hover:bg-transparent dark:hover:bg-inherit text-xs print:text-[9px]">
                       <TableCell className="text-center border border-black p-1 print:p-0.5 text-black">{compulsorySubjects.length + index + 1}</TableCell>
                       <TableCell className="border border-black p-1 print:p-0.5 text-left text-black">{subject.subjectName}</TableCell>
                       <TableCell className="text-right border border-black p-1 print:p-0.5 text-black">{subject.totalMarks}</TableCell>
@@ -137,7 +156,7 @@ export function MarksheetDisplay({ data, onCreateNew, isViewMode = false }: Mark
                     </TableRow>
                   )}
                    {additionalSubjects.map((subject, index) => (
-                    <TableRow key={`add-${index}`} className="border-b border-black h-[24px] print:h-[22px] hover:bg-transparent print:hover:bg-transparent dark:hover:bg-inherit text-xs print:text-[10px]">
+                    <TableRow key={`add-${index}`} className="border-b border-black h-[24px] print:h-[22px] hover:bg-transparent print:hover:bg-transparent dark:hover:bg-inherit text-xs print:text-[9px]">
                       <TableCell className="text-center border border-black p-1 print:p-0.5 text-black">{compulsorySubjects.length + electiveSubjects.length + index + 1}</TableCell>
                       <TableCell className="border border-black p-1 print:p-0.5 text-left text-black">{subject.subjectName} (Addl.)</TableCell>
                       <TableCell className="text-right border border-black p-1 print:p-0.5 text-black">{subject.totalMarks}</TableCell>
@@ -177,6 +196,7 @@ export function MarksheetDisplay({ data, onCreateNew, isViewMode = false }: Mark
                   </div>
               </div>
           </div>
+
         </div>
       </Card>
 
@@ -205,12 +225,17 @@ export function MarksheetDisplay({ data, onCreateNew, isViewMode = false }: Mark
           }
           .print\\:p-0 { padding: 0 !important; }
           .print\\:m-0 { margin: 0 !important; }
-          .print\\:m-0\\.5 { margin: 0.125rem !important; }
+          .print\\:m-0\\.5 { margin: 0.125rem !important; } // Used for outer card padding for double border
+          .print\\:p-0\\.5 { padding: 2pt !important; } // used for inner cells
+          .print\\:p-1 { padding: 4pt !important; } // used for table header cells
+          .print\\:p-2\\.5 { padding: 0.625rem !important; } // Inner content wrapper padding
+
           .print\\:border-black { border-color: black !important; }
           .print\\:border-2 { border-width: 2px !important; }
           .print\\:border { border-width: 1px !important; }
+          
           .print\\:text-black { color: black !important; }
-          .print\\:bg-gray-100 { background-color: #F3F4F6 !important; }
+          .print\\:bg-gray-100 { background-color: #F3F4F6 !important; } // For table header
           .print\\:bg-white { background-color: white !important; }
           
           .print\\:text-\\[10px\\] { font-size: 10pt !important; line-height: 1.2 !important;}
@@ -218,15 +243,9 @@ export function MarksheetDisplay({ data, onCreateNew, isViewMode = false }: Mark
           .print\\:text-\\[8px\\] { font-size: 8pt !important; line-height: 1.2 !important;}
           .print\\:text-xs { font-size: 10pt !important; line-height: 1.3 !important; } 
           .print\\:text-sm { font-size: 11pt !important; line-height: 1.3 !important; } 
-          .print\\:text-base { font-size: 14pt !important; line-height: 1.3 !important; } 
-          .print\\:text-lg { font-size: 16pt !important; line-height: 1.3 !important; } 
-          .print\\:text-xl { font-size: 18pt !important; line-height: 1.3 !important; } 
-
-          .print\\:p-0\\.25 { padding: 1pt !important; } 
-          .print\\:p-0\\.5 { padding: 2pt !important; }
-          .print\\:p-1 { padding: 4pt !important; }
-          .print\\:p-2 { padding: 0.5rem !important; }
-          .print\\:p-2\\.5 { padding: 0.625rem !important; } 
+          .print\\:text-base { font-size: 12pt !important; line-height: 1.3 !important; } 
+          .print\\:text-lg { font-size: 14pt !important; line-height: 1.3 !important; } 
+          .print\\:text-xl { font-size: 16pt !important; line-height: 1.3 !important; } 
 
           .print\\:mb-0\\.5 { margin-bottom: 2pt !important; }
           .print\\:mb-1 { margin-bottom: 4pt !important; }
@@ -241,8 +260,8 @@ export function MarksheetDisplay({ data, onCreateNew, isViewMode = false }: Mark
           
           .max-w-\\[210mm\\].min-h-\\[297mm\\] { 
             width: 100% !important; 
-            height: auto !important; /* Let content define height for print */
-            min-height: 0 !important; 
+            height: auto !important; 
+            min-height: calc(297mm - 20mm) !important; /* A4 height minus typical margins */
             max-width: none !important; 
             box-sizing: border-box !important;
             display: flex !important;
@@ -251,10 +270,17 @@ export function MarksheetDisplay({ data, onCreateNew, isViewMode = false }: Mark
             border-width: 2px !important;
             border-color: black !important;
           }
-          .print\\:m-1 > div.border.border-black { /* Target inner border for print */
+          .print\\:p-0\\.5 { /* Outer card padding for double border effect */
+             padding: 0.125rem !important;
+          }
+          .border.border-black.p-3.print\\:p-2\\.5 { /* Inner content wrapper */
+             padding: 0.625rem !important; /* approx 2.5mm */
              border-width: 1px !important;
              border-color: black !important;
-             margin: 0 !important; /* Remove margin for inner border on print */
+             margin: 0 !important; 
+             height: 100%;
+             display: flex;
+             flex-direction: column;
           }
           
           table, th, td {
@@ -263,9 +289,9 @@ export function MarksheetDisplay({ data, onCreateNew, isViewMode = false }: Mark
              page-break-inside: avoid !important;
           }
           thead.print\\:bg-gray-100 tr th { 
-            background-color: #e5e7eb !important; /* Light gray for table header */
+            background-color: #e5e7eb !important; 
           }
-          tr.font-bold.bg-transparent td { /* For category rows */
+          tr.font-bold.bg-transparent td { 
              background-color: transparent !important;
            }
           hr.print\\:border-black {
@@ -282,3 +308,5 @@ export function MarksheetDisplay({ data, onCreateNew, isViewMode = false }: Mark
     </div>
   );
 }
+
+    
