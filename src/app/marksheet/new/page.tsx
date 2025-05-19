@@ -11,7 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Loader2, ArrowLeft } from 'lucide-react';
 import { format } from 'date-fns';
-import { AppHeader } from '@/components/app/app-header'; // Import the new AppHeader
+import { AppHeader } from '@/components/app/app-header';
 
 export default function NewMarksheetPage() {
   const router = useRouter();
@@ -20,13 +20,19 @@ export default function NewMarksheetPage() {
   const [isClient, setIsClient] = useState(false);
   const [authStatus, setAuthStatus] = useState<'loading' | 'authenticated' | 'unauthenticated'>('loading');
   
-  const [isLoading, setIsLoading] = useState(false); // For form submission
+  const [isLoading, setIsLoading] = useState(false); 
   const [marksheetData, setMarksheetData] = useState<MarksheetDisplayData | null>(null);
   const [footerYear, setFooterYear] = useState<number | null>(null);
 
   useEffect(() => {
     setIsClient(true);
   }, []);
+
+  useEffect(() => {
+    if (isClient) {
+      setFooterYear(new Date().getFullYear());
+    }
+  }, [isClient]);
 
   useEffect(() => {
     if (!isClient) {
@@ -55,12 +61,6 @@ export default function NewMarksheetPage() {
       router.push('/login');
     }
   }, [authStatus, router]);
-
-  useEffect(() => {
-    if (isClient) {
-      setFooterYear(new Date().getFullYear());
-    }
-  }, [isClient]);
 
 
   const generateMarksheetNo = (faculty: string, rollNumber: string, sessionEndYear: number): string => {
@@ -109,7 +109,7 @@ export default function NewMarksheetPage() {
       subjects: subjectsDisplay,
       marksheetNo: generateMarksheetNo(data.faculty, data.rollNumber, data.sessionEndYear),
       sessionDisplay: `${data.sessionStartYear}-${data.sessionEndYear}`,
-      classDisplay: `${data.academicYear} (${data.section})`, // Updated classDisplay
+      classDisplay: `${data.academicYear} (${data.section})`,
       aggregateMarksCompulsoryElective,
       totalPossibleMarksCompulsoryElective,
       overallResult,
@@ -153,8 +153,6 @@ export default function NewMarksheetPage() {
   }
 
   if (authStatus === 'unauthenticated') {
-    // This should ideally not be reached if useEffect for redirection works correctly,
-    // but as a fallback, show loader + message.
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -166,8 +164,8 @@ export default function NewMarksheetPage() {
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
       <AppHeader 
-        pageTitle="SARYUG COLLEGE - MARKSHEET GENERATION"
-        pageSubtitle="Student Result Management"
+        pageTitle="Create New Marksheet" // More specific title for this page
+        pageSubtitle="Enter Student and Subject Details" // More specific subtitle
         customRightContent={
           <Button variant="outline" onClick={() => router.push('/')} size="sm">
             <ArrowLeft className="mr-2 h-4 w-4" /> Back to Dashboard

@@ -9,7 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { AppHeader } from '@/components/app/app-header'; // Import the new AppHeader
+import { AppHeader } from '@/components/app/app-header'; 
 import {
   Select,
   SelectContent,
@@ -49,7 +49,7 @@ import {
 } from 'lucide-react';
 
 interface StudentRowData {
-  id: string; // Student Id
+  id: string; 
   name: string;
   academicYear: string;
   studentClass: string;
@@ -79,6 +79,10 @@ export default function AdminDashboardPage() {
   const { toast } = useToast();
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [isClient, setIsClient] = useState(false);
+  const [isLoadingData, setIsLoadingData] = useState(false); // For "Load Student Data" button
+
+  // Student data state
+  const [displayedStudents, setDisplayedStudents] = useState<StudentRowData[]>([]);
 
   // Filters
   const [academicYearFilter, setAcademicYearFilter] = useState('All Academic Years');
@@ -116,8 +120,20 @@ export default function AdminDashboardPage() {
     };
   }, [router]);
   
+  const handleLoadStudentData = () => {
+    setIsLoadingData(true);
+    // Simulate API call
+    setTimeout(() => {
+      setDisplayedStudents(mockStudents);
+      setIsLoadingData(false);
+      toast({ title: "Student Data Loaded", description: "Mock student data has been loaded into the table." });
+    }, 1000);
+  };
+
   const filteredStudents = useMemo(() => {
-    return mockStudents.filter(student => {
+    if (displayedStudents.length === 0) return []; // Don't filter if no data loaded yet
+
+    return displayedStudents.filter(student => {
       if (academicYearFilter !== 'All Academic Years' && student.academicYear !== academicYearFilter) return false;
       if (studentIdFilter && !student.id.toLowerCase().includes(studentIdFilter.toLowerCase())) return false;
       if (studentNameFilter && !student.name.toLowerCase().includes(studentNameFilter.toLowerCase())) return false;
@@ -125,7 +141,7 @@ export default function AdminDashboardPage() {
       // Add logic for startYearFilter and endYearFilter if needed based on student.academicYear
       return true;
     });
-  }, [academicYearFilter, studentIdFilter, studentNameFilter, classFilter]);
+  }, [displayedStudents, academicYearFilter, studentIdFilter, studentNameFilter, classFilter]);
 
   const paginatedStudents = useMemo(() => {
     const startIndex = (currentPage - 1) * entriesPerPage;
@@ -144,29 +160,40 @@ export default function AdminDashboardPage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
-      <AppHeader /> {/* Use the new AppHeader component */}
+      <AppHeader 
+        pageTitle="SARYUG COLLEGE" 
+        pageSubtitle="Student Result Management System" 
+      />
 
       {/* Main Content Area */}
       <main className="flex-grow container mx-auto px-4 py-6 sm:px-6 lg:px-8">
         {/* Student Details Bar */}
         <section className="mb-6">
-          <div className="bg-primary text-primary-foreground p-3 rounded-md shadow-md flex flex-col sm:flex-row justify-between items-center gap-2">
-            <h2 className="text-xl font-semibold">STUDENT DETAILS</h2>
-            <div className="flex flex-wrap gap-2">
-              <Button variant="default" size="sm" className="bg-accent text-accent-foreground hover:bg-accent/90">
-                <RefreshCw className="mr-2 h-4 w-4" /> Load Student Data
-              </Button>
-              <Link href="/marksheet/new" passHref>
-                <Button variant="ghost" size="sm" className="text-primary-foreground hover:bg-accent hover:text-accent-foreground">
-                  <FilePlus2 className="mr-2 h-4 w-4" /> Create New
+          <div className="bg-primary text-primary-foreground p-3 rounded-md shadow-md">
+            <div className="flex flex-col sm:flex-row justify-between items-center gap-2">
+              <h2 className="text-xl font-semibold">STUDENT DETAILS</h2>
+              <div className="flex flex-wrap gap-2">
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="text-primary-foreground hover:bg-accent hover:text-accent-foreground"
+                  onClick={handleLoadStudentData}
+                  disabled={isLoadingData}
+                >
+                  {isLoadingData ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />} Load Student Data
                 </Button>
-              </Link>
-              <Button variant="ghost" size="sm" className="text-primary-foreground hover:bg-accent hover:text-accent-foreground">
-                <Upload className="mr-2 h-4 w-4" /> Import Data
-              </Button>
-              <Button variant="ghost" size="sm" className="text-primary-foreground hover:bg-accent hover:text-accent-foreground">
-                <Download className="mr-2 h-4 w-4" /> Export to Excel
-              </Button>
+                <Link href="/marksheet/new" passHref>
+                  <Button variant="ghost" size="sm" className="text-primary-foreground hover:bg-accent hover:text-accent-foreground">
+                    <FilePlus2 className="mr-2 h-4 w-4" /> Create New
+                  </Button>
+                </Link>
+                <Button variant="ghost" size="sm" className="text-primary-foreground hover:bg-accent hover:text-accent-foreground">
+                  <Upload className="mr-2 h-4 w-4" /> Import Data
+                </Button>
+                <Button variant="ghost" size="sm" className="text-primary-foreground hover:bg-accent hover:text-accent-foreground">
+                  <Download className="mr-2 h-4 w-4" /> Export to Excel
+                </Button>
+              </div>
             </div>
           </div>
         </section>
@@ -231,7 +258,7 @@ export default function AdminDashboardPage() {
         <Card className="shadow-md">
           <CardHeader className="flex flex-row items-center gap-2">
               <Label htmlFor="showEntries" className="text-sm whitespace-nowrap">Show</Label>
-              <Select value={String(entriesPerPage)} onValueChange={(value) => setEntriesPerPage(Number(value))}>
+              <Select value={String(entriesPerPage)} onValueChange={(value) => { setEntriesPerPage(Number(value)); setCurrentPage(1);}}>
                 <SelectTrigger id="showEntries" className="w-20 h-8 text-sm">
                   <SelectValue />
                 </SelectTrigger>
@@ -280,7 +307,8 @@ export default function AdminDashboardPage() {
                   )) : (
                     <TableRow>
                       <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
-                        Click "Load Student Data" above to view marksheet history, or use filters to search.
+                        {displayedStudents.length === 0 && !isLoadingData ? 'Click "Load Student Data" above to view marksheet history, or use filters to search.' :
+                         isLoadingData ? 'Loading student data...' : 'No students found matching your filters.'}
                       </TableCell>
                     </TableRow>
                   )}
