@@ -4,7 +4,7 @@
 import type * as React from 'react';
 import type { MarksheetDisplayData } from '@/types';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card'; // Removed CardHeader, CardFooter as we manage structure directly
+import { Card } from '@/components/ui/card'; // Removed CardHeader, CardFooter as we manage structure directly
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Download, Printer, FilePlus2 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
@@ -28,17 +28,17 @@ export function MarksheetDisplay({ data, onCreateNew, isViewMode = false }: Mark
   const electiveSubjects = data.subjects.filter(s => s.category === 'Elective');
   const additionalSubjects = data.subjects.filter(s => s.category === 'Additional');
 
-  const collegeNameColor = "#032781";
-  const marksheetBannerBgColor = "#CC0000"; // A typical red, adjust if specific hex from image is known
+  const collegeNameColor = "#032781"; // As per image
+  const marksheetBannerBgColor = "#DB2A2A"; // Approximated from image
 
   return (
     <div className="print:p-0 print:m-0">
       <Card className="w-full max-w-[210mm] min-h-[297mm] mx-auto shadow-lg print:shadow-none border-2 border-black print:border-2 print:border-black my-4 print:my-0 print:mx-0 print:min-h-0 flex flex-col">
         <div className="p-1 print:p-0.5 flex-grow flex flex-col"> {/* Outer padding for the double border effect */}
-          <div className="border border-black print:border-black p-3 print:p-2.5 h-full flex flex-col relative"> {/* Inner thinner border with more padding */}
+          <div className="border border-black print:border-black p-4 print:p-3 h-full flex flex-col relative"> {/* Inner thinner border with more padding */}
             
             {/* Website URL Top Right */}
-            <div className="absolute top-1.5 right-2.5 text-[10px] print:text-[8px] text-gray-700 print:text-black">
+            <div className="absolute top-2.5 right-3.5 text-[10px] print:text-[8px] text-gray-700 print:text-black">
               www.saryugcollege.com
             </div>
 
@@ -55,7 +55,7 @@ export function MarksheetDisplay({ data, onCreateNew, isViewMode = false }: Mark
                         data-ai-hint="college logo" 
                     />
                 </div>
-                <div className="flex flex-col text-center flex-grow">
+                <div className="flex flex-col text-center flex-grow"> {/* Centered college details */}
                     <h1 className="text-2xl font-bold print:text-xl leading-tight" style={{ color: collegeNameColor }}>SARYUG COLLEGE</h1>
                     <p className="text-sm font-semibold text-black print:text-xs leading-tight mt-0.5">Chitragupta Nagar, Mohanpur, Samastipur, Bihar - 848101</p>
                     <p className="text-[11px] text-black print:text-[9px] leading-tight mt-0.5">Affiliated By Bihar School Examination Board | [Estd. - 1983]</p>
@@ -73,14 +73,14 @@ export function MarksheetDisplay({ data, onCreateNew, isViewMode = false }: Mark
             </header>
 
             <div className="text-center p-1 pt-0 mb-2 print:p-0.5">
-              <h2 className="text-base font-bold print:text-sm border-b-2 border-black print:border-black pb-1 leading-tight" style={{ color: collegeNameColor }}>
+              <h2 className="text-lg font-bold print:text-base border-b-2 border-black print:border-black pb-1 leading-tight" style={{ color: collegeNameColor }}>
                 Student Details
               </h2>
             </div>
             
             {/* Main Content Area */}
-            <div className="flex-grow space-y-1 text-sm print:text-xs">
-              <div className="grid grid-cols-2 gap-x-6 gap-y-1 mb-3 print:mb-2 print:text-[10px]">
+            <div className="flex-grow flex flex-col space-y-1 text-sm print:text-[10px]">
+              <div className="grid grid-cols-2 gap-x-6 gap-y-1 mb-3 print:mb-2">
                 <div><strong>Student Name:</strong> {data.studentName}</div>
                 <div><strong>Marksheet No:</strong> {data.marksheetNo}</div>
                 <div><strong>Father Name:</strong> {data.fatherName}</div>
@@ -93,21 +93,21 @@ export function MarksheetDisplay({ data, onCreateNew, isViewMode = false }: Mark
                 <div><strong>Class:</strong> {data.classDisplay}</div>
               </div>
 
-              <section>
+              <section className="flex-grow"> {/* Allow table section to grow */}
                 <div className="overflow-x-auto">
                   <Table className="border border-black border-collapse print:text-[9px]">
                     <TableHeader className="print:bg-gray-100">
                       <TableRow className="border-b border-black">
-                        <TableHead rowSpan={2} className="w-[35px] border border-black font-bold text-black text-xs print:text-[10px] text-center align-middle p-0.5">Sr. no.</TableHead>
-                        <TableHead rowSpan={2} className="min-w-[200px] border border-black font-bold text-black text-xs print:text-[10px] text-left align-middle p-1">Subject</TableHead>
-                        <TableHead rowSpan={2} className="w-[70px] text-center border border-black font-bold text-black text-xs print:text-[10px] align-middle p-0.5">Total Marks</TableHead>
-                        <TableHead rowSpan={2} className="w-[70px] text-center border border-black font-bold text-black text-xs print:text-[10px] align-middle p-0.5">Passing Marks</TableHead>
-                        <TableHead colSpan={2} className="w-[140px] text-center border-t border-r border-l border-black font-bold text-black text-xs print:text-[10px] align-middle p-0.5">Marks Obtained</TableHead>
-                        <TableHead rowSpan={2} className="w-[70px] text-center border border-black font-bold text-black text-xs print:text-[10px] align-middle p-0.5">Total</TableHead>
+                        <TableHead rowSpan={2} className="w-[35px] border border-black font-bold text-black text-[10px] print:text-[8px] text-center align-middle p-0.5 print:p-0.25">Sr. no.</TableHead>
+                        <TableHead rowSpan={2} className="min-w-[200px] border border-black font-bold text-black text-[10px] print:text-[8px] text-left align-middle p-1 print:p-0.5">Subject</TableHead>
+                        <TableHead rowSpan={2} className="w-[70px] text-center border border-black font-bold text-black text-[10px] print:text-[8px] align-middle p-0.5 print:p-0.25">Total Marks</TableHead>
+                        <TableHead rowSpan={2} className="w-[70px] text-center border border-black font-bold text-black text-[10px] print:text-[8px] align-middle p-0.5 print:p-0.25">Passing Marks</TableHead>
+                        <TableHead colSpan={2} className="w-[140px] text-center border-t border-r border-l border-black font-bold text-black text-[10px] print:text-[8px] align-middle p-0.5 print:p-0.25">Marks Obtained</TableHead>
+                        <TableHead rowSpan={2} className="w-[70px] text-center border border-black font-bold text-black text-[10px] print:text-[8px] align-middle p-0.5 print:p-0.25">Total</TableHead>
                       </TableRow>
                       <TableRow className="border-b border-black">
-                        <TableHead className="w-[70px] text-center border-b border-r border-l border-black font-bold text-black text-xs print:text-[10px] align-middle p-0.5">Theory</TableHead>
-                        <TableHead className="w-[70px] text-center border-b border-r border-black font-bold text-black text-xs print:text-[10px] align-middle p-0.5">Practical</TableHead>
+                        <TableHead className="w-[70px] text-center border-b border-r border-l border-black font-bold text-black text-[10px] print:text-[8px] align-middle p-0.5 print:p-0.25">Theory</TableHead>
+                        <TableHead className="w-[70px] text-center border-b border-r border-black font-bold text-black text-[10px] print:text-[8px] align-middle p-0.5 print:p-0.25">Practical</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -173,7 +173,7 @@ export function MarksheetDisplay({ data, onCreateNew, isViewMode = false }: Mark
               
               <Separator className="my-3 print:my-2" />
 
-              <div className="grid grid-cols-2 items-start mt-2 text-sm print:text-[10px] print:mt-1.5">
+              <div className="grid grid-cols-2 items-start mt-2 print:mt-1.5">
                 <div>
                     <div><strong>Result:</strong> <span className={cn("font-semibold", data.overallResult === "Pass" ? "text-green-700" : "text-red-700")}>{data.overallResult} ({data.overallPercentageDisplay.toFixed(2)}%)</span></div>
                     <div><strong>Place:</strong> {data.place}</div>
@@ -183,7 +183,7 @@ export function MarksheetDisplay({ data, onCreateNew, isViewMode = false }: Mark
             </div> {/* End flex-grow content area */}
             
             {/* Signature Section - Pushed to bottom */}
-            <div className="mt-auto pt-10 print:pt-8">
+            <div className="mt-auto pt-10 print:pt-8"> {/* Increased padding-top for more space */}
                 <div className="flex justify-between text-sm print:text-[10px]">
                     <div className="text-center">
                         <hr className="border-black print:border-black mb-1 w-40 mx-auto" />
@@ -236,18 +236,19 @@ export function MarksheetDisplay({ data, onCreateNew, isViewMode = false }: Mark
           .print\\:text-\\[10px\\] { font-size: 10px !important; line-height: 1.2 !important;}
           .print\\:text-\\[9px\\] { font-size: 9px !important; line-height: 1.2 !important;}
           .print\\:text-\\[8px\\] { font-size: 8px !important; line-height: 1.2 !important;}
-          .print\\:text-xs { font-size: 0.70rem !important; line-height: 1.2 !important; } /* ~9.5px */
-          .print\\:text-sm { font-size: 0.75rem !important; line-height: 1.2 !important; } /* 10px */
-          .print\\:text-base { font-size: 0.875rem !important; line-height: 1.3 !important; } /* 11px */
-          .print\\:text-lg { font-size: 1rem !important; line-height: 1.3 !important; } /* 12pt */
-          .print\\:text-xl { font-size: 1.125rem !important; line-height: 1.3 !important; } /* 14pt */
+          .print\\:text-xs { font-size: 0.70rem !important; line-height: 1.2 !important; } /* ~9.5px -> adjusted for print */
+          .print\\:text-sm { font-size: 0.75rem !important; line-height: 1.2 !important; } /* 10px -> adjusted for print */
+          .print\\:text-base { font-size: 0.875rem !important; line-height: 1.3 !important; } /* 11px -> adjusted for print */
+          .print\\:text-lg { font-size: 1rem !important; line-height: 1.3 !important; } /* 12pt -> adjusted for print */
+          .print\\:text-xl { font-size: 1.125rem !important; line-height: 1.3 !important; } /* 14pt -> adjusted for print */
 
-
+          .print\\:p-0\\.25 { padding: 0.0625rem !important; } /* For very tight table header padding */
           .print\\:p-0\\.5 { padding: 0.1rem !important; }
           .print\\:p-1 { padding: 0.2rem !important; }
           .print\\:p-1\\.5 { padding: 0.25rem !important; }
           .print\\:p-2 { padding: 0.3rem !important; }
           .print\\:p-2\\.5 { padding: 0.4rem !important; }
+          .print\\:p-3 { padding: 0.5rem !important; } /* Increased padding for content */
 
 
           .print\\:mb-0\\.5 { margin-bottom: 0.1rem !important; }
@@ -261,18 +262,17 @@ export function MarksheetDisplay({ data, onCreateNew, isViewMode = false }: Mark
 
           .print\\:shadow-none { box-shadow: none !important; }
           
-          .max-w-\\[210mm\\] {
-            max-width: 100% !important;
-            width: 100% !important;
-            box-sizing: border-box;
-          }
-          .min-h-\\[297mm\\] {
-             min-height: calc(297mm - 20mm) !important; /* A4 height minus approx margins */
-             height: auto !important;
+          .max-w-\\[210mm\\].min-h-\\[297mm\\] { /* Target the main card for print sizing */
+            width: 100% !important; /* Fill within @page margins */
+            height: auto !important; /* Allow content to define height */
+            min-height: 0 !important; /* Reset min-height for print */
+            max-width: none !important; /* Reset max-width for print */
+            box-sizing: border-box !important;
           }
           
           table, th, td {
              border: 1px solid black !important;
+             border-collapse: collapse !important; /* Ensure borders don't double up */
           }
           thead.print\\:bg-gray-100 tr th { 
             background-color: #F3F4F6 !important;
