@@ -1,6 +1,6 @@
 
 import type { z } from 'zod';
-import type { marksheetFormSchema, subjectEntrySchema } from '@/components/app/marksheet-form-schema';
+import type { marksheetFormSchema, subjectEntrySchema, ACADEMIC_YEAR_OPTIONS } from '@/components/app/marksheet-form-schema';
 
 // For the form itself
 export type SubjectEntryFormData = z.infer<typeof subjectEntrySchema>;
@@ -20,8 +20,7 @@ export interface MarksheetDisplayData {
   dateOfBirth: Date; // Will be formatted for display
   gender: 'Male' | 'Female' | 'Other';
   faculty: 'ARTS' | 'COMMERCE' | 'SCIENCE';
-  academicYear: string; 
-  studentClass: string; 
+  academicYear: typeof ACADEMIC_YEAR_OPTIONS[number]; 
   section: string; 
   sessionStartYear: number;
   sessionEndYear: number;
@@ -32,7 +31,7 @@ export interface MarksheetDisplayData {
   // Auto-filled or derived for display
   marksheetNo: string; 
   sessionDisplay: string; // e.g., "2018-2019"
-  classDisplay: string; // e.g., "12th (A)"
+  classDisplay: string; // e.g., "11th (A)" (derived from academicYear and section)
   
   aggregateMarksCompulsoryElective: number; 
   totalPossibleMarksCompulsoryElective: number; 

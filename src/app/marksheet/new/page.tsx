@@ -30,17 +30,15 @@ export default function NewMarksheetPage() {
 
   useEffect(() => {
     if (!isClient) {
-      return; // Don't run auth check until client is ready
+      return; 
     }
 
     const checkAuthentication = async () => {
-      setAuthStatus('loading'); // Set to loading before the async operation
+      setAuthStatus('loading'); 
       const { data: { session }, error } = await supabase.auth.getSession();
 
       if (error) {
         console.error("Authentication error on new marksheet page:", error.message);
-        // You might want a toast here, but be careful with toasts during initial load/redirect cycles
-        // toast({ title: "Authentication Error", description: "Failed to verify session.", variant: "destructive" });
         setAuthStatus('unauthenticated');
       } else if (!session) {
         setAuthStatus('unauthenticated');
@@ -50,7 +48,7 @@ export default function NewMarksheetPage() {
     };
 
     checkAuthentication();
-  }, [isClient]); // Effect runs when isClient changes
+  }, [isClient]); 
 
   useEffect(() => {
     if (authStatus === 'unauthenticated') {
@@ -68,7 +66,6 @@ export default function NewMarksheetPage() {
   const generateMarksheetNo = (faculty: string, rollNumber: string, sessionEndYear: number): string => {
     const facultyCode = faculty.substring(0, 2).toUpperCase();
     const month = format(new Date(), 'MMM').toUpperCase();
-    // Simple sequence for now, can be improved
     const sequence = String(Math.floor(Math.random() * 900) + 100); 
     return `${facultyCode}/${month}/${sessionEndYear}/${rollNumber.slice(-3) || sequence}`;
   };
@@ -102,7 +99,7 @@ export default function NewMarksheetPage() {
     }
     for (const subject of subjectsDisplay) {
         if (subject.obtainedTotal < subject.passMarks) {
-            overallResult = 'Fail'; // Fail if any subject is failed
+            overallResult = 'Fail'; 
             break;
         }
     }
@@ -112,7 +109,7 @@ export default function NewMarksheetPage() {
       subjects: subjectsDisplay,
       marksheetNo: generateMarksheetNo(data.faculty, data.rollNumber, data.sessionEndYear),
       sessionDisplay: `${data.sessionStartYear}-${data.sessionEndYear}`,
-      classDisplay: `${data.studentClass} (${data.section})`,
+      classDisplay: `${data.academicYear} (${data.section})`, // Updated classDisplay
       aggregateMarksCompulsoryElective,
       totalPossibleMarksCompulsoryElective,
       overallResult,
@@ -144,10 +141,9 @@ export default function NewMarksheetPage() {
   };
 
   const handleCreateNew = () => {
-    setMarksheetData(null); // Reset to show the form again
+    setMarksheetData(null); 
   };
 
-  // Show loader if client isn't ready or auth is still loading
   if (!isClient || authStatus === 'loading') {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
@@ -156,7 +152,6 @@ export default function NewMarksheetPage() {
     );
   }
 
-  // If unauthenticated, show loader/redirect message while router.push takes effect
   if (authStatus === 'unauthenticated') {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
@@ -166,7 +161,6 @@ export default function NewMarksheetPage() {
     );
   }
 
-  // If authenticated, render the page content
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
       <header className="bg-secondary text-secondary-foreground py-3 shadow-sm print:hidden">
