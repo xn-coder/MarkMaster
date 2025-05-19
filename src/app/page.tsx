@@ -3,13 +3,13 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import Image from 'next/image';
-import Link from 'next/link'; // Import Link
+import Link from 'next/link';
 import { supabase } from '@/lib/supabase/client';
 import { useToast } from "@/hooks/use-toast";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { AppHeader } from '@/components/app/app-header'; // Import the new AppHeader
 import {
   Select,
   SelectContent,
@@ -38,7 +38,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  LogOut,
   RefreshCw,
   FilePlus2,
   Upload,
@@ -79,7 +78,6 @@ export default function AdminDashboardPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [isAuthLoading, setIsAuthLoading] = useState(true);
-  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isClient, setIsClient] = useState(false);
 
   // Filters
@@ -117,18 +115,6 @@ export default function AdminDashboardPage() {
       authListener.subscription.unsubscribe();
     };
   }, [router]);
-
-  const handleLogout = async () => {
-    setIsLoggingOut(true);
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      toast({ title: 'Logout Failed', description: error.message, variant: 'destructive' });
-      setIsLoggingOut(false);
-    } else {
-      toast({ title: 'Logged Out', description: 'You have been successfully logged out.' });
-      // router.push('/login'); // onAuthStateChange will handle redirect
-    }
-  };
   
   const filteredStudents = useMemo(() => {
     return mockStudents.filter(student => {
@@ -136,6 +122,7 @@ export default function AdminDashboardPage() {
       if (studentIdFilter && !student.id.toLowerCase().includes(studentIdFilter.toLowerCase())) return false;
       if (studentNameFilter && !student.name.toLowerCase().includes(studentNameFilter.toLowerCase())) return false;
       if (classFilter !== 'All Classes' && student.studentClass !== classFilter) return false;
+      // Add logic for startYearFilter and endYearFilter if needed based on student.academicYear
       return true;
     });
   }, [academicYearFilter, studentIdFilter, studentNameFilter, classFilter]);
@@ -157,33 +144,7 @@ export default function AdminDashboardPage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
-      {/* College Header */}
-      <header className="bg-secondary text-secondary-foreground py-3 shadow-sm">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Image
-              src="https://placehold.co/50x50.png" 
-              alt="College Logo"
-              width={50}
-              height={50}
-              className="rounded-full"
-              data-ai-hint="college logo"
-            />
-            <div>
-              <h1 className="text-lg sm:text-xl font-bold text-primary">
-                SARYUG COLLEGE
-              </h1>
-              <p className="text-xs text-muted-foreground">
-                Affiliated By Bihar School Examination Board | [Estd. - 1983]
-              </p>
-              <p className="text-xs text-muted-foreground">[College Code: 53010]</p>
-            </div>
-          </div>
-          <Button variant="default" onClick={handleLogout} disabled={isLoggingOut} size="sm">
-            {isLoggingOut ? <Loader2 className="animate-spin" /> : <LogOut className="mr-2 h-4 w-4" />} Logout
-          </Button>
-        </div>
-      </header>
+      <AppHeader /> {/* Use the new AppHeader component */}
 
       {/* Main Content Area */}
       <main className="flex-grow container mx-auto px-4 py-6 sm:px-6 lg:px-8">
@@ -353,5 +314,3 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
-
-    

@@ -11,7 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Loader2, ArrowLeft } from 'lucide-react';
 import { format } from 'date-fns';
-import Image from 'next/image';
+import { AppHeader } from '@/components/app/app-header'; // Import the new AppHeader
 
 export default function NewMarksheetPage() {
   const router = useRouter();
@@ -153,6 +153,8 @@ export default function NewMarksheetPage() {
   }
 
   if (authStatus === 'unauthenticated') {
+    // This should ideally not be reached if useEffect for redirection works correctly,
+    // but as a fallback, show loader + message.
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -163,31 +165,15 @@ export default function NewMarksheetPage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
-      <header className="bg-secondary text-secondary-foreground py-3 shadow-sm print:hidden">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-             <Image
-              src="https://placehold.co/50x50.png" 
-              alt="College Logo"
-              width={50}
-              height={50}
-              className="rounded-full"
-              data-ai-hint="college logo"
-            />
-            <div>
-              <h1 className="text-lg sm:text-xl font-bold text-primary">
-                SARYUG COLLEGE - MARKSHEET GENERATION
-              </h1>
-              <p className="text-xs text-muted-foreground">
-                Student Result Management
-              </p>
-            </div>
-          </div>
+      <AppHeader 
+        pageTitle="SARYUG COLLEGE - MARKSHEET GENERATION"
+        pageSubtitle="Student Result Management"
+        customRightContent={
           <Button variant="outline" onClick={() => router.push('/')} size="sm">
             <ArrowLeft className="mr-2 h-4 w-4" /> Back to Dashboard
           </Button>
-        </div>
-      </header>
+        }
+      />
       
       <main className="flex-grow container mx-auto px-4 py-8 sm:px-6 lg:px-8">
         {!marksheetData ? (
