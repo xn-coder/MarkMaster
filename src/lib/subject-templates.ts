@@ -68,7 +68,6 @@ function getUniqueAdditionalSubjects(facultyElectives: SubjectTemplateItem[]): S
 
     const combined = [...CORE_ADDITIONAL_SUBJECTS, ...uniqueFromElectives, ...uniqueFromCompulsory];
     
-    // Ensure all names are unique in the final list
     const uniqueNames = new Set<string>();
     return combined.filter(item => {
         if (uniqueNames.has(item.subjectName)) {
@@ -121,3 +120,38 @@ export function findSubjectTemplate(
     return suggestions.find(s => s.subjectName === subjectName);
 }
 
+// --- START: New Default Subjects Definitions ---
+interface DefaultSubjectDefinition {
+  subjectName: string;
+  category: FormSubjectCategory;
+}
+
+export const DEFAULT_SUBJECTS_BY_FACULTY: Record<
+  MarksheetFormData['faculty'],
+  DefaultSubjectDefinition[]
+> = {
+  SCIENCE: [
+    { subjectName: 'English', category: 'Compulsory' },
+    { subjectName: 'Hindi', category: 'Compulsory' },
+    { subjectName: 'Physics', category: 'Elective' },
+    { subjectName: 'Chemistry', category: 'Elective' },
+    { subjectName: 'Biology', category: 'Elective' },
+    { subjectName: 'Mathematics', category: 'Additional' },
+  ],
+  ARTS: [
+    { subjectName: 'English', category: 'Compulsory' },
+    { subjectName: 'Hindi', category: 'Compulsory' },
+    { subjectName: 'Geography', category: 'Elective' },
+    { subjectName: 'Political Science', category: 'Elective' },
+    { subjectName: 'Economics', category: 'Additional' },
+  ],
+  COMMERCE: [
+    { subjectName: 'English', category: 'Compulsory' },
+    { subjectName: 'Hindi', category: 'Compulsory' },
+    { subjectName: 'Economics', category: 'Elective' },
+    { subjectName: 'Accountancy', category: 'Elective' },
+    { subjectName: 'Business Studies', category: 'Elective' },
+    // No additional subject for Commerce as per user request
+  ],
+};
+// --- END: New Default Subjects Definitions ---

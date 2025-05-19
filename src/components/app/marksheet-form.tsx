@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { useForm, Controller, useWatch, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { marksheetFormSchema, ACADEMIC_YEAR_OPTIONS, SUBJECT_CATEGORIES_OPTIONS } from './marksheet-form-schema';
@@ -26,7 +26,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { PlusCircle, Trash2, CalendarIcon, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
-import { getSubjectSuggestions, findSubjectTemplate } from '@/lib/subject-templates';
+import { getSubjectSuggestions, findSubjectTemplate, DEFAULT_SUBJECTS_BY_FACULTY } from '@/lib/subject-templates';
 
 
 interface MarksheetFormProps {
@@ -109,8 +109,11 @@ const SubjectRow: React.FC<SubjectRowProps> = ({ control, index, remove, form, w
                 const newSuggestions = getSubjectSuggestions(watchedFaculty, value as SubjectEntryFormData['category']);
                 if (currentSubjectName && !newSuggestions.find(s => s.subjectName === currentSubjectName)) {
                   form.setValue(`subjects.${index}.subjectName`, '', { shouldValidate: true });
-                  form.setValue(`subjects.${index}.totalMarks`, 100, { shouldValidate: true });
-                  form.setValue(`subjects.${index}.passMarks`, 33, { shouldValidate: true });
+                  // Reset marks if subject name becomes invalid due to category change
+                  const defaultTemplateForNewCategory = newSuggestions[0]; // Or some other logic
+                  form.setValue(`subjects.${index}.totalMarks`, defaultTemplateForNewCategory?.totalMarks || 100, { shouldValidate: true });
+                  form.setValue(`subjects.${index}.passMarks`, defaultTemplateForNewCategory?.passMarks || 33, { shouldValidate: true });
+
                 }
               }}
               value={field.value || undefined}
@@ -240,7 +243,7 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
       sessionEndYear: currentYear,
       overallPassingThresholdPercentage: 33,
       subjects: [{
-        id: crypto.randomUUID(), // Add id for key prop
+        id: crypto.randomUUID(),
         subjectName: '',
         category: 'Compulsory',
         totalMarks: 100,
@@ -251,13 +254,16 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
     },
   });
 
-  const { fields, append, remove } = useFieldArray({
+  const { fields, append, remove, replace } = useFieldArray({ // Added replace
     control: form.control,
     name: 'subjects',
+    keyName: "id", // Ensure keyName is "id" if your subject objects have an `id` field for keys
   });
 
   const watchedFaculty = form.watch('faculty');
   const watchedSessionStartYear = form.watch('sessionStartYear');
+  const prevFacultyRef = useRef<MarksheetFormData['faculty'] | undefined>(form.getValues('faculty'));
+
 
   useEffect(() => {
     if (watchedSessionStartYear) {
@@ -272,18 +278,74 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
         dateOfBirth: initialData.dateOfBirth ? new Date(initialData.dateOfBirth) : undefined,
         subjects: initialData.subjects?.map(s => ({
           ...s,
-          id: s.id || crypto.randomUUID(), // Ensure id is explicitly string or undefined
+          id: s.id || crypto.randomUUID(),
           subjectName: s.subjectName || '',
           category: s.category || 'Compulsory',
           totalMarks: s.totalMarks !== undefined && s.totalMarks !== null ? Number(s.totalMarks) : 100,
           passMarks: s.passMarks !== undefined && s.passMarks !== null ? Number(s.passMarks) : 33,
           theoryMarksObtained: s.theoryMarksObtained !== undefined && s.theoryMarksObtained !== null ? Number(s.theoryMarksObtained) : 0,
           practicalMarksObtained: s.practicalMarksObtained !== undefined && s.practicalMarksObtained !== null ? Number(s.practicalMarksObtained) : 0,
-        })) || [],
+        })) || [{ // Ensure at least one subject if initialData.subjects is empty/null
+          id: crypto.randomUUID(),
+          subjectName: '',
+          category: 'Compulsory',
+          totalMarks: 100,
+          passMarks: 33,
+          theoryMarksObtained: 0,
+          practicalMarksObtained: 0,
+        }],
       };
       form.reset(processedInitialData);
+      prevFacultyRef.current = processedInitialData.faculty; // Initialize prevFacultyRef if faculty is in initialData
     }
   }, [initialData, form.reset]);
+
+
+  // Effect to auto-populate subjects when faculty changes (for new forms only)
+  useEffect(() => {
+    const newFaculty = watchedFaculty;
+    
+    if (!isEditMode && newFaculty && (newFaculty !== prevFacultyRef.current || fields.length === 0 || (fields.length === 1 && !fields[0].subjectName)) ) {
+      const defaultSubjectDefinitions = DEFAULT_SUBJECTS_BY_FACULTY[newFaculty];
+      if (defaultSubjectDefinitions) {
+        const newSubjects = defaultSubjectDefinitions.map(def => {
+          const template = findSubjectTemplate(def.subjectName, newFaculty, def.category);
+          return {
+            id: crypto.randomUUID(),
+            subjectName: def.subjectName,
+            category: def.category,
+            totalMarks: template?.totalMarks || 100,
+            passMarks: template?.passMarks || 33,
+            theoryMarksObtained: 0,
+            practicalMarksObtained: 0,
+          };
+        });
+        // Using replace to set the new subjects array
+        // This is generally safer than remove all then append all
+        replace(newSubjects.length > 0 ? newSubjects : [{ // Ensure at least one empty subject if no defaults
+            id: crypto.randomUUID(),
+            subjectName: '',
+            category: 'Compulsory',
+            totalMarks: 100,
+            passMarks: 33,
+            theoryMarksObtained: 0,
+            practicalMarksObtained: 0,
+        }]);
+      } else {
+         // If no defaults for faculty, ensure one empty subject row
+         replace([{
+            id: crypto.randomUUID(),
+            subjectName: '',
+            category: 'Compulsory',
+            totalMarks: 100,
+            passMarks: 33,
+            theoryMarksObtained: 0,
+            practicalMarksObtained: 0,
+        }]);
+      }
+    }
+    prevFacultyRef.current = newFaculty;
+  }, [watchedFaculty, isEditMode, replace, fields.length, fields[0]?.subjectName]);
 
 
   const handleFormSubmit = (data: MarksheetFormData) => {
@@ -560,3 +622,4 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
     </Form>
   );
 }
+
