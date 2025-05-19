@@ -56,8 +56,6 @@ interface StudentRowData {
   faculty: string;
 }
 
-// Mock data removed, will fetch from Supabase
-// const mockStudents: StudentRowData[] = [ ... ];
 
 const ACADEMIC_YEARS = ['All Academic Years', '2025-2027', '2024-2028', '2024-2026', '2023-2025', '2022-2024', '2022-2023', '2021-2023', '2021-2022', '2018-2019'];
 const START_YEARS = ['All Start Years', ...Array.from({ length: new Date().getFullYear() + 1 - 2018 + 1 }, (_, i) => (2018 + i).toString()).reverse()];
@@ -77,8 +75,8 @@ export default function AdminDashboardPage() {
   const [isClient, setIsClient] = useState(false);
   const [isLoadingData, setIsLoadingData] = useState(false); 
 
-  const [allStudents, setAllStudents] = useState<StudentRowData[]>([]); // Stores all students fetched from DB
-  const [displayedStudents, setDisplayedStudents] = useState<StudentRowData[]>([]); // Students to show in table after filtering
+  const [allStudents, setAllStudents] = useState<StudentRowData[]>([]); 
+  const [displayedStudents, setDisplayedStudents] = useState<StudentRowData[]>([]);
 
   const [academicYearFilter, setAcademicYearFilter] = useState('All Academic Years');
   const [startYearFilter, setStartYearFilter] = useState('All Start Years');
@@ -89,9 +87,12 @@ export default function AdminDashboardPage() {
 
   const [currentPage, setCurrentPage] = useState(1);
   const [entriesPerPage, setEntriesPerPage] = useState(10);
+  const [footerYear, setFooterYear] = useState<number | null>(null);
+
 
   useEffect(() => {
     setIsClient(true);
+    setFooterYear(new Date().getFullYear());
     const checkAuthAndRedirect = async () => {
       const { data: { session }, error } = await supabase.auth.getSession();
       if (error || !session) {
@@ -116,32 +117,29 @@ export default function AdminDashboardPage() {
   const handleLoadStudentData = async () => {
     setIsLoadingData(true);
     const { data: students, error } = await supabase
-      .from('student_details')
+      .from('student_details') // Use the correct table name
       .select('student_id, name, faculty, class, academic_year');
 
     if (error) {
       toast({ title: "Error Loading Students", description: error.message, variant: "destructive" });
       setAllStudents([]);
-      setDisplayedStudents([]);
       setIsLoadingData(false);
       return;
     }
 
     if (students) {
       const formattedStudents: StudentRowData[] = students.map(s => ({
-        id: s.student_id,
+        id: s.student_id, // student_id is the primary key and used as id here
         name: s.name,
         academicYear: s.academic_year, // This is the session string "YYYY-YYYY"
         studentClass: s.class, // This is "11th", "12th", etc.
         faculty: s.faculty,
       }));
       setAllStudents(formattedStudents);
-      setDisplayedStudents(formattedStudents); // Initially display all fetched students
       setCurrentPage(1); // Reset to first page
       toast({ title: "Student Data Loaded", description: `${formattedStudents.length} students loaded from the database.` });
     } else {
       setAllStudents([]);
-      setDisplayedStudents([]);
       toast({ title: "No Students Found", description: "No student records were returned from the database." });
     }
     setIsLoadingData(false);
@@ -154,10 +152,7 @@ export default function AdminDashboardPage() {
     if (academicYearFilter !== 'All Academic Years') {
       filtered = filtered.filter(student => student.academicYear === academicYearFilter);
     }
-    // Note: startYearFilter and endYearFilter might need more complex logic if academicYear is a range
-    // For simplicity, we're filtering on the exact academicYear string for now.
-    // If you need to filter by start/end year components, you'd parse student.academicYear.
-    
+        
     if (studentIdFilter) {
       filtered = filtered.filter(student => student.id.toLowerCase().includes(studentIdFilter.toLowerCase()));
     }
@@ -169,8 +164,8 @@ export default function AdminDashboardPage() {
     }
     
     setDisplayedStudents(filtered);
-    setCurrentPage(1); // Reset to first page when filters change
-  }, [allStudents, academicYearFilter, studentIdFilter, studentNameFilter, classFilter /*, startYearFilter, endYearFilter*/]);
+    setCurrentPage(1); 
+  }, [allStudents, academicYearFilter, studentIdFilter, studentNameFilter, classFilter, startYearFilter, endYearFilter]);
 
 
   const paginatedStudents = useMemo(() => {
@@ -181,24 +176,28 @@ export default function AdminDashboardPage() {
   const totalPages = Math.ceil(displayedStudents.length / entriesPerPage);
 
   const handleViewMarksheet = (student: StudentRowData) => {
-    toast({ title: 'Action: View Marksheet', description: `Viewing marksheet for ${student.name} (ID: ${student.id}) - Placeholder` });
-    // router.push(`/marksheet/view/${student.id}`); // Example navigation for viewing
+    router.push(`/marksheet/view/${student.id}`);
   };
 
   const handleEditStudent = (student: StudentRowData) => {
-    toast({ title: 'Navigating to Edit', description: `Editing details for ${student.name} (ID: ${student.id})` });
     router.push(`/marksheet/edit/${student.id}`);
   };
 
-  const handleDeleteStudent = (student: StudentRowData) => {
+  const handleDeleteStudent = async (student: StudentRowData) => {
     // Add a confirmation dialog here in a real app
+    // For now, just a toast and console log.
     toast({ 
-      title: 'Action: Delete Student', 
-      description: `Deleting student ${student.name} (ID: ${student.id}) - Placeholder`,
+      title: 'Confirm Deletion', 
+      description: `Are you sure you want to delete ${student.name} (ID: ${student.id})? This action cannot be undone. (Deletion not implemented yet)`,
       variant: 'destructive' 
     });
-    // Actual deletion logic would go here, e.g., call Supabase
-    // setAllStudents(prev => prev.filter(s => s.id !== student.id)); // Optimistic UI update on allStudents
+    console.log("Attempting to delete student (not implemented):", student);
+    // Actual deletion logic (example, needs RLS and error handling):
+    // const { error: marksError } = await supabase.from('student_marks_details').delete().eq('student_id', student.id);
+    // if (marksError) { /* handle error */ }
+    // const { error: studentError } = await supabase.from('student_details').delete().eq('student_id', student.id);
+    // if (studentError) { /* handle error */ }
+    // else { setAllStudents(prev => prev.filter(s => s.id !== student.id)); }
   };
 
 
@@ -219,7 +218,7 @@ export default function AdminDashboardPage() {
 
       <main className="flex-grow container mx-auto px-4 py-6 sm:px-6 lg:px-8">
          <div className="bg-primary text-primary-foreground p-3 rounded-md shadow-md mb-6">
-            <div className="container mx-auto px-0 sm:px-0 lg:px-0">
+            <div className="container mx-auto px-0 sm:px-0 lg:px-0"> {/* Ensures content within this bar aligns with page */}
               <div className="flex flex-col sm:flex-row justify-between items-center gap-2">
                 <h2 className="text-xl font-semibold">STUDENT DETAILS</h2>
                 <div className="flex flex-wrap gap-2">
@@ -351,7 +350,7 @@ export default function AdminDashboardPage() {
                   )) : (
                     <TableRow>
                       <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
-                        {allStudents.length === 0 && !isLoadingData ? 'Click "Load Student Data" above to view student records.' :
+                        {allStudents.length === 0 && !isLoadingData && !isAuthLoading ? 'Click "Load Student Data" above to view student records.' :
                          isLoadingData ? 'Loading student data...' : 
                          (allStudents.length > 0 && displayedStudents.length === 0) ? 'No students found matching your filters.' :
                          'No student data available. Try loading or adding students.'}
@@ -378,9 +377,9 @@ export default function AdminDashboardPage() {
         </Card>
       </main>
 
-      <footer className="py-4 border-t border-border mt-auto">
+      <footer className="py-4 border-t border-border mt-auto print:hidden">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between text-xs text-muted-foreground">
-            <p className="mb-2 sm:mb-0 text-center sm:text-left">Copyright ©{new Date().getFullYear()} by Saryug College, Samastipur, Bihar.</p>
+            <p className="mb-2 sm:mb-0 text-center sm:text-left">Copyright ©{footerYear || new Date().getFullYear()} by Saryug College, Samastipur, Bihar.</p>
             <p className="text-center sm:text-right">Design By Mantix.</p>
         </div>
       </footer>

@@ -93,17 +93,17 @@ export default function EditMarksheetPage() {
             studentName: studentDetails.name,
             fatherName: studentDetails.father_name,
             motherName: studentDetails.mother_name,
-            rollNumber: studentDetails.roll_no, // Use roll_no from DB
-            dateOfBirth: studentDetails.dob ? parseISO(studentDetails.dob) : new Date(), // Ensure dob is parsed correctly
+            rollNumber: studentDetails.roll_no, 
+            dateOfBirth: studentDetails.dob ? parseISO(studentDetails.dob) : new Date(), 
             gender: studentDetails.gender as MarksheetFormData['gender'],
             faculty: studentDetails.faculty as MarksheetFormData['faculty'],
-            academicYear: studentDetails.class as typeof ACADEMIC_YEAR_OPTIONS[number], // DB 'class' maps to form 'academicYear'
+            academicYear: studentDetails.class as typeof ACADEMIC_YEAR_OPTIONS[number], 
             section: studentDetails.section,
             sessionStartYear: sessionStartYear,
             sessionEndYear: sessionEndYear,
-            overallPassingThresholdPercentage: 33, // Default, or fetch if stored per student
+            overallPassingThresholdPercentage: 33, 
             subjects: subjectMarks?.map(mark => ({
-              id: mark.id?.toString() || crypto.randomUUID(), // Ensure ID for key
+              id: mark.id?.toString() || crypto.randomUUID(), 
               subjectName: mark.subject_name,
               category: mark.category as typeof SUBJECT_CATEGORIES_OPTIONS[number],
               totalMarks: mark.max_marks,
@@ -195,7 +195,7 @@ export default function EditMarksheetPage() {
       setMarksheetData(processedData);
       toast({
         title: 'Marksheet Data Processed',
-        description: 'Previewing the marksheet. Saving to database is not yet implemented for edits.',
+        description: 'Previewing the updated marksheet. Saving to database is not yet implemented for edits.',
       });
     } catch (error) {
       console.error("Error processing marksheet:", error);
@@ -230,15 +230,17 @@ export default function EditMarksheetPage() {
   if (authStatus === 'authenticated' && !isLoadingData && !initialData) {
      return (
       <div className="min-h-screen bg-background text-foreground flex flex-col">
-        <AppHeader 
-          pageTitle="SARYUG COLLEGE"
-          pageSubtitle={defaultPageSubtitle}
-          customRightContent={
-            <Button variant="outline" onClick={() => router.push('/')} size="sm">
-              <ArrowLeft className="mr-2 h-4 w-4" /> Back to Dashboard
-            </Button>
-          }
-        />
+        <div className="print:hidden">
+            <AppHeader 
+            pageTitle="SARYUG COLLEGE"
+            pageSubtitle={defaultPageSubtitle}
+            customRightContent={
+                <Button variant="outline" onClick={() => router.push('/')} size="sm">
+                <ArrowLeft className="mr-2 h-4 w-4" /> Back to Dashboard
+                </Button>
+            }
+            />
+        </div>
         <main className="flex-grow container mx-auto px-4 py-8 sm:px-6 lg:px-8 flex flex-col items-center justify-center">
             <h1 className="text-2xl font-bold text-destructive mb-4">Student Not Found</h1>
             <p className="text-muted-foreground mb-6 text-center">The student data for ID '{studentId}' could not be loaded from the database. <br/> Please check the ID or ensure the student record exists.</p>
@@ -257,20 +259,22 @@ export default function EditMarksheetPage() {
 
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col">
-      <AppHeader 
-        pageTitle="SARYUG COLLEGE"
-        pageSubtitle={defaultPageSubtitle}
-        customRightContent={
-          <Button variant="outline" onClick={() => marksheetData ? handleBackToForm() : router.push('/')} size="sm">
-            <ArrowLeft className="mr-2 h-4 w-4" /> 
-            {marksheetData ? 'Back to Edit Form' : 'Back to Dashboard'}
-          </Button>
-        }
-      />
+    <div className="min-h-screen bg-background text-foreground flex flex-col print:bg-white">
+      <div className="print:hidden">
+        <AppHeader 
+            pageTitle="SARYUG COLLEGE"
+            pageSubtitle={defaultPageSubtitle}
+            customRightContent={
+            <Button variant="outline" onClick={() => marksheetData ? handleBackToForm() : router.push('/')} size="sm">
+                <ArrowLeft className="mr-2 h-4 w-4" /> 
+                {marksheetData ? 'Back to Edit Form' : 'Back to Dashboard'}
+            </Button>
+            }
+        />
+      </div>
       
-      <main className="flex-grow container mx-auto px-4 py-8 sm:px-6 lg:px-8">
-        <div className="mb-6 text-center">
+      <main className="flex-grow container mx-auto px-4 py-8 sm:px-6 lg:px-8 print:p-0 print:m-0">
+        <div className="mb-6 text-center print:hidden">
             <h1 className="text-2xl font-bold text-primary">
                 {marksheetData ? 'Updated Marksheet Preview' : `Edit Marksheet for ${initialData?.studentName || 'Student'}`}
             </h1>
