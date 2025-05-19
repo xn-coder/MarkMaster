@@ -169,7 +169,7 @@ export default function EditMarksheetPage() {
     return {
       ...data,
       subjects: subjectsDisplay,
-      collegeCode: "53010", // Added placeholder college code
+      collegeCode: "53010", 
       marksheetNo: generateMarksheetNo(data.faculty, data.rollNumber, data.sessionEndYear),
       sessionDisplay: `${data.sessionStartYear}-${data.sessionEndYear}`,
       classDisplay: `${data.academicYear} (${data.section})`, 
@@ -184,6 +184,10 @@ export default function EditMarksheetPage() {
 
   const handleFormSubmit = async (data: MarksheetFormData) => {
     setIsLoadingFormSubmission(true);
+    // TODO: Implement Supabase update logic here
+    // 1. Update student_details table
+    // 2. Delete existing student_marks_details for this student
+    // 3. Insert new student_marks_details
     try {
       const processedData = processFormData(data);
       setMarksheetData(processedData);
@@ -223,7 +227,7 @@ export default function EditMarksheetPage() {
   
   if (authStatus === 'authenticated' && !isLoadingData && !initialData) {
      return (
-      <div className="min-h-screen bg-background text-foreground flex flex-col">
+      <div className="min-h-screen bg-background text-foreground flex flex-col print:h-full">
         <div className="print:hidden">
             <AppHeader 
             pageTitle="SARYUG COLLEGE"
@@ -235,7 +239,7 @@ export default function EditMarksheetPage() {
             }
             />
         </div>
-        <main className="flex-grow container mx-auto px-4 py-8 sm:px-6 lg:px-8 flex flex-col items-center justify-center">
+        <main className="flex-grow container mx-auto px-4 py-8 sm:px-6 lg:px-8 flex flex-col items-center justify-center print:p-0 print:m-0 print:h-full print:container-none print:max-w-none">
             <h1 className="text-2xl font-bold text-destructive mb-4">Student Not Found</h1>
             <p className="text-muted-foreground mb-6 text-center">The student data for ID '{studentId}' could not be loaded from the database. <br/> Please check the ID or ensure the student record exists.</p>
             <Button onClick={() => router.push('/')}>
@@ -253,7 +257,7 @@ export default function EditMarksheetPage() {
 
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col print:bg-white">
+    <div className="min-h-screen bg-background text-foreground flex flex-col print:bg-white print:h-full">
       <div className="print:hidden">
         <AppHeader 
             pageTitle="SARYUG COLLEGE"
@@ -267,7 +271,7 @@ export default function EditMarksheetPage() {
         />
       </div>
       
-      <main className="flex-grow container mx-auto px-4 py-8 sm:px-6 lg:px-8 print:p-0 print:m-0">
+      <main className="flex-grow container mx-auto px-4 py-8 sm:px-6 lg:px-8 print:p-0 print:m-0 print:h-full print:container-none print:max-w-none">
         <div className="mb-6 text-center print:hidden">
             <h1 className="text-2xl font-bold text-primary">
                 {marksheetData ? 'Updated Marksheet Preview' : `Edit Marksheet for ${initialData?.studentName || 'Student'}`}

@@ -146,7 +146,7 @@ export default function ViewMarksheetPage() {
           const processedData: MarksheetDisplayData = {
             ...formDataFromDb,
             subjects: subjectsDisplay,
-            collegeCode: "53010", // Added placeholder college code
+            collegeCode: "53010", 
             marksheetNo: generateMarksheetNo(formDataFromDb.faculty, formDataFromDb.rollNumber, formDataFromDb.sessionEndYear), 
             sessionDisplay: `${formDataFromDb.sessionStartYear}-${formDataFromDb.sessionEndYear}`,
             classDisplay: `${formDataFromDb.academicYear} (${formDataFromDb.section})`, 
@@ -186,7 +186,7 @@ export default function ViewMarksheetPage() {
   
   if (authStatus === 'authenticated' && !isLoadingData && !marksheetData) {
      return (
-      <div className="min-h-screen bg-background text-foreground flex flex-col">
+      <div className="min-h-screen bg-background text-foreground flex flex-col print:h-full">
         <div className="print:hidden">
           <AppHeader 
             pageTitle="SARYUG COLLEGE"
@@ -198,7 +198,7 @@ export default function ViewMarksheetPage() {
             }
           />
         </div>
-        <main className="flex-grow container mx-auto px-4 py-8 sm:px-6 lg:px-8 flex flex-col items-center justify-center">
+        <main className="flex-grow container mx-auto px-4 py-8 sm:px-6 lg:px-8 flex flex-col items-center justify-center print:p-0 print:m-0 print:h-full print:container-none print:max-w-none">
             <h1 className="text-2xl font-bold text-destructive mb-4">Marksheet Not Found</h1>
             <p className="text-muted-foreground mb-6 text-center">The marksheet data for student ID '{studentId}' could not be loaded. <br/> Please check the ID or ensure the student and their marks exist in the database.</p>
             <Button onClick={() => router.push('/')}>
@@ -215,7 +215,7 @@ export default function ViewMarksheetPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col print:bg-white">
+    <div className="min-h-screen bg-background text-foreground flex flex-col print:bg-white print:h-full">
       <div className="print:hidden"> 
         <AppHeader 
             pageTitle="SARYUG COLLEGE"
@@ -228,11 +228,11 @@ export default function ViewMarksheetPage() {
         />
       </div>
       
-      <main className="flex-grow container mx-auto px-4 py-8 sm:px-6 lg:px-8 print:p-0 print:m-0">
+      <main className="flex-grow container mx-auto px-4 py-8 sm:px-6 lg:px-8 print:p-0 print:m-0 print:h-full print:container-none print:max-w-none">
         {marksheetData ? (
           <MarksheetDisplay data={marksheetData} isViewMode={true} />
         ) : (
-           <div className="flex items-center justify-center min-h-[calc(100vh-200px)]"> 
+           <div className="flex items-center justify-center min-h-[calc(100vh-200px)] print:hidden"> 
              <p className="text-muted-foreground">No marksheet data to display.</p>
            </div>
         )}
@@ -247,3 +247,4 @@ export default function ViewMarksheetPage() {
     </div>
   );
 }
+
