@@ -132,12 +132,11 @@ export default function LoginPage() {
         <div className="container mx-auto flex items-center justify-between py-3 px-4 sm:px-6 lg:px-8 h-auto md:h-24">
           <div className="flex-shrink-0">
             <Image
-              src="https://placehold.co/50x50.png"
+              src="/college-logo.png"
               alt="College Logo"
               width={50}
               height={50}
               className="rounded-full"
-              data-ai-hint="college logo"
             />
           </div>
           <div className="text-center mx-2 sm:mx-4 flex-grow">
@@ -164,12 +163,11 @@ export default function LoginPage() {
 
       <main className="flex-grow relative flex items-center justify-center">
         <Image
-          src="https://placehold.co/1920x1080.png"
+          src="/login-bg.png"
           alt="Login background"
           layout="fill"
           objectFit="cover"
           className="absolute inset-0 -z-10"
-          data-ai-hint="laptop desk"
           priority
         />
         <div className="bg-slate-800 bg-opacity-80 backdrop-blur-sm p-8 sm:p-10 rounded-xl shadow-2xl w-full max-w-sm sm:max-w-md m-4 z-10">
@@ -284,3 +282,5 @@ export default function LoginPage() {
     </div>
   );
 }
+
+    
