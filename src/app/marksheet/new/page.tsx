@@ -17,35 +17,21 @@ export default function NewMarksheetPage() {
   const router = useRouter();
   const { toast } = useToast();
 
-  const [isClient, setIsClient] = useState(false);
   const [authStatus, setAuthStatus] = useState<'loading' | 'authenticated' | 'unauthenticated'>('loading');
   
-  const [isLoading, setIsLoading] = useState(false); 
+  const [isLoadingFormSubmission, setIsLoadingFormSubmission] = useState(false); 
   const [marksheetData, setMarksheetData] = useState<MarksheetDisplayData | null>(null);
   const [footerYear, setFooterYear] = useState<number | null>(null);
 
   useEffect(() => {
-    setIsClient(true);
-  }, []);
-
-  useEffect(() => {
-    if (isClient) {
-      setFooterYear(new Date().getFullYear());
-    }
-  }, [isClient]);
-
-  useEffect(() => {
-    if (!isClient) {
-      return; 
-    }
-
+    // This effect runs once on mount, client-side only
     const checkAuthentication = async () => {
-      setAuthStatus('loading'); 
+      // setAuthStatus('loading'); // Initial state is 'loading'
       const { data: { session }, error } = await supabase.auth.getSession();
 
       if (error) {
         console.error("Authentication error on new marksheet page:", error.message);
-        setAuthStatus('unauthenticated');
+        setAuthStatus('unauthenticated'); // Treat error as unauthenticated
       } else if (!session) {
         setAuthStatus('unauthenticated');
       } else {
@@ -54,11 +40,14 @@ export default function NewMarksheetPage() {
     };
 
     checkAuthentication();
-  }, [isClient]); 
+  }, []); // Empty dependency array ensures it runs once on mount
 
   useEffect(() => {
+    // This effect handles redirection based on authStatus and sets footerYear
     if (authStatus === 'unauthenticated') {
       router.push('/login');
+    } else if (authStatus === 'authenticated') {
+      setFooterYear(new Date().getFullYear()); // Set footer year once authenticated
     }
   }, [authStatus, router]);
 
@@ -109,7 +98,7 @@ export default function NewMarksheetPage() {
       subjects: subjectsDisplay,
       marksheetNo: generateMarksheetNo(data.faculty, data.rollNumber, data.sessionEndYear),
       sessionDisplay: `${data.sessionStartYear}-${data.sessionEndYear}`,
-      classDisplay: `${data.academicYear} (${data.section})`,
+      classDisplay: `${data.academicYear} (${data.section})`, // Academic Year now holds values like "11th", "1st Year"
       aggregateMarksCompulsoryElective,
       totalPossibleMarksCompulsoryElective,
       overallResult,
@@ -120,7 +109,7 @@ export default function NewMarksheetPage() {
   };
 
   const handleFormSubmit = async (data: MarksheetFormData) => {
-    setIsLoading(true);
+    setIsLoadingFormSubmission(true);
     try {
       const processedData = processFormData(data);
       setMarksheetData(processedData);
@@ -136,7 +125,7 @@ export default function NewMarksheetPage() {
         variant: 'destructive',
       });
     } finally {
-      setIsLoading(false);
+      setIsLoadingFormSubmission(false);
     }
   };
 
@@ -144,15 +133,17 @@ export default function NewMarksheetPage() {
     setMarksheetData(null); 
   };
 
-  if (!isClient || authStatus === 'loading') {
+  if (authStatus === 'loading') {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        <p className="ml-2 text-muted-foreground">Verifying session...</p>
       </div>
     );
   }
 
   if (authStatus === 'unauthenticated') {
+    // This state should be brief as the redirect effect will kick in.
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -161,6 +152,7 @@ export default function NewMarksheetPage() {
     );
   }
 
+  // authStatus === 'authenticated'
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
       <AppHeader 
@@ -175,7 +167,7 @@ export default function NewMarksheetPage() {
       
       <main className="flex-grow container mx-auto px-4 py-8 sm:px-6 lg:px-8">
         {!marksheetData ? (
-          <MarksheetForm onSubmit={handleFormSubmit} isLoading={isLoading} />
+          <MarksheetForm onSubmit={handleFormSubmit} isLoading={isLoadingFormSubmission} />
         ) : (
           <MarksheetDisplay data={marksheetData} onCreateNew={handleCreateNew} />
         )}
@@ -190,4 +182,3 @@ export default function NewMarksheetPage() {
     </div>
   );
 }
-
