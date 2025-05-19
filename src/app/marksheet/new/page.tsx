@@ -116,7 +116,7 @@ export default function NewMarksheetPage() {
     const processedDataForDisplay = processFormData(data); // Process for display first
 
     try {
-      // 1. Insert student data
+      // 1. Insert student data into 'student_details' table
       // Ensure dateOfBirth is in 'YYYY-MM-DD' format for Supabase 'date' type
       const dobFormatted = format(data.dateOfBirth, 'yyyy-MM-dd');
 
@@ -135,7 +135,7 @@ export default function NewMarksheetPage() {
       };
 
       const { data: insertedStudent, error: studentError } = await supabase
-        .from('students')
+        .from('student_details') // Updated table name
         .insert(studentToInsert)
         .select()
         .single();
@@ -162,7 +162,7 @@ export default function NewMarksheetPage() {
         return;
       }
       
-      // 2. Prepare and insert subject marks data
+      // 2. Prepare and insert subject marks data into 'student_marks_details' table
       const subjectMarksToInsert = data.subjects.map(subject => ({
         student_id: insertedStudent.student_id, // Use the PK from the inserted student record
         subject_name: subject.subjectName,
@@ -175,7 +175,7 @@ export default function NewMarksheetPage() {
       }));
 
       const { error: subjectMarksError } = await supabase
-        .from('subject_marks')
+        .from('student_marks_details') // Updated table name
         .insert(subjectMarksToInsert);
 
       if (subjectMarksError) {
