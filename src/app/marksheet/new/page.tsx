@@ -49,6 +49,7 @@ export default function NewMarksheetPage() {
     if (authStatus === 'unauthenticated') {
       router.push('/login');
     } else if (authStatus === 'authenticated') {
+       // Set footer year only on client-side after authentication
       setFooterYear(new Date().getFullYear()); 
     }
   }, [authStatus, router]);
@@ -112,18 +113,99 @@ export default function NewMarksheetPage() {
 
   const handleFormSubmit = async (data: MarksheetFormData) => {
     setIsLoadingFormSubmission(true);
+    const processedDataForDisplay = processFormData(data); // Process for display first
+
     try {
-      const processedData = processFormData(data);
-      setMarksheetData(processedData);
-      toast({
-        title: 'Marksheet Generated',
-        description: 'Previewing the marksheet.',
-      });
+      // 1. Insert student data
+      // Ensure dateOfBirth is in 'YYYY-MM-DD' format for Supabase 'date' type
+      const dobFormatted = format(data.dateOfBirth, 'yyyy-MM-dd');
+
+      const studentToInsert = {
+        student_id: data.rollNumber, // Assuming rollNumber is the student_id (PK)
+        name: data.studentName,
+        father_name: data.fatherName,
+        mother_name: data.motherName,
+        roll_no: data.rollNumber, 
+        dob: dobFormatted,
+        gender: data.gender,
+        faculty: data.faculty,
+        class: data.academicYear, // Form's academicYear (e.g., "11th") maps to DB 'class'
+        section: data.section,
+        academic_year: `${data.sessionStartYear}-${data.sessionEndYear}`, // Form session maps to DB 'academic_year'
+      };
+
+      const { data: insertedStudent, error: studentError } = await supabase
+        .from('students')
+        .insert(studentToInsert)
+        .select()
+        .single();
+
+      if (studentError) {
+        console.error('Error inserting student:', studentError);
+        toast({
+          title: 'Database Error',
+          description: `Failed to save student data: ${studentError.message}`,
+          variant: 'destructive',
+        });
+        setIsLoadingFormSubmission(false);
+        return;
+      }
+
+      if (!insertedStudent) {
+         console.error('Student data was not returned after insert.');
+        toast({
+          title: 'Database Error',
+          description: 'Failed to save student data (no record returned). Please check database logs.',
+          variant: 'destructive',
+        });
+        setIsLoadingFormSubmission(false);
+        return;
+      }
+      
+      // 2. Prepare and insert subject marks data
+      const subjectMarksToInsert = data.subjects.map(subject => ({
+        student_id: insertedStudent.student_id, // Use the PK from the inserted student record
+        subject_name: subject.subjectName,
+        category: subject.category,
+        max_marks: subject.totalMarks,
+        pass_marks: subject.passMarks,
+        theory_marks_obtained: subject.theoryMarksObtained,
+        practical_marks_obtained: subject.practicalMarksObtained,
+        obtained_total_marks: (subject.theoryMarksObtained || 0) + (subject.practicalMarksObtained || 0),
+      }));
+
+      const { error: subjectMarksError } = await supabase
+        .from('subject_marks')
+        .insert(subjectMarksToInsert);
+
+      if (subjectMarksError) {
+        console.error('Error inserting subject marks:', subjectMarksError);
+        // Potentially try to delete the student record if subjects fail (complex, consider for later)
+        toast({
+          title: 'Database Error',
+          description: `Failed to save subject marks: ${subjectMarksError.message}. Student data was saved, but subjects were not.`,
+          variant: 'destructive',
+        });
+        // Still proceed to show preview, but with error context
+      } else {
+        toast({
+          title: 'Marksheet Data Saved',
+          description: 'Student and subject data successfully saved to the database.',
+        });
+      }
+      
+      // Proceed to show preview whether DB save was partial or full success
+      setMarksheetData(processedDataForDisplay);
+
     } catch (error) {
-      console.error("Error processing marksheet:", error);
+      console.error("Error processing or saving marksheet:", error);
+      let message = 'An unexpected error occurred while saving or processing the marksheet.';
+      if (error instanceof Error) {
+        message = error.message;
+      }
       toast({
-        title: 'Error',
-        description: 'Could not process marksheet data.',
+        title: 'Operation Error',
+        description: message,
         variant: 'destructive',
       });
     } finally {
@@ -145,6 +227,7 @@ export default function NewMarksheetPage() {
   }
 
   if (authStatus === 'unauthenticated') {
+    // This should ideally not be reached if useEffect redirects, but as a fallback:
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -171,7 +254,7 @@ export default function NewMarksheetPage() {
             {marksheetData ? 'Marksheet Preview' : 'Create New Marksheet'}
           </h1>
           <p className="text-muted-foreground">
-            {marksheetData ? 'Review the generated marksheet below.' : 'Enter Student and Subject Details to generate a marksheet.'}
+            {marksheetData ? 'Review the generated marksheet below. Data has been submitted.' : 'Enter Student and Subject Details to generate a marksheet.'}
           </p>
         </div>
 
