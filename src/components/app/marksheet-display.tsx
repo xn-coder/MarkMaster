@@ -26,9 +26,6 @@ export function MarksheetDisplay({ data, onCreateNew, isViewMode = false }: Mark
   const electiveSubjects = data.subjects.filter(s => s.category === 'Elective');
   const additionalSubjects = data.subjects.filter(s => s.category === 'Additional');
 
-  // College Name color: #032781
-  // MARKSHEET banner bg: #DB2A2A (approx)
-
   return (
     <div className="print:p-0 print:m-0 bg-gray-100 print:bg-white py-8 print:py-0 flex justify-center">
       <Card className="w-full max-w-[210mm] min-h-[297mm] mx-auto shadow-lg print:shadow-none border-2 border-black print:border-2 print:border-black my-4 print:my-0 print:mx-0 bg-white p-1 print:p-0.5 flex flex-col">
