@@ -10,6 +10,7 @@ import { Download, Printer, FilePlus2, Edit } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import Image from 'next/image';
 import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
 
 
 interface MarksheetDisplayProps {
