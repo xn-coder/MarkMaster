@@ -4,6 +4,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
+import Link from 'next/link'; // Import Link
 import { supabase } from '@/lib/supabase/client';
 import { useToast } from "@/hooks/use-toast";
 import { Button } from '@/components/ui/button';
@@ -28,7 +29,7 @@ import {
   Card,
   CardContent,
   CardHeader,
-  CardFooter // Removed CardTitle as it's not used directly here
+  CardFooter
 } from "@/components/ui/card";
 import {
   DropdownMenu,
@@ -125,20 +126,19 @@ export default function AdminDashboardPage() {
       setIsLoggingOut(false);
     } else {
       toast({ title: 'Logged Out', description: 'You have been successfully logged out.' });
+      // router.push('/login'); // onAuthStateChange will handle redirect
     }
   };
   
   const filteredStudents = useMemo(() => {
     return mockStudents.filter(student => {
       if (academicYearFilter !== 'All Academic Years' && student.academicYear !== academicYearFilter) return false;
-      // Add filtering for startYearFilter and endYearFilter if student data includes these fields
-      // For now, they don't affect filtering as mockStudent data doesn't have separate start/end year.
       if (studentIdFilter && !student.id.toLowerCase().includes(studentIdFilter.toLowerCase())) return false;
       if (studentNameFilter && !student.name.toLowerCase().includes(studentNameFilter.toLowerCase())) return false;
       if (classFilter !== 'All Classes' && student.studentClass !== classFilter) return false;
       return true;
     });
-  }, [academicYearFilter, startYearFilter, endYearFilter, studentIdFilter, studentNameFilter, classFilter]);
+  }, [academicYearFilter, studentIdFilter, studentNameFilter, classFilter]);
 
   const paginatedStudents = useMemo(() => {
     const startIndex = (currentPage - 1) * entriesPerPage;
@@ -192,12 +192,14 @@ export default function AdminDashboardPage() {
           <div className="bg-primary text-primary-foreground p-3 rounded-md shadow-md flex flex-col sm:flex-row justify-between items-center gap-2">
             <h2 className="text-xl font-semibold">STUDENT DETAILS</h2>
             <div className="flex flex-wrap gap-2">
-              <Button variant="default" size="sm" className="bg-primary text-primary-foreground hover:bg-primary/90">
+              <Button variant="default" size="sm" className="bg-accent text-accent-foreground hover:bg-accent/90">
                 <RefreshCw className="mr-2 h-4 w-4" /> Load Student Data
               </Button>
-              <Button variant="ghost" size="sm" className="text-primary-foreground hover:bg-accent hover:text-accent-foreground">
-                <FilePlus2 className="mr-2 h-4 w-4" /> Create New
-              </Button>
+              <Link href="/marksheet/new" passHref>
+                <Button variant="ghost" size="sm" className="text-primary-foreground hover:bg-accent hover:text-accent-foreground">
+                  <FilePlus2 className="mr-2 h-4 w-4" /> Create New
+                </Button>
+              </Link>
               <Button variant="ghost" size="sm" className="text-primary-foreground hover:bg-accent hover:text-accent-foreground">
                 <Upload className="mr-2 h-4 w-4" /> Import Data
               </Button>
@@ -351,3 +353,5 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
+
+    
