@@ -51,28 +51,30 @@ import {
 interface StudentRowData {
   id: string; 
   name: string;
-  academicYear: string;
-  studentClass: string;
+  academicYear: string; // This refers to the session like "2025-2027"
+  studentClass: string; // This refers to class like "11th", "1st Year"
   faculty: string;
 }
 
 const mockStudents: StudentRowData[] = [
-  { id: '2004', name: 'Rohan', academicYear: '2025-2027', studentClass: '11th', faculty: 'SCIENCE' },
-  { id: '68532', name: 'Prashik Likhar', academicYear: '2018-2019', studentClass: '1st', faculty: 'COMMERCE' },
-  { id: '2001', name: 'Aniket', academicYear: '2021-2022', studentClass: '11th', faculty: 'ARTS' },
-  { id: '1005', name: 'Priya Sharma', academicYear: '2023-2025', studentClass: '12th', faculty: 'SCIENCE' },
-  { id: '1006', name: 'Amit Patel', academicYear: '2022-2024', studentClass: 'B.Com', faculty: 'COMMERCE' },
-  { id: '1007', name: 'Sneha Reddy', academicYear: '2024-2026', studentClass: '10th', faculty: 'GENERAL' },
-  { id: '1008', name: 'Vikram Singh', academicYear: '2023-2025', studentClass: 'B.A.', faculty: 'ARTS' },
+  { id: '2004', name: 'Rohan Kumar', academicYear: '2025-2027', studentClass: '11th', faculty: 'SCIENCE' },
+  { id: '68532', name: 'Prashik Likhar', academicYear: '2018-2019', studentClass: '1st Year', faculty: 'COMMERCE' },
+  { id: '2001', name: 'Aniket Sharma', academicYear: '2021-2022', studentClass: '11th', faculty: 'ARTS' },
+  { id: '1005', name: 'Priya Singh', academicYear: '2023-2025', studentClass: '12th', faculty: 'SCIENCE' },
+  { id: '1006', name: 'Amit Patel', academicYear: '2022-2024', studentClass: '2nd Year', faculty: 'COMMERCE' },
+  { id: '1007', name: 'Sneha Reddy', academicYear: '2024-2026', studentClass: '10th', faculty: 'GENERAL' }, // Assuming 'GENERAL' faculty if not specific
+  { id: '1008', name: 'Vikram Singh Rathore', academicYear: '2023-2025', studentClass: 'B.A.', faculty: 'ARTS' },
   { id: '1009', name: 'Sunita Devi', academicYear: '2021-2023', studentClass: '12th', faculty: 'ARTS' },
-  { id: '1010', name: 'Rajesh Kumar', academicYear: '2024-2028', studentClass: 'B.Tech', faculty: 'ENGINEERING' },
+  { id: '1010', name: 'Rajesh Kumar Verma', academicYear: '2024-2028', studentClass: 'B.Tech', faculty: 'SCIENCE' }, // Assuming ENGINEERING falls under SCIENCE
   { id: '1011', name: 'Deepika Rao', academicYear: '2025-2027', studentClass: '11th', faculty: 'COMMERCE' },
   { id: '1012', name: 'Arjun Mehta', academicYear: '2022-2023', studentClass: '10th', faculty: 'GENERAL' },
 ];
 
 const ACADEMIC_YEARS = ['All Academic Years', '2025-2027', '2024-2028', '2024-2026', '2023-2025', '2022-2024', '2022-2023', '2021-2023', '2021-2022', '2018-2019'];
-const YEARS = ['All Years', '2027', '2026', '2025', '2024', '2023', '2022', '2021', '2020', '2019', '2018'];
-const CLASSES = ['All Classes', '1st', '10th', '11th', '12th', 'B.A.', 'B.Com', 'B.Tech'];
+const START_YEARS = ['All Start Years', ...Array.from({ length: new Date().getFullYear() + 1 - 2018 + 1 }, (_, i) => (2018 + i).toString()).reverse()];
+const END_YEARS = ['All End Years', ...Array.from({ length: new Date().getFullYear() + 2 - 2019 + 1 }, (_, i) => (2019 + i).toString()).reverse()];
+const CLASSES = ['All Classes', '1st Year', '2nd Year', '3rd Year', '10th', '11th', '12th', 'B.A.', 'B.Com', 'B.Tech'];
+
 
 const dashboardSubtitle = `(Affiliated By Bihar School Examination Board, Patna)
 [Estd. - 1983] College Code: 53010
@@ -89,10 +91,10 @@ export default function AdminDashboardPage() {
   const [displayedStudents, setDisplayedStudents] = useState<StudentRowData[]>([]);
 
   const [academicYearFilter, setAcademicYearFilter] = useState('All Academic Years');
-  const [startYearFilter, setStartYearFilter] = useState('All Years');
-  const [endYearFilter, setEndYearFilter] = useState('All Years');
+  const [startYearFilter, setStartYearFilter] = useState('All Start Years');
+  const [endYearFilter, setEndYearFilter] = useState('All End Years');
   const [studentIdFilter, setStudentIdFilter] = useState('');
-  const [rollNoFilter, setRollNoFilter] = useState('');
+  // const [rollNoFilter, setRollNoFilter] = useState(''); // Roll No filter removed as per image
   const [studentNameFilter, setStudentNameFilter] = useState('');
   const [classFilter, setClassFilter] = useState('All Classes');
 
@@ -124,24 +126,27 @@ export default function AdminDashboardPage() {
   
   const handleLoadStudentData = () => {
     setIsLoadingData(true);
+    // In a real app, this would fetch from Supabase based on filters
     setTimeout(() => {
-      setDisplayedStudents(mockStudents);
+      setDisplayedStudents(mockStudents); // For now, load all mock students
+      setCurrentPage(1); // Reset to first page
       setIsLoadingData(false);
       toast({ title: "Student Data Loaded", description: "Mock student data has been loaded into the table." });
     }, 1000);
   };
 
   const filteredStudents = useMemo(() => {
-    if (displayedStudents.length === 0) return []; 
+    // if (displayedStudents.length === 0) return []; // Only filter if data is loaded
 
     return displayedStudents.filter(student => {
       if (academicYearFilter !== 'All Academic Years' && student.academicYear !== academicYearFilter) return false;
+      // Add filtering for startYearFilter and endYearFilter if academicYear is split into start/end
       if (studentIdFilter && !student.id.toLowerCase().includes(studentIdFilter.toLowerCase())) return false;
       if (studentNameFilter && !student.name.toLowerCase().includes(studentNameFilter.toLowerCase())) return false;
       if (classFilter !== 'All Classes' && student.studentClass !== classFilter) return false;
       return true;
     });
-  }, [displayedStudents, academicYearFilter, studentIdFilter, studentNameFilter, classFilter]);
+  }, [displayedStudents, academicYearFilter, startYearFilter, endYearFilter, studentIdFilter, studentNameFilter, classFilter]);
 
   const paginatedStudents = useMemo(() => {
     const startIndex = (currentPage - 1) * entriesPerPage;
@@ -152,12 +157,12 @@ export default function AdminDashboardPage() {
 
   const handleViewMarksheet = (student: StudentRowData) => {
     toast({ title: 'Action: View Marksheet', description: `Viewing marksheet for ${student.name} (ID: ${student.id})` });
-    // router.push(`/marksheet/${student.id}`); // Example navigation
+    // router.push(`/marksheet/view/${student.id}`); // Example navigation for viewing
   };
 
   const handleEditStudent = (student: StudentRowData) => {
     toast({ title: 'Action: Edit Student', description: `Editing details for ${student.name} (ID: ${student.id})` });
-    // router.push(`/student/edit/${student.id}`); // Example navigation
+    router.push(`/marksheet/edit/${student.id}`);
   };
 
   const handleDeleteStudent = (student: StudentRowData) => {
@@ -167,7 +172,8 @@ export default function AdminDashboardPage() {
       description: `Deleting student ${student.name} (ID: ${student.id}) - Placeholder`,
       variant: 'destructive' 
     });
-    // Actual deletion logic would go here
+    // Actual deletion logic would go here, e.g., call Supabase
+    // setDisplayedStudents(prev => prev.filter(s => s.id !== student.id)); // Optimistic UI update
   };
 
 
@@ -187,39 +193,39 @@ export default function AdminDashboardPage() {
       />
 
       <main className="flex-grow container mx-auto px-4 py-6 sm:px-6 lg:px-8">
-        <section className="mb-6">
-          <div className="bg-primary text-primary-foreground p-3 rounded-md shadow-md">
-            <div className="flex flex-col sm:flex-row justify-between items-center gap-2">
-              <h2 className="text-xl font-semibold">STUDENT DETAILS</h2>
-              <div className="flex flex-wrap gap-2">
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  className="text-primary-foreground hover:bg-accent hover:text-accent-foreground"
-                  onClick={handleLoadStudentData}
-                  disabled={isLoadingData}
-                >
-                  {isLoadingData ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />} Load Student Data
-                </Button>
-                <Link href="/marksheet/new" passHref>
-                  <Button variant="ghost" size="sm" className="text-primary-foreground hover:bg-accent hover:text-accent-foreground">
-                    <FilePlus2 className="mr-2 h-4 w-4" /> Create New
+         <div className="bg-primary text-primary-foreground p-3 rounded-md shadow-md mb-6">
+            <div className="container mx-auto px-0 sm:px-0 lg:px-0"> {/* No extra padding for this inner container */}
+              <div className="flex flex-col sm:flex-row justify-between items-center gap-2">
+                <h2 className="text-xl font-semibold">STUDENT DETAILS</h2>
+                <div className="flex flex-wrap gap-2">
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="text-primary-foreground hover:bg-accent hover:text-accent-foreground"
+                    onClick={handleLoadStudentData}
+                    disabled={isLoadingData}
+                  >
+                    {isLoadingData ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />} Load Student Data
                   </Button>
-                </Link>
-                <Button variant="ghost" size="sm" className="text-primary-foreground hover:bg-accent hover:text-accent-foreground">
-                  <Upload className="mr-2 h-4 w-4" /> Import Data
-                </Button>
-                <Button variant="ghost" size="sm" className="text-primary-foreground hover:bg-accent hover:text-accent-foreground">
-                  <Download className="mr-2 h-4 w-4" /> Export to Excel
-                </Button>
+                  <Link href="/marksheet/new" passHref>
+                    <Button variant="ghost" size="sm" className="text-primary-foreground hover:bg-accent hover:text-accent-foreground">
+                      <FilePlus2 className="mr-2 h-4 w-4" /> Create New
+                    </Button>
+                  </Link>
+                  <Button variant="ghost" size="sm" className="text-primary-foreground hover:bg-accent hover:text-accent-foreground">
+                    <Upload className="mr-2 h-4 w-4" /> Import Data
+                  </Button>
+                  <Button variant="ghost" size="sm" className="text-primary-foreground hover:bg-accent hover:text-accent-foreground">
+                    <Download className="mr-2 h-4 w-4" /> Export to Excel
+                  </Button>
+                </div>
               </div>
             </div>
           </div>
-        </section>
 
         <Card className="mb-6 shadow-md">
           <CardContent className="pt-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-4 items-end">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4 items-end"> {/* Adjusted to 6 columns */}
               <div>
                 <Label htmlFor="academicYear">Academic Session</Label>
                 <Select value={academicYearFilter} onValueChange={setAcademicYearFilter}>
@@ -232,18 +238,18 @@ export default function AdminDashboardPage() {
               <div>
                 <Label htmlFor="startYear">Start Year</Label>
                 <Select value={startYearFilter} onValueChange={setStartYearFilter}>
-                  <SelectTrigger id="startYear"><SelectValue /></SelectTrigger>
+                  <SelectTrigger id="startYear"><SelectValue placeholder="Start Year" /></SelectTrigger>
                   <SelectContent>
-                    {YEARS.map(year => <SelectItem key={year} value={year}>{year}</SelectItem>)}
+                    {START_YEARS.map(year => <SelectItem key={year} value={year}>{year}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
               <div>
                 <Label htmlFor="endYear">End Year</Label>
                 <Select value={endYearFilter} onValueChange={setEndYearFilter}>
-                  <SelectTrigger id="endYear"><SelectValue /></SelectTrigger>
+                  <SelectTrigger id="endYear"><SelectValue placeholder="End Year" /></SelectTrigger>
                   <SelectContent>
-                    {YEARS.map(year => <SelectItem key={year} value={year}>{year}</SelectItem>)}
+                    {END_YEARS.map(year => <SelectItem key={year} value={year}>{year}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
@@ -251,10 +257,7 @@ export default function AdminDashboardPage() {
                 <Label htmlFor="studentCollegeId">Student College Id</Label>
                 <Input id="studentCollegeId" placeholder="Student Id" value={studentIdFilter} onChange={e => setStudentIdFilter(e.target.value)} />
               </div>
-              <div>
-                <Label htmlFor="rollNo">Roll No.</Label>
-                <Input id="rollNo" placeholder="Roll No." value={rollNoFilter} onChange={e => setRollNoFilter(e.target.value)} />
-              </div>
+              {/* Roll No. filter removed to match image */}
               <div>
                 <Label htmlFor="studentName">Student Name</Label>
                 <Input id="studentName" placeholder="Student Name" value={studentNameFilter} onChange={e => setStudentNameFilter(e.target.value)} />
@@ -324,7 +327,7 @@ export default function AdminDashboardPage() {
                   )) : (
                     <TableRow>
                       <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
-                        {displayedStudents.length === 0 && !isLoadingData ? 'Click "Load Student Data" above to view marksheet history, or use filters to search.' :
+                        {displayedStudents.length === 0 && !isLoadingData && !filteredStudents.length ? 'Click "Load Student Data" above to view marksheet history, or use filters to search.' :
                          isLoadingData ? 'Loading student data...' : 'No students found matching your filters.'}
                       </TableCell>
                     </TableRow>
@@ -358,4 +361,3 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
-

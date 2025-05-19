@@ -13,6 +13,11 @@ import { Loader2, ArrowLeft } from 'lucide-react';
 import { format } from 'date-fns';
 import { AppHeader } from '@/components/app/app-header';
 
+const defaultPageSubtitle = `(Affiliated By Bihar School Examination Board, Patna)
+[Estd. - 1983] College Code: 53010
+Chitragupta Nagar, Mohanpur, Samastipur, Bihar - 848101
+www.saryugcollege.com`;
+
 export default function NewMarksheetPage() {
   const router = useRouter();
   const { toast } = useToast();
@@ -24,14 +29,12 @@ export default function NewMarksheetPage() {
   const [footerYear, setFooterYear] = useState<number | null>(null);
 
   useEffect(() => {
-    // This effect runs once on mount, client-side only
     const checkAuthentication = async () => {
-      // setAuthStatus('loading'); // Initial state is 'loading'
       const { data: { session }, error } = await supabase.auth.getSession();
 
       if (error) {
         console.error("Authentication error on new marksheet page:", error.message);
-        setAuthStatus('unauthenticated'); // Treat error as unauthenticated
+        setAuthStatus('unauthenticated'); 
       } else if (!session) {
         setAuthStatus('unauthenticated');
       } else {
@@ -40,14 +43,13 @@ export default function NewMarksheetPage() {
     };
 
     checkAuthentication();
-  }, []); // Empty dependency array ensures it runs once on mount
+  }, []); 
 
   useEffect(() => {
-    // This effect handles redirection based on authStatus and sets footerYear
     if (authStatus === 'unauthenticated') {
       router.push('/login');
     } else if (authStatus === 'authenticated') {
-      setFooterYear(new Date().getFullYear()); // Set footer year once authenticated
+      setFooterYear(new Date().getFullYear()); 
     }
   }, [authStatus, router]);
 
@@ -98,7 +100,7 @@ export default function NewMarksheetPage() {
       subjects: subjectsDisplay,
       marksheetNo: generateMarksheetNo(data.faculty, data.rollNumber, data.sessionEndYear),
       sessionDisplay: `${data.sessionStartYear}-${data.sessionEndYear}`,
-      classDisplay: `${data.academicYear} (${data.section})`, // Academic Year now holds values like "11th", "1st Year"
+      classDisplay: `${data.academicYear} (${data.section})`, 
       aggregateMarksCompulsoryElective,
       totalPossibleMarksCompulsoryElective,
       overallResult,
@@ -131,6 +133,7 @@ export default function NewMarksheetPage() {
 
   const handleCreateNew = () => {
     setMarksheetData(null); 
+    // Potentially reset form if form component instance is kept alive
   };
 
   if (authStatus === 'loading') {
@@ -143,7 +146,6 @@ export default function NewMarksheetPage() {
   }
 
   if (authStatus === 'unauthenticated') {
-    // This state should be brief as the redirect effect will kick in.
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -152,12 +154,11 @@ export default function NewMarksheetPage() {
     );
   }
 
-  // authStatus === 'authenticated'
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
       <AppHeader 
-        pageTitle="Create New Marksheet"
-        pageSubtitle="Enter Student and Subject Details"
+        pageTitle="SARYUG COLLEGE" // Standard college title
+        pageSubtitle={defaultPageSubtitle} // Standard college subtitle
         customRightContent={
           <Button variant="outline" onClick={() => router.push('/')} size="sm">
             <ArrowLeft className="mr-2 h-4 w-4" /> Back to Dashboard
@@ -166,6 +167,15 @@ export default function NewMarksheetPage() {
       />
       
       <main className="flex-grow container mx-auto px-4 py-8 sm:px-6 lg:px-8">
+        <div className="mb-6 text-center">
+          <h1 className="text-2xl font-bold text-primary">
+            {marksheetData ? 'Marksheet Preview' : 'Create New Marksheet'}
+          </h1>
+          <p className="text-muted-foreground">
+            {marksheetData ? 'Review the generated marksheet below.' : 'Enter Student and Subject Details to generate a marksheet.'}
+          </p>
+        </div>
+
         {!marksheetData ? (
           <MarksheetForm onSubmit={handleFormSubmit} isLoading={isLoadingFormSubmission} />
         ) : (
