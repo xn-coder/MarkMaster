@@ -29,8 +29,8 @@ export function MarksheetDisplay({ data, onCreateNew, isViewMode = false }: Mark
   const additionalSubjects = data.subjects.filter(s => s.category === 'Additional');
 
   const collegeNameColor = "#032781";
-  const marksheetBannerBgColor = "#DB2A2A"; 
-  const marksheetBannerTextColor = "#FFFFFF"; // White text for MARKSHEET banner
+  const marksheetBannerBgColor = "#DB2A2A";
+  const marksheetBannerTextColor = "#FFFFFF";
 
   return (
     <div className="print:p-0 print:m-0">
@@ -48,19 +48,18 @@ export function MarksheetDisplay({ data, onCreateNew, isViewMode = false }: Mark
 
             {/* Header Section */}
             <header className="mb-2 print:mb-1.5">
-              <div className="flex flex-col items-center justify-center mb-1 print:mb-0.5"> {/* Centering container */}
-                <div className="flex items-center"> {/* Logo + Details block */}
+              <div className="flex flex-col items-center justify-center mb-1 print:mb-0.5">
+                <div className="flex items-center">
                     <div className="flex-shrink-0 mr-3 print:mr-2">
                         <Image 
                             src="/college-logo.png"
                             alt="College Logo" 
-                            width={70} 
-                            height={70}
+                            width={80} 
+                            height={80}
                             className=""
                             data-ai-hint="college logo" 
                         />
                     </div>
-                    {/* College Name and Details - Text aligned left within this block */}
                     <div className="flex flex-col text-left">
                         <h1 className="text-2xl font-bold print:text-xl leading-tight font-serif" style={{ color: collegeNameColor }}>SARYUG COLLEGE</h1>
                         <p className="text-sm font-semibold text-black print:text-xs leading-tight mt-0.5 font-sans">Chitragupta Nagar, Mohanpur, Samastipur, Bihar - 848101</p>
@@ -69,9 +68,9 @@ export function MarksheetDisplay({ data, onCreateNew, isViewMode = false }: Mark
                     </div>
                 </div>
               </div>
-              <div className="text-center mt-2 print:mt-1">
+              <div className="text-center mt-2 print:mt-1 mb-2 print:mb-1.5">
                 <div 
-                  className="inline-block text-white px-8 py-1.5 rounded font-bold text-lg print:px-6 print:py-1 print:text-base"
+                  className="inline-block px-8 py-1.5 rounded font-bold text-lg print:px-6 print:py-1 print:text-base"
                   style={{ backgroundColor: marksheetBannerBgColor, color: marksheetBannerTextColor }}
                 >
                     MARKSHEET
@@ -86,22 +85,22 @@ export function MarksheetDisplay({ data, onCreateNew, isViewMode = false }: Mark
             </div>
             
             {/* Main Content Area - this div grows */}
-            <div className="flex-grow flex flex-col space-y-1.5 text-sm print:text-[10px] font-sans"> {/* Base font for student details */}
-              <div className="grid grid-cols-2 gap-x-6 gap-y-1 mb-2 print:mb-1.5">
-                <div><strong>Student Name:</strong> {data.studentName}</div>
-                <div><strong>Marksheet No:</strong> {data.marksheetNo}</div>
-                <div><strong>Father Name:</strong> {data.fatherName}</div>
-                <div><strong>Mother Name:</strong> {data.motherName}</div>
-                <div><strong>Session:</strong> {data.sessionDisplay}</div>
-                <div><strong>Roll No:</strong> {data.rollNumber}</div>
-                <div><strong>Date of Birth:</strong> {format(new Date(data.dateOfBirth), "dd-MM-yyyy")}</div>
-                <div><strong>Gender:</strong> {data.gender}</div>
-                <div><strong>Faculty:</strong> {data.faculty}</div>
-                <div><strong>Class:</strong> {data.classDisplay}</div>
+            <div className="flex-grow flex flex-col space-y-1.5 text-sm print:text-[10px] font-sans mb-2 print:mb-1.5">
+              <div className="grid grid-cols-2 gap-x-6 gap-y-1 mb-3 print:mb-2">
+                <div>Student Name: <strong className="font-semibold">{data.studentName}</strong></div>
+                <div>Marksheet No: <strong className="font-semibold">{data.marksheetNo}</strong></div>
+                <div>Father Name: <strong className="font-semibold">{data.fatherName}</strong></div>
+                <div>Mother Name: <strong className="font-semibold">{data.motherName}</strong></div>
+                <div>Session: <strong className="font-semibold">{data.sessionDisplay}</strong></div>
+                <div>Roll No: <strong className="font-semibold">{data.rollNumber}</strong></div>
+                <div>Date of Birth: <strong className="font-semibold">{format(new Date(data.dateOfBirth), "dd-MM-yyyy")}</strong></div>
+                <div>Gender: <strong className="font-semibold">{data.gender}</strong></div>
+                <div>Faculty: <strong className="font-semibold">{data.faculty}</strong></div>
+                <div>Class: <strong className="font-semibold">{data.classDisplay}</strong></div>
               </div>
 
               {/* Table Section - this section grows */}
-              <section className="flex-grow flex flex-col">
+              <section className="flex-grow flex flex-col mb-3 print:mb-2">
                 <div className="overflow-x-auto flex-grow">
                   <Table className="border border-black border-collapse print:text-[9px] w-full">
                     <TableHeader className="print:bg-gray-100">
@@ -183,15 +182,15 @@ export function MarksheetDisplay({ data, onCreateNew, isViewMode = false }: Mark
 
               <div className="grid grid-cols-2 items-start mt-1.5 print:mt-1 text-sm print:text-[10px]">
                 <div>
-                    <div><strong>Result:</strong> <span className={cn("font-semibold", data.overallResult === "Pass" ? "text-green-700" : "text-red-700")}>{data.overallResult} ({data.overallPercentageDisplay.toFixed(2)}%)</span></div>
-                    <div><strong>Place:</strong> {data.place}</div>
+                    <div>Result: <strong className={cn("font-semibold", data.overallResult === "Pass" ? "text-green-700" : "text-red-700")}>{data.overallResult} ({data.overallPercentageDisplay.toFixed(2)}%)</strong></div>
+                    <div>Place: <strong className="font-semibold">{data.place}</strong></div>
                 </div>
-                <div className="text-right"><strong>Date of Issue:</strong> {data.dateOfIssue}</div>
+                <div className="text-right">Date of Issue: <strong className="font-semibold">{data.dateOfIssue}</strong></div>
               </div>
             </div> {/* End flex-grow content area */}
             
             {/* Signature Section - Pushed to bottom */}
-            <div className="mt-auto pt-10 print:pt-8"> {/* Increased padding-top for more space */}
+            <div className="mt-auto pt-10 print:pt-8">
                 <div className="flex justify-between text-sm print:text-[10px]">
                     <div className="text-center">
                         <hr className="border-black print:border-black mb-1 w-48 mx-auto" />
@@ -262,6 +261,7 @@ export function MarksheetDisplay({ data, onCreateNew, isViewMode = false }: Mark
           .print\\:mb-0\\.5 { margin-bottom: 0.125rem !important; }
           .print\\:mb-1 { margin-bottom: 0.25rem !important; }
           .print\\:mb-1\\.5 { margin-bottom: 0.375rem !important; }
+          .print\\:mb-2 { margin-bottom: 0.5rem !important; }
           .print\\:mt-0 { margin-top: 0rem !important; }
           .print\\:mt-0\\.5 { margin-top: 0.125rem !important; }
           .print\\:mt-1 { margin-top: 0.25rem !important; }
