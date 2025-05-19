@@ -26,12 +26,11 @@ const mockStudentDatabase: Record<string, Partial<MarksheetFormData>> = {
     academicYear: '11th',
     section: 'A',
     sessionStartYear: 2025,
-    // sessionEndYear: 2027, // This will be derived
     overallPassingThresholdPercentage: 33,
     subjects: [
       { subjectName: 'Physics', category: 'Compulsory', totalMarks: 100, passMarks: 33, theoryMarksObtained: 60, practicalMarksObtained: 25 },
       { subjectName: 'Chemistry', category: 'Compulsory', totalMarks: 100, passMarks: 33, theoryMarksObtained: 55, practicalMarksObtained: 28 },
-      { subjectName: 'Maths', category: 'Compulsory', totalMarks: 100, passMarks: 33, theoryMarksObtained: 70, practicalMarksObtained: 0 },
+      { subjectName: 'Mathematics', category: 'Compulsory', totalMarks: 100, passMarks: 33, theoryMarksObtained: 70, practicalMarksObtained: 0 },
       { subjectName: 'English', category: 'Elective', totalMarks: 100, passMarks: 33, theoryMarksObtained: 65, practicalMarksObtained: 0 },
     ],
   },
@@ -53,7 +52,6 @@ const mockStudentDatabase: Record<string, Partial<MarksheetFormData>> = {
       { subjectName: 'Economics', category: 'Compulsory', totalMarks: 100, passMarks: 40, theoryMarksObtained: 72, practicalMarksObtained: 0 },
     ],
   },
-  // Add other mock students here if needed for testing
 };
 
 
@@ -94,19 +92,17 @@ export default function EditMarksheetPage() {
       router.push('/login');
     } else if (authStatus === 'authenticated') {
       setFooterYear(new Date().getFullYear());
-      // Fetch student data once authenticated and studentId is available
       if (studentId) {
-        // Simulate fetching data
         setTimeout(() => {
           const data = mockStudentDatabase[studentId];
           if (data) {
             setInitialData(data);
           } else {
             toast({ title: 'Error', description: 'Student data not found.', variant: 'destructive' });
-            router.push('/'); // Redirect if student not found
+            router.push('/'); 
           }
           setIsLoadingData(false);
-        }, 500); // Simulate network delay
+        }, 500); 
       }
     }
   }, [authStatus, router, studentId, toast]);
@@ -155,7 +151,7 @@ export default function EditMarksheetPage() {
     return {
       ...data,
       subjects: subjectsDisplay,
-      marksheetNo: generateMarksheetNo(data.faculty, data.rollNumber, data.sessionEndYear), // Or use existing if available
+      marksheetNo: generateMarksheetNo(data.faculty, data.rollNumber, data.sessionEndYear),
       sessionDisplay: `${data.sessionStartYear}-${data.sessionEndYear}`,
       classDisplay: `${data.academicYear} (${data.section})`, 
       aggregateMarksCompulsoryElective,
@@ -170,7 +166,6 @@ export default function EditMarksheetPage() {
   const handleFormSubmit = async (data: MarksheetFormData) => {
     setIsLoadingFormSubmission(true);
     try {
-      // In a real app, here you would send data to Supabase to update the student's record
       const processedData = processFormData(data);
       setMarksheetData(processedData);
       toast({
@@ -190,12 +185,11 @@ export default function EditMarksheetPage() {
   };
 
   const handleCreateNewFromPreview = () => {
-    // This might redirect to /marksheet/new or just clear the current preview
     router.push('/marksheet/new'); 
   };
   
   const handleBackToForm = () => {
-    setMarksheetData(null); // Go back to showing the form
+    setMarksheetData(null); 
   }
 
 
@@ -218,7 +212,6 @@ export default function EditMarksheetPage() {
   }
   
   if (authStatus === 'authenticated' && !isLoadingData && !initialData) {
-    // This case handles if studentId was invalid or data couldn't be found
      return (
       <div className="min-h-screen bg-background text-foreground flex flex-col">
         <AppHeader 

@@ -133,7 +133,6 @@ export default function NewMarksheetPage() {
 
   const handleCreateNew = () => {
     setMarksheetData(null); 
-    // Potentially reset form if form component instance is kept alive
   };
 
   if (authStatus === 'loading') {
@@ -157,8 +156,8 @@ export default function NewMarksheetPage() {
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
       <AppHeader 
-        pageTitle="SARYUG COLLEGE" // Standard college title
-        pageSubtitle={defaultPageSubtitle} // Standard college subtitle
+        pageTitle="SARYUG COLLEGE"
+        pageSubtitle={defaultPageSubtitle}
         customRightContent={
           <Button variant="outline" onClick={() => router.push('/')} size="sm">
             <ArrowLeft className="mr-2 h-4 w-4" /> Back to Dashboard
@@ -192,3 +191,4 @@ export default function NewMarksheetPage() {
     </div>
   );
 }
+

@@ -4,9 +4,9 @@
 import type * as React from 'react';
 import type { MarksheetDisplayData } from '@/types';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardFooter } from '@/components/ui/card'; // Removed CardTitle for now
+import { Card, CardContent, CardHeader, CardFooter } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Download, Printer, FilePlus2, Edit } from 'lucide-react';
+import { Download, Printer, FilePlus2 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import Image from 'next/image';
 import { format } from 'date-fns';
@@ -16,7 +16,6 @@ import { cn } from '@/lib/utils';
 interface MarksheetDisplayProps {
   data: MarksheetDisplayData;
   onCreateNew: () => void;
-  // onEdit?: () => void; // Optional: if we want an edit button
 }
 
 export function MarksheetDisplay({ data, onCreateNew }: MarksheetDisplayProps) {
@@ -36,7 +35,7 @@ export function MarksheetDisplay({ data, onCreateNew }: MarksheetDisplayProps) {
         <header className="text-center mb-4">
           <div className="flex justify-center items-center mb-2">
             <Image 
-                src="/college-logo.png" // Assuming logo is in public folder
+                src="/college-logo.png"
                 alt="College Logo" 
                 width={60} 
                 height={60} 
@@ -77,7 +76,7 @@ export function MarksheetDisplay({ data, onCreateNew }: MarksheetDisplayProps) {
               <Table className="border border-collapse print:text-xs">
                 <TableHeader className="bg-muted/50 print:bg-gray-200">
                   <TableRow>
-                    <TableHead className="w-[50px] border font-semibold print:border-black">Sr. no.</TableHead>
+                    <TableHead className="w-[50px] border font-semibold print:border-black text-center">Sr. no.</TableHead>
                     <TableHead className="border font-semibold print:border-black">Subject</TableHead>
                     <TableHead className="text-center border font-semibold print:border-black">Total Marks</TableHead>
                     <TableHead className="text-center border font-semibold print:border-black">Passing Marks</TableHead>
@@ -166,9 +165,6 @@ export function MarksheetDisplay({ data, onCreateNew }: MarksheetDisplayProps) {
         <Button variant="outline" onClick={onCreateNew}>
           <FilePlus2 className="mr-2 h-4 w-4" /> Create New
         </Button>
-        {/* <Button variant="outline" onClick={onEdit} disabled> // Future: Edit functionality
-          <Edit className="mr-2 h-4 w-4" /> Edit Marksheet
-        </Button> */}
         <Button variant="outline" onClick={() => alert('PDF Download to be implemented.')}>
           <Download className="mr-2 h-4 w-4" /> Download PDF
         </Button>
@@ -205,7 +201,6 @@ export function MarksheetDisplay({ data, onCreateNew }: MarksheetDisplayProps) {
           .print\\:p-2 { padding: 0.5rem !important; }
           .print\\:mt-12 { margin-top: 3rem !important; }
           .print\\:pt-6 { padding-top: 1.5rem !important; }
-          /* Ensure Card border is visible */
           .print\\:shadow-none { box-shadow: none !important; }
 
         }
