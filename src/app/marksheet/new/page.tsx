@@ -16,23 +16,54 @@ import Image from 'next/image';
 export default function NewMarksheetPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const [isAuthLoading, setIsAuthLoading] = useState(true);
+
   const [isClient, setIsClient] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const [authStatus, setAuthStatus] = useState<'loading' | 'authenticated' | 'unauthenticated'>('loading');
+  
+  const [isLoading, setIsLoading] = useState(false); // For form submission
   const [marksheetData, setMarksheetData] = useState<MarksheetDisplayData | null>(null);
+  const [footerYear, setFooterYear] = useState<number | null>(null);
 
   useEffect(() => {
     setIsClient(true);
-    const checkAuth = async () => {
+  }, []);
+
+  useEffect(() => {
+    if (!isClient) {
+      return; // Don't run auth check until client is ready
+    }
+
+    const checkAuthentication = async () => {
+      setAuthStatus('loading'); // Set to loading before the async operation
       const { data: { session }, error } = await supabase.auth.getSession();
-      if (error || !session) {
-        router.push('/login');
+
+      if (error) {
+        console.error("Authentication error on new marksheet page:", error.message);
+        // You might want a toast here, but be careful with toasts during initial load/redirect cycles
+        // toast({ title: "Authentication Error", description: "Failed to verify session.", variant: "destructive" });
+        setAuthStatus('unauthenticated');
+      } else if (!session) {
+        setAuthStatus('unauthenticated');
       } else {
-        setIsAuthLoading(false);
+        setAuthStatus('authenticated');
       }
     };
-    checkAuth();
-  }, [router]);
+
+    checkAuthentication();
+  }, [isClient]); // Effect runs when isClient changes
+
+  useEffect(() => {
+    if (authStatus === 'unauthenticated') {
+      router.push('/login');
+    }
+  }, [authStatus, router]);
+
+  useEffect(() => {
+    if (isClient) {
+      setFooterYear(new Date().getFullYear());
+    }
+  }, [isClient]);
+
 
   const generateMarksheetNo = (faculty: string, rollNumber: string, sessionEndYear: number): string => {
     const facultyCode = faculty.substring(0, 2).toUpperCase();
@@ -76,7 +107,6 @@ export default function NewMarksheetPage() {
         }
     }
 
-
     return {
       ...data,
       subjects: subjectsDisplay,
@@ -94,8 +124,6 @@ export default function NewMarksheetPage() {
 
   const handleFormSubmit = async (data: MarksheetFormData) => {
     setIsLoading(true);
-    // In a real app, you'd save this to a database
-    // For now, we just process and display
     try {
       const processedData = processFormData(data);
       setMarksheetData(processedData);
@@ -119,7 +147,8 @@ export default function NewMarksheetPage() {
     setMarksheetData(null); // Reset to show the form again
   };
 
-  if (!isClient || isAuthLoading) {
+  // Show loader if client isn't ready or auth is still loading
+  if (!isClient || authStatus === 'loading') {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -127,6 +156,17 @@ export default function NewMarksheetPage() {
     );
   }
 
+  // If unauthenticated, show loader/redirect message while router.push takes effect
+  if (authStatus === 'unauthenticated') {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-background">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        <p className="ml-2 text-muted-foreground">Redirecting to login...</p>
+      </div>
+    );
+  }
+
+  // If authenticated, render the page content
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
       <header className="bg-secondary text-secondary-foreground py-3 shadow-sm print:hidden">
@@ -165,11 +205,10 @@ export default function NewMarksheetPage() {
 
       <footer className="py-4 border-t border-border mt-auto print:hidden">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 text-center text-xs text-muted-foreground">
-            <p>Copyright ©{new Date().getFullYear()} by Saryug College, Samastipur, Bihar. Design By Mantix.</p>
+            {footerYear && <p>Copyright ©{footerYear} by Saryug College, Samastipur, Bihar. Design By Mantix.</p>}
+            {!footerYear && <p>Copyright by Saryug College, Samastipur, Bihar. Design By Mantix.</p>}
         </div>
       </footer>
     </div>
   );
 }
-
-    
