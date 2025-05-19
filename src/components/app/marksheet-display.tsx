@@ -34,102 +34,103 @@ export function MarksheetDisplay({ data, onCreateNew, isViewMode = false }: Mark
           <Image
             src="/college-logo.png"
             alt="College Watermark"
-            width={350} 
+            width={350}
             height={350}
             className="opacity-10 print:opacity-10"
             data-ai-hint="college logo"
           />
         </div>
 
-        <div className="border border-black print:border-black p-3 print:p-2.5 flex flex-col h-full relative z-10"> {/* Content above watermark */}
-          
-          <header className="mb-1 print:mb-0.5 relative">
-            <div className="flex justify-between items-start mb-1 print:mb-0.5">
-                <div className="flex-shrink-0">
-                    <Image 
-                        src="/college-logo.png"
-                        alt="College Logo" 
-                        width={80} 
-                        height={80}
-                        className=""
-                        data-ai-hint="college logo" 
-                    />
-                </div>
-                <div className="flex-grow text-center px-2">
-                    <h1 className="font-serif font-bold text-2xl print:text-xl" style={{ color: '#032781' }}>SARYUG COLLEGE</h1>
-                    <p className="font-sans text-sm print:text-xs text-black font-semibold">
-                      Chitragupta Nagar, Mohanpur, Samastipur, Bihar - 848101
-                    </p>
-                    <p className="font-sans text-xs print:text-[10px] text-black">
-                      Affiliated By Bihar School Examination Board | [Estd. - 1983]
-                    </p>
-                    <p className="font-sans font-bold text-xs print:text-[10px] text-black mt-0.5">College Code: {data.collegeCode}</p>
-                </div>
-                <div className="flex-shrink-0 w-[80px] text-right"> {/* Spacer, or for website link */}
-                     <a 
-                        href="http://www.saryugcollege.com" 
-                        target="_blank" 
-                        rel="noopener noreferrer" 
-                        className="font-sans text-[10px] print:text-[8px] text-blue-600 hover:underline"
-                    >
-                        www.saryugcollege.com
-                    </a>
-                </div>
+        <div className="border border-black print:border-black p-3 print:p-2.5 flex flex-col h-full relative z-10">
+          {/* Header Section */}
+          <header className="relative mb-1 print:mb-0.5">
+            <div className="absolute top-0 right-0 text-[10px] print:text-[8px] text-blue-600 hover:underline">
+              <a
+                href="http://www.saryugcollege.com"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                www.saryugcollege.com
+              </a>
             </div>
-            
+
+            <div className="flex flex-col items-center w-full mb-1 print:mb-0">
+              <div className="flex items-center justify-center w-full">
+                <div className="flex-shrink-0 mr-3 print:mr-2">
+                  <Image
+                    src="/college-logo.png"
+                    alt="College Logo"
+                    width={70}
+                    height={70}
+                    className=""
+                    data-ai-hint="college logo"
+                  />
+                </div>
+                <div className="text-left">
+                  <h1 className="font-serif font-bold text-2xl print:text-xl" style={{ color: '#032781' }}>SARYUG COLLEGE</h1>
+                  <p className="font-sans text-sm print:text-xs text-black font-semibold">
+                    Chitragupta Nagar, Mohanpur, Samastipur, Bihar - 848101
+                  </p>
+                  <p className="font-sans text-xs print:text-[10px] text-black">
+                    Affiliated By Bihar School Examination Board | [Estd. - 1983]
+                  </p>
+                  <p className="font-sans font-bold text-xs print:text-[10px] text-black mt-0.5">College Code: {data.collegeCode}</p>
+                </div>
+              </div>
+            </div>
+
             <div className="text-center mt-1 print:mt-0.5 mb-2 print:mb-1">
-                <div 
+              <div
                 className="rounded-md inline-block mx-auto"
                 style={{ backgroundColor: '#DB2A2A' }}
+              >
+                <h2
+                  className="text-white text-base print:text-sm font-bold uppercase px-4 py-1"
                 >
-                <h2 
-                    className="text-white text-base print:text-sm font-bold uppercase px-4 py-1"
-                >
-                    MARKSHEET
+                  MARKSHEET
                 </h2>
-                </div>
+              </div>
             </div>
           </header>
 
           <h3 className="text-center font-bold text-lg print:text-base underline decoration-1 underline-offset-2 mb-2 print:mb-1.5 text-black">Student Details</h3>
-          {/* Removed hr from here */}
-          
+
           <div className="mb-3 print:mb-2 grid grid-cols-2 gap-x-6 gap-y-1 text-sm print:text-xs font-sans text-black">
             <div>Student Name: <strong className="font-semibold">{data.studentName}</strong></div>
             <div className="text-right">Marksheet No: <strong className="font-semibold">{data.marksheetNo}</strong></div>
-            
+
             <div>Father Name: <strong className="font-semibold">{data.fatherName}</strong></div>
             <div className="text-right">Mother Name: <strong className="font-semibold">{data.motherName}</strong></div>
 
             <div>Session: <strong className="font-semibold">{data.sessionDisplay}</strong></div>
             <div className="text-right">Roll No: <strong className="font-semibold">{data.rollNumber}</strong></div>
-            
+
             <div>Date of Birth: <strong className="font-semibold">{format(new Date(data.dateOfBirth), "dd-MM-yyyy")}</strong></div>
             <div className="text-right">Gender: <strong className="font-semibold">{data.gender}</strong></div>
-            
+
             <div>Faculty: <strong className="font-semibold">{data.faculty}</strong></div>
             <div className="text-right">Class: <strong className="font-semibold">{data.classDisplay}</strong></div>
           </div>
-          
+
           <section className="flex-grow flex flex-col mb-3 print:mb-2">
             <div className="overflow-x-auto flex-grow">
-              <Table className="border border-black border-collapse w-full text-xs print:text-[10px]">
+              <Table className="border-collapse w-full">
                 <TableHeader className="bg-gray-100 print:bg-gray-100">
                   <TableRow className="border-b border-black hover:bg-transparent print:hover:bg-transparent dark:hover:bg-inherit">
-                    <TableHead className="w-[8%] border border-black font-bold text-black text-center align-middle p-0.5 print:p-0.25">Sr. no.</TableHead>
-                    <TableHead className="min-w-[25%] border border-black font-bold text-black text-center align-middle p-0.5 print:p-0.25">Subject</TableHead>
-                    <TableHead className="w-[12%] text-center border border-black font-bold text-black align-middle p-0.5 print:p-0.25">Total Marks</TableHead>
-                    <TableHead className="w-[12%] text-center border border-black font-bold text-black align-middle p-0.5 print:p-0.25">Passing Marks</TableHead>
-                    <TableHead colSpan={2} className="w-[24%] text-center border border-black font-bold text-black align-middle p-0.5 print:p-0.25 text-xs print:text-[9px]">Marks Obtained</TableHead>
-                    <TableHead className="w-[14%] text-center border border-black font-bold text-black align-middle p-0.5 print:p-0.25">Total</TableHead>
+                    <TableHead className="w-[8%] border border-black font-bold text-black text-center align-middle p-1 print:p-0.5 text-xs print:text-[10px]">Sr. no.</TableHead>
+                    <TableHead className="min-w-[25%] border border-black font-bold text-black text-center align-middle p-1 print:p-0.5 text-xs print:text-[10px]">Subject</TableHead>
+                    <TableHead className="w-[12%] text-center border border-black font-bold text-black align-middle p-1 print:p-0.5 text-xs print:text-[10px]">Total Marks</TableHead>
+                    <TableHead className="w-[12%] text-center border border-black font-bold text-black align-middle p-1 print:p-0.5 text-xs print:text-[10px]">Passing Marks</TableHead>
+                    <TableHead colSpan={2} className="w-[24%] text-center border border-black font-bold text-black align-middle p-1 print:p-0.5 text-xs print:text-[10px]">Marks Obtained</TableHead>
+                    <TableHead className="w-[14%] text-center border border-black font-bold text-black align-middle p-1 print:p-0.5 text-xs print:text-[10px]">Total</TableHead>
                   </TableRow>
                   <TableRow className="border-b border-black bg-gray-100 print:bg-gray-100 hover:bg-transparent print:hover:bg-transparent dark:hover:bg-inherit">
                     <TableHead className="border border-black p-0.5 print:p-0.25"></TableHead>
                     <TableHead className="border border-black p-0.5 print:p-0.25"></TableHead>
                     <TableHead className="border border-black p-0.5 print:p-0.25"></TableHead>
                     <TableHead className="border border-black p-0.5 print:p-0.25"></TableHead>
-                    <TableHead className="text-center border border-black font-bold text-black align-middle p-0.5 print:p-0.25 text-xs print:text-[9px]">Theory</TableHead>
-                    <TableHead className="text-center border border-black font-bold text-black align-middle p-0.5 print:p-0.25 text-xs print:text-[9px]">Practical</TableHead>
+                    <TableHead className="text-center border border-black font-bold text-black align-middle p-1 print:p-0.5 text-xs print:text-[10px]">Theory</TableHead>
+                    <TableHead className="text-center border border-black font-bold text-black align-middle p-1 print:p-0.5 text-xs print:text-[10px]">Practical</TableHead>
                     <TableHead className="border border-black p-0.5 print:p-0.25"></TableHead>
                   </TableRow>
                 </TableHeader>
@@ -150,7 +151,7 @@ export function MarksheetDisplay({ data, onCreateNew, isViewMode = false }: Mark
                       <TableCell className="text-right border border-black p-0.5 print:p-0.25 font-bold text-black">{subject.obtainedTotal}</TableCell>
                     </TableRow>
                   ))}
-                  
+
                   {electiveSubjects.length > 0 && (
                     <TableRow className="font-bold bg-transparent hover:bg-transparent print:hover:bg-transparent dark:hover:bg-inherit">
                       <TableCell colSpan={7} className="border-x border-black py-0.5 px-1 print:py-0.25 print:px-0.5 text-left text-xs print:text-[10px] text-black">ELECTIVE SUBJECTS</TableCell>
@@ -184,24 +185,24 @@ export function MarksheetDisplay({ data, onCreateNew, isViewMode = false }: Mark
                       <TableCell className="text-right border border-black p-0.5 print:p-0.25 font-bold text-black">{subject.obtainedTotal}</TableCell>
                     </TableRow>
                   ))}
-                  
-                  <TableRow className="border-t-2 border-black h-[26px] print:h-[24px] hover:bg-transparent print:hover:bg-transparent dark:hover:bg-inherit font-bold text-sm print:text-xs">
-                    <TableCell colSpan={6} className="text-right border-x border-black p-1 print:p-0.5 pr-2 print:pr-1.5 text-black">AGGREGATE (Compulsory + Elective)</TableCell>
-                    <TableCell className="text-right border border-black p-1 print:p-0.5 text-black">{data.aggregateMarksCompulsoryElective}</TableCell>
+
+                  <TableRow className="border-t-2 border-black h-[26px] print:h-[24px] hover:bg-transparent print:hover:bg-transparent dark:hover:bg-inherit">
+                    <TableCell colSpan={6} className="text-right border-x border-black p-1 print:p-0.5 pr-2 print:pr-1.5 font-bold text-sm print:text-xs text-black">AGGREGATE (Compulsory + Elective)</TableCell>
+                    <TableCell className="text-right border border-black p-1 print:p-0.5 font-bold text-sm print:text-xs text-black">{data.aggregateMarksCompulsoryElective}</TableCell>
                   </TableRow>
                 </TableBody>
               </Table>
             </div>
           </section>
-          
+
           <div className="mt-2 print:mt-1 text-sm print:text-xs text-black">
+            <div className="mb-1">Result: <strong className={cn("font-semibold", data.overallResult === "Pass" ? "text-green-600 print:text-green-600" : "text-red-600 print:text-red-600")}>{data.overallResult} ({data.overallPercentageDisplay.toFixed(2)}%)</strong></div>
             <div className="flex justify-between items-center">
-                <div>Result: <strong className={cn("font-bold", data.overallResult === "Pass" ? "text-green-600 print:text-green-600" : "text-red-600 print:text-red-600")}>{data.overallResult} ({data.overallPercentageDisplay.toFixed(2)}%)</strong></div>
-                <div className="text-right">Place: <strong className="font-bold">{data.place}</strong></div>
+                <div>Place: <strong className="font-semibold">{data.place}</strong></div>
+                <div className="text-right">Date of Issue: <strong className="font-semibold">{data.dateOfIssue}</strong></div>
             </div>
-            <div className="text-right mt-1 print:mt-0.5">Date of Issue: <strong className="font-bold">{data.dateOfIssue}</strong></div>
           </div>
-          
+
           <div className="mt-auto pt-6 print:pt-4 text-xs print:text-[9px] text-black">
               <div className="flex justify-between">
                   <div className="text-center">
@@ -243,11 +244,11 @@ export function MarksheetDisplay({ data, onCreateNew, isViewMode = false }: Mark
           }
           .print\\:p-0 { padding: 0 !important; }
           .print\\:m-0 { margin: 0 !important; }
-          .print\\:p-0\\.5 { padding: 2pt !important; } 
+          .print\\:p-0\\.5 { padding: 2pt !important; }
           .print\\:p-0\\.25 { padding: 1pt !important; }
-          .print\\:p-1 { padding: 4pt !important; } 
-          .print\\:p-1\\.5 { padding: 6pt !important; } 
-          .print\\:p-2\\.5 { padding: 0.625rem !important; } 
+          .print\\:p-1 { padding: 4pt !important; }
+          .print\\:p-1\\.5 { padding: 6pt !important; }
+          .print\\:p-2\\.5 { padding: 0.625rem !important; }
           .print\\:p-3 { padding: 0.75rem !important; }
 
 
@@ -255,67 +256,70 @@ export function MarksheetDisplay({ data, onCreateNew, isViewMode = false }: Mark
           .print\\:border-gray-300 { border-color: #D1D5DB !important; }
           .print\\:border-2 { border-width: 2px !important; }
           .print\\:border { border-width: 1px !important; }
-          
+
           .print\\:text-black { color: black !important; }
-          .print\\:bg-gray-100 { background-color: #F3F4F6 !important; } 
+          .print\\:bg-gray-100 { background-color: #F3F4F6 !important; }
           .print\\:bg-white { background-color: white !important; }
-          .print\\:text-green-600 { color: #16A34A !important; } 
-          .print\\:text-red-600 { color: #DC2626 !important; } 
-          
+          .print\\:text-green-600 { color: #16A34A !important; }
+          .print\\:text-red-600 { color: #DC2626 !important; }
+
           .print\\:text-\\[10px\\] { font-size: 10pt !important; line-height: 1.2 !important;}
           .print\\:text-\\[9px\\] { font-size: 9pt !important; line-height: 1.2 !important;}
           .print\\:text-\\[8px\\] { font-size: 8pt !important; line-height: 1.2 !important;}
-          .print\\:text-xs { font-size: 10pt !important; line-height: 1.3 !important; } 
-          .print\\:text-sm { font-size: 11pt !important; line-height: 1.3 !important; } 
-          .print\\:text-base { font-size: 12pt !important; line-height: 1.3 !important; } 
-          .print\\:text-lg { font-size: 14pt !important; line-height: 1.3 !important; } 
-          .print\\:text-xl { font-size: 16pt !important; line-height: 1.3 !important; } 
+          .print\\:text-xs { font-size: 10pt !important; line-height: 1.3 !important; }
+          .print\\:text-sm { font-size: 11pt !important; line-height: 1.3 !important; }
+          .print\\:text-base { font-size: 12pt !important; line-height: 1.3 !important; }
+          .print\\:text-lg { font-size: 14pt !important; line-height: 1.3 !important; }
+          .print\\:text-xl { font-size: 16pt !important; line-height: 1.3 !important; }
+          .print\\:text-2xl { font-size: 18pt !important; line-height: 1.3 !important; }
+
 
           .print\\:mb-0 { margin-bottom: 0 !important; }
           .print\\:mb-0\\.5 { margin-bottom: 2pt !important; }
           .print\\:mb-1 { margin-bottom: 4pt !important; }
           .print\\:mb-1\\.5 { margin-bottom: 0.375rem !important; } /* 6pt */
           .print\\:mb-2 { margin-bottom: 0.5rem !important; } /* 8pt */
+          .print\\:mt-0 { margin-top: 0 !important; }
           .print\\:mt-0\\.5 { margin-top: 2pt !important; }
           .print\\:mt-1 { margin-top: 4pt !important; }
           .print\\:pt-0 { padding-top: 0 !important; }
-          .print\\:pt-4 { padding-top: 1rem !important; } /* Reduced from pt-8 for print */
+          .print\\:pt-4 { padding-top: 1rem !important; }
           .print\\:pt-6 { padding-top: 1.5rem !important; }
 
 
           .print\\:shadow-none { box-shadow: none !important; }
-          
-          .max-w-\\[210mm\\].min-h-\\[297mm\\] { 
-            width: 100% !important; 
-            height: auto !important; 
-            min-height: 0 !important; /* Allow content to dictate height for print */
-            max-width: none !important; 
+
+          .max-w-\\[210mm\\].min-h-\\[297mm\\] {
+            width: 100% !important; /* Occupy full width within page margins */
+            height: auto !important; /* Allow content to define height */
+            min-height: calc(100vh - 20mm) !important; /* Try to use full printable height minus margins */
+            max-width: none !important;
             box-sizing: border-box !important;
-            display: flex !important;
+            display: flex !important; /* Ensure flex works for signature at bottom */
             flex-direction: column !important;
             page-break-inside: avoid !important;
             border-width: 2px !important;
             border-color: black !important;
           }
-          .border.border-black.p-3.print\\:p-2\\.5 { 
-             padding: 0.625rem !important; 
+          .border.border-black.p-3.print\\:p-2\\.5 {
+             padding: 0.625rem !important;
              border-width: 1px !important;
              border-color: black !important;
-             margin: 0 !important; 
-             height: 100%;
-             display: flex;
-             flex-direction: column;
+             margin: 0 !important;
+             height: 100% !important; /* Ensure inner content fills the card */
+             display: flex !important;
+             flex-direction: column !important;
           }
-          
+
           table, th, td {
              border: 1px solid black !important;
-             border-collapse: collapse !important; 
+             border-collapse: collapse !important;
              page-break-inside: avoid !important;
           }
-          thead.print\\:bg-gray-100 tr th { 
-            background-color: #F3F4F6 !important; 
+          thead.print\\:bg-gray-100 tr th {
+            background-color: #F3F4F6 !important;
           }
-          tr.font-bold.bg-transparent td { 
+          tr.font-bold.bg-transparent td {
              background-color: transparent !important;
            }
           hr.print\\:border-black {
@@ -323,14 +327,14 @@ export function MarksheetDisplay({ data, onCreateNew, isViewMode = false }: Mark
             border-top-width: 1px !important;
           }
           hr.print\\:border-gray-300 {
-            border-color: #D1D5DB !important; 
+            border-color: #D1D5DB !important;
             border-top-width: 1px !important;
           }
 
 
           @page {
             size: A4 portrait;
-            margin: 10mm; 
+            margin: 10mm;
           }
         }
       `}</style>
