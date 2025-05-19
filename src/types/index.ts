@@ -6,7 +6,7 @@ import type { marksheetFormSchema, subjectEntrySchema, ACADEMIC_YEAR_OPTIONS, SU
 export type SubjectEntryFormData = z.infer<typeof subjectEntrySchema>;
 export type MarksheetFormData = z.infer<typeof marksheetFormSchema>;
 
-// For displaying the processed marksheet (matches the image more closely)
+// For displaying the processed marksheet
 export interface MarksheetSubjectDisplayEntry extends SubjectEntryFormData {
   obtainedTotal: number; // Calculated: theoryMarksObtained + practicalMarksObtained
 }
@@ -29,6 +29,7 @@ export interface MarksheetDisplayData {
   subjects: MarksheetSubjectDisplayEntry[];
 
   // Auto-filled or derived for display
+  collegeCode: string; // New field
   marksheetNo: string; 
   sessionDisplay: string; // e.g., "2018-2019"
   classDisplay: string; // e.g., "11th (A)" (derived from academicYear and section)

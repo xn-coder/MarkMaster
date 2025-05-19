@@ -54,7 +54,6 @@ export default function EditMarksheetPage() {
 
       const fetchStudentData = async () => {
         try {
-          // Fetch student details
           const { data: studentDetails, error: studentError } = await supabase
             .from('student_details')
             .select('*')
@@ -68,7 +67,6 @@ export default function EditMarksheetPage() {
             return;
           }
 
-          // Fetch subject marks
           const { data: subjectMarks, error: marksError } = await supabase
             .from('student_marks_details')
             .select('*')
@@ -76,10 +74,8 @@ export default function EditMarksheetPage() {
 
           if (marksError) {
             toast({ title: 'Error Fetching Subjects', description: marksError.message, variant: 'destructive' });
-            // Proceed with student data but empty subjects, or handle as full error
           }
           
-          // Transform data for the form
           let sessionStartYear = new Date().getFullYear() -1;
           let sessionEndYear = new Date().getFullYear();
           if (studentDetails.academic_year && studentDetails.academic_year.includes('-')) {
@@ -87,7 +83,6 @@ export default function EditMarksheetPage() {
             sessionStartYear = parseInt(years[0], 10);
             sessionEndYear = parseInt(years[1], 10);
           }
-
 
           const transformedData: MarksheetFormData = {
             studentName: studentDetails.name,
@@ -174,6 +169,7 @@ export default function EditMarksheetPage() {
     return {
       ...data,
       subjects: subjectsDisplay,
+      collegeCode: "53010", // Added placeholder college code
       marksheetNo: generateMarksheetNo(data.faculty, data.rollNumber, data.sessionEndYear),
       sessionDisplay: `${data.sessionStartYear}-${data.sessionEndYear}`,
       classDisplay: `${data.academicYear} (${data.section})`, 
@@ -188,8 +184,6 @@ export default function EditMarksheetPage() {
 
   const handleFormSubmit = async (data: MarksheetFormData) => {
     setIsLoadingFormSubmission(true);
-    // TODO: Implement Supabase update logic here
-    // For now, it will just process for display as before
     try {
       const processedData = processFormData(data);
       setMarksheetData(processedData);

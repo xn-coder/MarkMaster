@@ -69,7 +69,6 @@ export default function ViewMarksheetPage() {
 
           if (marksError) {
             toast({ title: 'Error Fetching Subjects', description: marksError.message, variant: 'destructive' });
-            // Potentially proceed with student data but empty subjects
           }
 
           let sessionStartYear = new Date().getFullYear() -1;
@@ -92,7 +91,7 @@ export default function ViewMarksheetPage() {
             section: studentDetails.section,
             sessionStartYear: sessionStartYear,
             sessionEndYear: sessionEndYear,
-            overallPassingThresholdPercentage: 33, // This might need to be fetched or configured
+            overallPassingThresholdPercentage: 33, 
             subjects: subjectMarks?.map(mark => ({
               id: mark.id?.toString() || crypto.randomUUID(),
               subjectName: mark.subject_name,
@@ -104,7 +103,6 @@ export default function ViewMarksheetPage() {
             })) || [],
           };
           
-          // Process this formData into MarksheetDisplayData
           const subjectsDisplay: MarksheetSubjectDisplayEntry[] = formDataFromDb.subjects.map(s => ({
             ...s,
             obtainedTotal: (s.theoryMarksObtained || 0) + (s.practicalMarksObtained || 0),
@@ -140,22 +138,23 @@ export default function ViewMarksheetPage() {
 
           const generateMarksheetNo = (faculty: string, rollNumber: string, sessionEndYearNumber: number): string => {
             const facultyCode = faculty.substring(0, 2).toUpperCase();
-            const month = format(new Date(), 'MMM').toUpperCase(); // Or use a fixed month if needed
-            const sequence = String(Math.floor(Math.random() * 900) + 100); // Placeholder
+            const month = format(new Date(), 'MMM').toUpperCase(); 
+            const sequence = String(Math.floor(Math.random() * 900) + 100); 
             return `${facultyCode}/${month}/${sessionEndYearNumber}/${rollNumber.slice(-3) || sequence}`;
           };
           
           const processedData: MarksheetDisplayData = {
             ...formDataFromDb,
             subjects: subjectsDisplay,
-            marksheetNo: generateMarksheetNo(formDataFromDb.faculty, formDataFromDb.rollNumber, formDataFromDb.sessionEndYear), // Consider if marksheetNo should be stored or always generated
+            collegeCode: "53010", // Added placeholder college code
+            marksheetNo: generateMarksheetNo(formDataFromDb.faculty, formDataFromDb.rollNumber, formDataFromDb.sessionEndYear), 
             sessionDisplay: `${formDataFromDb.sessionStartYear}-${formDataFromDb.sessionEndYear}`,
             classDisplay: `${formDataFromDb.academicYear} (${formDataFromDb.section})`, 
             aggregateMarksCompulsoryElective,
             totalPossibleMarksCompulsoryElective,
             overallResult,
             overallPercentageDisplay,
-            dateOfIssue: format(new Date(), 'MMMM yyyy'), // Or use student's record creation/update date
+            dateOfIssue: format(new Date(), 'MMMM yyyy'), 
             place: 'Samastipur',
           };
           setMarksheetData(processedData);
@@ -188,15 +187,17 @@ export default function ViewMarksheetPage() {
   if (authStatus === 'authenticated' && !isLoadingData && !marksheetData) {
      return (
       <div className="min-h-screen bg-background text-foreground flex flex-col">
-        <AppHeader 
-          pageTitle="SARYUG COLLEGE"
-          pageSubtitle={defaultPageSubtitle}
-          customRightContent={
-            <Button variant="outline" onClick={() => router.push('/')} size="sm">
-              <ArrowLeft className="mr-2 h-4 w-4" /> Back to Dashboard
-            </Button>
-          }
-        />
+        <div className="print:hidden">
+          <AppHeader 
+            pageTitle="SARYUG COLLEGE"
+            pageSubtitle={defaultPageSubtitle}
+            customRightContent={
+              <Button variant="outline" onClick={() => router.push('/')} size="sm">
+                <ArrowLeft className="mr-2 h-4 w-4" /> Back to Dashboard
+              </Button>
+            }
+          />
+        </div>
         <main className="flex-grow container mx-auto px-4 py-8 sm:px-6 lg:px-8 flex flex-col items-center justify-center">
             <h1 className="text-2xl font-bold text-destructive mb-4">Marksheet Not Found</h1>
             <p className="text-muted-foreground mb-6 text-center">The marksheet data for student ID '{studentId}' could not be loaded. <br/> Please check the ID or ensure the student and their marks exist in the database.</p>
@@ -215,7 +216,7 @@ export default function ViewMarksheetPage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col print:bg-white">
-      <div className="print:hidden"> {/* Hide AppHeader on print */}
+      <div className="print:hidden"> 
         <AppHeader 
             pageTitle="SARYUG COLLEGE"
             pageSubtitle={defaultPageSubtitle}
@@ -231,7 +232,7 @@ export default function ViewMarksheetPage() {
         {marksheetData ? (
           <MarksheetDisplay data={marksheetData} isViewMode={true} />
         ) : (
-           <div className="flex items-center justify-center min-h-[calc(100vh-200px)]"> {/* Fallback if data is still null after loading */}
+           <div className="flex items-center justify-center min-h-[calc(100vh-200px)]"> 
              <p className="text-muted-foreground">No marksheet data to display.</p>
            </div>
         )}
