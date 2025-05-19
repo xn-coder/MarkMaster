@@ -36,14 +36,14 @@ export function MarksheetDisplay({ data, onCreateNew, isViewMode = false }: Mark
             alt="College Watermark"
             width={350} 
             height={350}
-            className="opacity-5 print:opacity-5"
+            className="opacity-10 print:opacity-10" // Watermark opacity increased
             data-ai-hint="college logo"
           />
         </div>
 
         <div className="border border-black print:border-black p-3 print:p-2.5 flex-grow flex flex-col h-full relative z-10"> {/* Content above watermark */}
           
-          <header className="mb-1 print:mb-0.5 relative h-[110px] print:h-[100px]"> {/* Adjusted height for header */}
+          <header className="mb-1 print:mb-0.5 relative h-[110px] print:h-[100px]">
             <div className="absolute top-1 right-1 print:top-0.5 print:right-0.5">
               <a 
                 href="http://www.saryugcollege.com" 
@@ -55,7 +55,7 @@ export function MarksheetDisplay({ data, onCreateNew, isViewMode = false }: Mark
               </a>
             </div>
             
-            <div className="absolute top-3 left-4 print:top-2 print:left-3 z-20"> {/* Logo z-index if needed */}
+            <div className="absolute top-3 left-4 print:top-2 print:left-3 z-20">
                 <Image 
                     src="/college-logo.png"
                     alt="College Logo" 
@@ -66,7 +66,7 @@ export function MarksheetDisplay({ data, onCreateNew, isViewMode = false }: Mark
                 />
             </div>
 
-            <div className="absolute left-1/2 top-3 print:top-2 transform -translate-x-1/2 w-full px-20 print:px-16"> {/* College details block */}
+            <div className="absolute left-1/2 top-3 print:top-2 transform -translate-x-1/2 w-full px-20 print:px-16">
                 <div className="text-center">
                     <h1 className="font-serif font-bold text-xl print:text-lg" style={{ color: '#032781' }}>SARYUG COLLEGE</h1>
                     <p className="font-sans text-xs print:text-[10px] text-black font-semibold">
@@ -81,17 +81,18 @@ export function MarksheetDisplay({ data, onCreateNew, isViewMode = false }: Mark
             
             <div 
               className="absolute left-1/2 transform -translate-x-1/2 text-center rounded-md inline-block mx-auto"
-              style={{ backgroundColor: '#DB2A2A', top: '80px' }} // Adjusted top to be below college details
+              style={{ backgroundColor: '#DB2A2A', top: '80px' }}
             >
               <h2 
-                className="text-white text-base print:text-sm font-bold uppercase px-4 py-1" // Added padding to banner
+                className="text-white text-base print:text-sm font-bold uppercase px-4 py-1"
               >
                 MARKSHEET
               </h2>
             </div>
           </header>
 
-          <h3 className="text-center font-bold text-lg print:text-base underline decoration-1 underline-offset-2 mb-2 print:mb-1.5 text-black mt-3 print:mt-2">Student Details</h3>
+          <h3 className="text-center font-bold text-lg print:text-base underline decoration-1 underline-offset-2 mb-0.5 print:mb-0 text-black mt-3 print:mt-2">Student Details</h3>
+          <hr className="border-gray-300 print:border-gray-300 my-1 print:my-0.5" /> {/* Line below Student Details title */}
           
           <div className="mb-2 print:mb-1.5 grid grid-cols-2 gap-x-6 gap-y-1 text-sm print:text-xs font-sans text-black">
             <div>Student Name: <strong className="font-semibold">{data.studentName}</strong></div>
@@ -110,8 +111,7 @@ export function MarksheetDisplay({ data, onCreateNew, isViewMode = false }: Mark
             <div className="text-right">Class: <strong className="font-semibold">{data.classDisplay}</strong></div>
           </div>
           
-          <hr className="border-black print:border-black my-2 print:my-1.5" />
-
+          {/* Removed hr from here */}
 
           <section className="flex-grow flex flex-col mb-2 print:mb-1.5">
             <div className="overflow-x-auto flex-grow">
@@ -138,7 +138,7 @@ export function MarksheetDisplay({ data, onCreateNew, isViewMode = false }: Mark
                 <TableBody>
                   {compulsorySubjects.length > 0 && (
                     <TableRow className="font-bold bg-transparent hover:bg-transparent print:hover:bg-transparent dark:hover:bg-inherit">
-                      <TableCell colSpan={7} className="border-x border-black p-1 print:p-0.5 text-left text-xs print:text-[10px] mt-1 text-black">COMPULSORY SUBJECTS</TableCell>
+                      <TableCell colSpan={7} className="border-x border-black py-0.5 px-1 print:py-0.25 print:px-0.5 text-left text-xs print:text-[10px] text-black">COMPULSORY SUBJECTS</TableCell>
                     </TableRow>
                   )}
                   {compulsorySubjects.map((subject, index) => (
@@ -155,7 +155,7 @@ export function MarksheetDisplay({ data, onCreateNew, isViewMode = false }: Mark
                   
                   {electiveSubjects.length > 0 && (
                     <TableRow className="font-bold bg-transparent hover:bg-transparent print:hover:bg-transparent dark:hover:bg-inherit">
-                      <TableCell colSpan={7} className="border-x border-black p-1 print:p-0.5 text-left text-xs print:text-[10px] mt-1 text-black">ELECTIVE SUBJECTS</TableCell>
+                      <TableCell colSpan={7} className="border-x border-black py-0.5 px-1 print:py-0.25 print:px-0.5 text-left text-xs print:text-[10px] text-black">ELECTIVE SUBJECTS</TableCell>
                     </TableRow>
                   )}
                   {electiveSubjects.map((subject, index) => (
@@ -172,7 +172,7 @@ export function MarksheetDisplay({ data, onCreateNew, isViewMode = false }: Mark
 
                   {additionalSubjects.length > 0 && (
                      <TableRow className="font-bold bg-transparent hover:bg-transparent print:hover:bg-transparent dark:hover:bg-inherit">
-                      <TableCell colSpan={7} className="border-x border-black p-1 print:p-0.5 text-left text-xs print:text-[10px] mt-1 text-black">ADDITIONAL SUBJECTS</TableCell>
+                      <TableCell colSpan={7} className="border-x border-black py-0.5 px-1 print:py-0.25 print:px-0.5 text-left text-xs print:text-[10px] text-black">ADDITIONAL SUBJECTS</TableCell>
                     </TableRow>
                   )}
                    {additionalSubjects.map((subject, index) => (
@@ -204,7 +204,7 @@ export function MarksheetDisplay({ data, onCreateNew, isViewMode = false }: Mark
             <div className="text-right mt-1">Date of Issue: <strong className="font-bold">{data.dateOfIssue}</strong></div>
           </div>
           
-          <div className="mt-auto pt-10 print:pt-8 text-xs print:text-[10px] text-black"> {/* Increased pt for more space */}
+          <div className="mt-auto pt-10 print:pt-8 text-xs print:text-[10px] text-black">
               <div className="flex justify-between">
                   <div className="text-center">
                       <hr className="border-black print:border-black mb-1 w-48 mx-auto" />
@@ -254,6 +254,7 @@ export function MarksheetDisplay({ data, onCreateNew, isViewMode = false }: Mark
 
 
           .print\\:border-black { border-color: black !important; }
+          .print\\:border-gray-300 { border-color: #D1D5DB !important; } /* Tailwind gray-300 */
           .print\\:border-2 { border-width: 2px !important; }
           .print\\:border { border-width: 1px !important; }
           
@@ -272,6 +273,7 @@ export function MarksheetDisplay({ data, onCreateNew, isViewMode = false }: Mark
           .print\\:text-lg { font-size: 14pt !important; line-height: 1.3 !important; } 
           .print\\:text-xl { font-size: 16pt !important; line-height: 1.3 !important; } 
 
+          .print\\:mb-0 { margin-bottom: 0 !important; }
           .print\\:mb-0\\.5 { margin-bottom: 2pt !important; }
           .print\\:mb-1 { margin-bottom: 4pt !important; }
           .print\\:mb-1\\.5 { margin-bottom: 6pt !important; }
@@ -284,14 +286,17 @@ export function MarksheetDisplay({ data, onCreateNew, isViewMode = false }: Mark
           .print\\:pt-0 { padding-top: 0 !important; }
           .print\\:pt-8 { padding-top: 2rem !important; }
           .print\\:pt-10 { padding-top: 2.5rem !important; }
-
+          .print\\:py-0\\.5 { padding-top: 2pt !important; padding-bottom: 2pt !important; }
+          .print\\:px-1 { padding-left: 4pt !important; padding-right: 4pt !important; }
+          .print\\:py-0\\.25 { padding-top: 1pt !important; padding-bottom: 1pt !important; }
+          .print\\:px-0\\.5 { padding-left: 2pt !important; padding-right: 2pt !important; }
 
           .print\\:shadow-none { box-shadow: none !important; }
           
           .max-w-\\[210mm\\].min-h-\\[297mm\\] { 
             width: 100% !important; 
             height: auto !important; 
-            min-height: calc(297mm - 20mm) !important; /* A4 height minus typical margins */
+            min-height: calc(297mm - 20mm) !important; 
             max-width: none !important; 
             box-sizing: border-box !important;
             display: flex !important;
@@ -300,8 +305,8 @@ export function MarksheetDisplay({ data, onCreateNew, isViewMode = false }: Mark
             border-width: 2px !important;
             border-color: black !important;
           }
-          .border.border-black.p-3.print\\:p-2\\.5 { /* Inner content wrapper */
-             padding: 0.625rem !important; /* approx 2.5mm */
+          .border.border-black.p-3.print\\:p-2\\.5 { 
+             padding: 0.625rem !important; 
              border-width: 1px !important;
              border-color: black !important;
              margin: 0 !important; 
@@ -325,6 +330,11 @@ export function MarksheetDisplay({ data, onCreateNew, isViewMode = false }: Mark
             border-color: black !important;
             border-top-width: 1px !important;
           }
+          hr.print\\:border-gray-300 {
+            border-color: #D1D5DB !important; /* Tailwind gray-300 */
+            border-top-width: 1px !important;
+          }
+
 
           @page {
             size: A4 portrait;
