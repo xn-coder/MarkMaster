@@ -28,8 +28,7 @@ import {
   Card,
   CardContent,
   CardHeader,
-  CardTitle,
-  CardFooter
+  CardFooter // Removed CardTitle as it's not used directly here
 } from "@/components/ui/card";
 import {
   DropdownMenu,
@@ -40,10 +39,9 @@ import {
 import {
   LogOut,
   RefreshCw,
-  FilePlus2, // Changed from PlusSquare
+  FilePlus2,
   Upload,
   Download,
-  Search,
   MoreHorizontal,
   ChevronLeft,
   ChevronRight,
@@ -73,6 +71,7 @@ const mockStudents: StudentRowData[] = [
 ];
 
 const ACADEMIC_YEARS = ['All Academic Years', '2025-2027', '2024-2028', '2024-2026', '2023-2025', '2022-2024', '2022-2023', '2021-2023', '2021-2022', '2018-2019'];
+const YEARS = ['All Years', '2027', '2026', '2025', '2024', '2023', '2022', '2021', '2020', '2019', '2018'];
 const CLASSES = ['All Classes', '1st', '10th', '11th', '12th', 'B.A.', 'B.Com', 'B.Tech'];
 
 export default function AdminDashboardPage() {
@@ -84,6 +83,8 @@ export default function AdminDashboardPage() {
 
   // Filters
   const [academicYearFilter, setAcademicYearFilter] = useState('All Academic Years');
+  const [startYearFilter, setStartYearFilter] = useState('All Years');
+  const [endYearFilter, setEndYearFilter] = useState('All Years');
   const [studentIdFilter, setStudentIdFilter] = useState('');
   const [rollNoFilter, setRollNoFilter] = useState('');
   const [studentNameFilter, setStudentNameFilter] = useState('');
@@ -124,20 +125,20 @@ export default function AdminDashboardPage() {
       setIsLoggingOut(false);
     } else {
       toast({ title: 'Logged Out', description: 'You have been successfully logged out.' });
-      // onAuthStateChange will handle redirect
     }
   };
   
   const filteredStudents = useMemo(() => {
     return mockStudents.filter(student => {
       if (academicYearFilter !== 'All Academic Years' && student.academicYear !== academicYearFilter) return false;
+      // Add filtering for startYearFilter and endYearFilter if student data includes these fields
+      // For now, they don't affect filtering as mockStudent data doesn't have separate start/end year.
       if (studentIdFilter && !student.id.toLowerCase().includes(studentIdFilter.toLowerCase())) return false;
-      // Roll No. filter logic would require roll no. in data
       if (studentNameFilter && !student.name.toLowerCase().includes(studentNameFilter.toLowerCase())) return false;
       if (classFilter !== 'All Classes' && student.studentClass !== classFilter) return false;
       return true;
     });
-  }, [academicYearFilter, studentIdFilter, studentNameFilter, classFilter]);
+  }, [academicYearFilter, startYearFilter, endYearFilter, studentIdFilter, studentNameFilter, classFilter]);
 
   const paginatedStudents = useMemo(() => {
     const startIndex = (currentPage - 1) * entriesPerPage;
@@ -157,11 +158,11 @@ export default function AdminDashboardPage() {
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
       {/* College Header */}
-      <header className="bg-secondary text-secondary-foreground py-3 px-4 sm:px-6 lg:px-8 shadow-sm">
-        <div className="container mx-auto flex items-center justify-between">
+      <header className="bg-secondary text-secondary-foreground py-3 shadow-sm">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Image
-              src="https://placehold.co/50x50.png"
+              src="https://placehold.co/50x50.png" 
               alt="College Logo"
               width={50}
               height={50}
@@ -185,14 +186,14 @@ export default function AdminDashboardPage() {
       </header>
 
       {/* Main Content Area */}
-      <main className="flex-grow container mx-auto px-4 py-6 md:px-6 md:py-8">
+      <main className="flex-grow container mx-auto px-4 py-6 sm:px-6 lg:px-8">
         {/* Student Details Bar */}
         <section className="mb-6">
           <div className="bg-primary text-primary-foreground p-3 rounded-md shadow-md flex flex-col sm:flex-row justify-between items-center gap-2">
             <h2 className="text-xl font-semibold">STUDENT DETAILS</h2>
             <div className="flex flex-wrap gap-2">
-              <Button size="sm" className="bg-accent hover:bg-accent/90 text-accent-foreground">
-                <RefreshCw className="mr-2 h-4 w-4" /> Refresh Data
+              <Button variant="default" size="sm" className="bg-primary text-primary-foreground hover:bg-primary/90">
+                <RefreshCw className="mr-2 h-4 w-4" /> Load Student Data
               </Button>
               <Button variant="ghost" size="sm" className="text-primary-foreground hover:bg-accent hover:text-accent-foreground">
                 <FilePlus2 className="mr-2 h-4 w-4" /> Create New
@@ -210,13 +211,31 @@ export default function AdminDashboardPage() {
         {/* Filter Card */}
         <Card className="mb-6 shadow-md">
           <CardContent className="pt-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 items-end">
-              <div className="lg:col-span-1">
-                <Label htmlFor="academicYear">Academic Year</Label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-4 items-end">
+              <div>
+                <Label htmlFor="academicYear">Academic Session</Label>
                 <Select value={academicYearFilter} onValueChange={setAcademicYearFilter}>
                   <SelectTrigger id="academicYear"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {ACADEMIC_YEARS.map(year => <SelectItem key={year} value={year}>{year}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="startYear">Start Year</Label>
+                <Select value={startYearFilter} onValueChange={setStartYearFilter}>
+                  <SelectTrigger id="startYear"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {YEARS.map(year => <SelectItem key={year} value={year}>{year}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="endYear">End Year</Label>
+                <Select value={endYearFilter} onValueChange={setEndYearFilter}>
+                  <SelectTrigger id="endYear"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {YEARS.map(year => <SelectItem key={year} value={year}>{year}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
@@ -232,7 +251,7 @@ export default function AdminDashboardPage() {
                 <Label htmlFor="studentName">Student Name</Label>
                 <Input id="studentName" placeholder="Student Name" value={studentNameFilter} onChange={e => setStudentNameFilter(e.target.value)} />
               </div>
-              <div className="lg:col-span-1">
+              <div>
                 <Label htmlFor="class">Class</Label>
                 <Select value={classFilter} onValueChange={setClassFilter}>
                   <SelectTrigger id="class"><SelectValue /></SelectTrigger>
@@ -241,18 +260,14 @@ export default function AdminDashboardPage() {
                   </SelectContent>
                 </Select>
               </div>
-              <Button className="w-full lg:w-auto bg-primary hover:bg-accent">
-                <Search className="mr-2 h-4 w-4" /> Search
-              </Button>
             </div>
           </CardContent>
         </Card>
 
         {/* Student Table Card */}
         <Card className="shadow-md">
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <Label htmlFor="showEntries" className="text-sm">Show</Label>
+          <CardHeader className="flex flex-row items-center gap-2">
+              <Label htmlFor="showEntries" className="text-sm whitespace-nowrap">Show</Label>
               <Select value={String(entriesPerPage)} onValueChange={(value) => setEntriesPerPage(Number(value))}>
                 <SelectTrigger id="showEntries" className="w-20 h-8 text-sm">
                   <SelectValue />
@@ -262,7 +277,6 @@ export default function AdminDashboardPage() {
                 </SelectContent>
               </Select>
               <span className="text-sm text-muted-foreground">entries</span>
-            </div>
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
@@ -303,7 +317,7 @@ export default function AdminDashboardPage() {
                   )) : (
                     <TableRow>
                       <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
-                        No students found.
+                        Click "Load Student Data" above to view marksheet history, or use filters to search.
                       </TableCell>
                     </TableRow>
                   )}
@@ -311,9 +325,9 @@ export default function AdminDashboardPage() {
               </Table>
             </div>
           </CardContent>
-          <CardFooter className="flex items-center justify-between pt-4">
-            <p className="text-sm text-muted-foreground">
-              Showing {(currentPage - 1) * entriesPerPage + 1} to {Math.min(currentPage * entriesPerPage, filteredStudents.length)} of {filteredStudents.length} entries
+          <CardFooter className="flex flex-col sm:flex-row items-center justify-between pt-4 gap-2">
+            <p className="text-sm text-muted-foreground text-center sm:text-left">
+              Showing {paginatedStudents.length > 0 ? (currentPage - 1) * entriesPerPage + 1 : 0} to {Math.min(currentPage * entriesPerPage, filteredStudents.length)} of {filteredStudents.length} entries
             </p>
             <div className="flex gap-2">
               <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>
@@ -328,10 +342,12 @@ export default function AdminDashboardPage() {
       </main>
 
       {/* Footer */}
-      <footer className="py-4 text-center text-xs text-muted-foreground border-t border-border mt-auto">
-        <p>Copyright ©{new Date().getFullYear()} by Saryug College, Samastipur, Bihar. Design By Mantix.</p>
+      <footer className="py-4 border-t border-border mt-auto">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between text-xs text-muted-foreground">
+            <p className="mb-2 sm:mb-0 text-center sm:text-left">Copyright ©{new Date().getFullYear()} by Saryug College, Samastipur, Bihar.</p>
+            <p className="text-center sm:text-right">Design By Mantix.</p>
+        </div>
       </footer>
     </div>
   );
 }
-
