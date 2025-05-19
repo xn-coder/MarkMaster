@@ -3,11 +3,13 @@ import { z } from 'zod';
 
 const currentYear = new Date().getFullYear();
 export const ACADEMIC_YEAR_OPTIONS = ["11th", "12th", "1st Year", "2nd Year", "3rd Year"] as const;
+export const SUBJECT_CATEGORIES_OPTIONS = ['Compulsory', 'Elective', 'Additional'] as const;
+
 
 export const subjectEntrySchema = z.object({
   id: z.string().optional(), // For useFieldArray key
   subjectName: z.string().min(1, 'Subject name is required').max(100, 'Subject name too long'),
-  category: z.enum(['Compulsory', 'Elective', 'Additional'], {
+  category: z.enum(SUBJECT_CATEGORIES_OPTIONS, {
     required_error: 'Subject category is required.',
   }),
   totalMarks: z.coerce.number().min(1, 'Total marks must be at least 1').max(500, 'Total marks seem too high'),

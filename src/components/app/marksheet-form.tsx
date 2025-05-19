@@ -1,10 +1,10 @@
 
 'use client';
 
-import React, { useEffect } from 'react';
-import { useForm, Controller } from 'react-hook-form';
+import React, { useEffect, useMemo } from 'react';
+import { useForm, Controller, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { marksheetFormSchema, ACADEMIC_YEAR_OPTIONS } from './marksheet-form-schema';
+import { marksheetFormSchema, ACADEMIC_YEAR_OPTIONS, SUBJECT_CATEGORIES_OPTIONS } from './marksheet-form-schema';
 import type { MarksheetFormData, SubjectEntryFormData } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,32 +22,32 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card'; // CardTitle might not be needed if title is outside form
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { PlusCircle, Trash2, CalendarIcon, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { useFieldArray } from 'react-hook-form';
+import { getSubjectSuggestions, findSubjectTemplate } from '@/lib/subject-templates';
+
 
 interface MarksheetFormProps {
   onSubmit: (data: MarksheetFormData) => void;
   isLoading: boolean;
-  initialData?: Partial<MarksheetFormData>; // For pre-filling the form in edit mode
+  initialData?: Partial<MarksheetFormData>;
   isEditMode?: boolean;
 }
 
 const GENDERS: MarksheetFormData['gender'][] = ['Male', 'Female', 'Other'];
 const FACULTIES: MarksheetFormData['faculty'][] = ['ARTS', 'COMMERCE', 'SCIENCE'];
-const SUBJECT_CATEGORIES: SubjectEntryFormData['category'][] = ['Compulsory', 'Elective', 'Additional'];
 
 const currentYear = new Date().getFullYear();
-const startYearOptions = Array.from({ length: currentYear + 1 - 1990 + 1 }, (_, i) => 1990 + i);
+const startYearOptions = Array.from({ length: currentYear + 1 - 1990 + 1 }, (_, i) => 1990 + i).reverse();
 
 
 export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = false }: MarksheetFormProps) {
   const form = useForm<MarksheetFormData>({
     resolver: zodResolver(marksheetFormSchema),
-    defaultValues: initialData || { // Use initialData if provided, otherwise use static defaults
+    defaultValues: initialData || {
       studentName: '',
       fatherName: '',
       motherName: '',
@@ -71,11 +71,12 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
     },
   });
 
-  const { fields, append, remove } = useFieldArray({
+  const { fields, append, remove, update } = useFieldArray({
     control: form.control,
     name: 'subjects',
   });
 
+  const watchedFaculty = form.watch('faculty');
   const watchedSessionStartYear = form.watch('sessionStartYear');
 
   useEffect(() => {
@@ -84,13 +85,19 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
     }
   }, [watchedSessionStartYear, form]);
 
-  // Effect to reset form with initialData if it changes (e.g., fetched asynchronously)
   useEffect(() => {
     if (initialData) {
-      // Ensure dateOfBirth is a Date object if it's a string from fetched data
       const processedInitialData = {
         ...initialData,
         dateOfBirth: initialData.dateOfBirth ? new Date(initialData.dateOfBirth) : undefined,
+        subjects: initialData.subjects?.map(s => ({
+            ...s,
+            // Ensure numbers are numbers, not strings from potential JSON parsing
+            totalMarks: Number(s.totalMarks || 0),
+            passMarks: Number(s.passMarks || 0),
+            theoryMarksObtained: Number(s.theoryMarksObtained || 0),
+            practicalMarksObtained: Number(s.practicalMarksObtained || 0),
+        })) || [],
       };
       form.reset(processedInitialData);
     }
@@ -102,14 +109,8 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
   };
 
   return (
-    // Card removed from here, can be added by the parent page if needed for layout consistency
-    // <Card className="w-full max-w-4xl mx-auto shadow-xl"> 
-    //   <CardHeader>
-    //     <CardTitle className="text-2xl text-primary">{isEditMode ? 'Edit Marksheet Details' : 'Create New Marksheet'}</CardTitle>
-    //   </CardHeader>
       <Form {...form}>
         <form onSubmit={form.handleSubmit(handleFormSubmit)}>
-          {/* Student Information Section */}
           <div className="space-y-6 p-6 border rounded-lg shadow-lg bg-card mb-8">
              <h3 className="text-xl font-semibold text-primary border-b pb-2 mb-4">Student Information</h3>
             <FormField
@@ -176,7 +177,7 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
                             )}
                           >
                             {field.value ? (
-                              format(field.value, "PPP")
+                              format(new Date(field.value), "PPP") // Ensure field.value is Date
                             ) : (
                               <span>Pick a date</span>
                             )}
@@ -187,7 +188,7 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
                       <PopoverContent className="w-auto p-0" align="start">
                         <Calendar
                           mode="single"
-                          selected={field.value}
+                          selected={field.value ? new Date(field.value) : undefined}
                           onSelect={field.onChange}
                           disabled={(date) =>
                             date > new Date() || date < new Date("1900-01-01")
@@ -208,7 +209,7 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Gender</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value || undefined}>
+                    <Select onValueChange={field.onChange} value={field.value || undefined} defaultValue={field.value || undefined}>
                       <FormControl><SelectTrigger><SelectValue placeholder="Select gender" /></SelectTrigger></FormControl>
                       <SelectContent>
                         {GENDERS.map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}
@@ -224,7 +225,15 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Faculty</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value || undefined}>
+                    <Select 
+                      onValueChange={(value) => {
+                        field.onChange(value);
+                        // Optionally reset subjects or specific subject names when faculty changes
+                        // form.setValue('subjects', defaultSubjectsForNewFaculty);
+                      }} 
+                      value={field.value || undefined}
+                      defaultValue={field.value || undefined}
+                    >
                       <FormControl><SelectTrigger><SelectValue placeholder="Select faculty" /></SelectTrigger></FormControl>
                       <SelectContent>
                         {FACULTIES.map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)}
@@ -242,7 +251,7 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Academic Year (Class)</FormLabel>
-                     <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value || undefined}>
+                     <Select onValueChange={field.onChange} value={field.value || undefined} defaultValue={field.value || undefined}>
                       <FormControl><SelectTrigger><SelectValue placeholder="Select academic year" /></SelectTrigger></FormControl>
                       <SelectContent>
                         {ACADEMIC_YEAR_OPTIONS.map(ay => <SelectItem key={ay} value={ay}>{ay}</SelectItem>)}
@@ -298,7 +307,10 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Overall Passing %</FormLabel>
-                    <FormControl><Input type="number" placeholder="e.g., 33" {...field} /></FormControl>
+                    <FormControl><Input type="number" placeholder="e.g., 33" {...field} 
+                                   onChange={e => field.onChange(parseInt(e.target.value) || 0)}
+                                   value={field.value || ''} 
+                    /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -306,7 +318,6 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
             </div>
           </div>
 
-          {/* Subject Information Section */}
           <div className="space-y-6 p-6 border rounded-lg shadow-lg bg-card">
             <h3 className="text-xl font-semibold text-primary border-b pb-2 mb-6">Subject Information</h3>
             
@@ -320,7 +331,11 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
               <Label className="font-semibold text-sm text-center">Action</Label>
             </div>
 
-            {fields.map((item, index) => (
+            {fields.map((item, index) => {
+              const subjectCategory = form.watch(`subjects.${index}.category`);
+              const subjectSuggestions = useMemo(() => getSubjectSuggestions(watchedFaculty, subjectCategory), [watchedFaculty, subjectCategory]);
+
+              return (
               <div key={item.id} className="grid grid-cols-1 md:grid-cols-[minmax(0,_2fr)_1fr_0.75fr_0.75fr_0.75fr_0.75fr_minmax(0,_auto)] gap-x-3 gap-y-4 md:gap-y-3 items-start p-4 border rounded-md bg-secondary/20 shadow-sm">
                 <FormField
                   control={form.control}
@@ -328,7 +343,33 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel className="md:hidden">Subject Name</FormLabel>
-                      <FormControl><Input placeholder="Subject Name" {...field} /></FormControl>
+                       <Select
+                        onValueChange={(value) => {
+                          field.onChange(value);
+                          const template = findSubjectTemplate(value, watchedFaculty, subjectCategory);
+                          if (template) {
+                            form.setValue(`subjects.${index}.totalMarks`, template.totalMarks, {shouldValidate: true});
+                            form.setValue(`subjects.${index}.passMarks`, template.passMarks, {shouldValidate: true});
+                          }
+                        }}
+                        value={field.value || undefined}
+                        defaultValue={field.value || undefined}
+                      >
+                        <FormControl><SelectTrigger disabled={!watchedFaculty || !subjectCategory}><SelectValue placeholder="Select subject" /></SelectTrigger></FormControl>
+                        <SelectContent>
+                          {subjectSuggestions.map(suggestion => (
+                            <SelectItem key={suggestion.subjectName} value={suggestion.subjectName}>
+                              {suggestion.subjectName}
+                            </SelectItem>
+                          ))}
+                           {/* Option to allow custom entry if no suggestions or if needed in future */}
+                           {field.value && !subjectSuggestions.some(s => s.subjectName === field.value) && (
+                            <SelectItem value={field.value} disabled>
+                                {field.value} (Custom)
+                            </SelectItem>
+                           )}
+                        </SelectContent>
+                      </Select>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -339,10 +380,24 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel className="md:hidden">Category</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value || undefined}>
+                      <Select 
+                        onValueChange={(value) => {
+                            field.onChange(value);
+                            // When category changes, if current subject name isn't valid for new category, clear it
+                            const currentSubjectName = form.getValues(`subjects.${index}.subjectName`);
+                            const newSuggestions = getSubjectSuggestions(watchedFaculty, value as SubjectEntryFormData['category']);
+                            if(currentSubjectName && !newSuggestions.find(s => s.subjectName === currentSubjectName)) {
+                                form.setValue(`subjects.${index}.subjectName`, '', {shouldValidate: true});
+                                form.setValue(`subjects.${index}.totalMarks`, 100, {shouldValidate: true}); // Reset marks
+                                form.setValue(`subjects.${index}.passMarks`, 33, {shouldValidate: true});
+                            }
+                        }} 
+                        value={field.value || undefined}
+                        defaultValue={field.value || undefined}
+                       >
                         <FormControl><SelectTrigger><SelectValue placeholder="Category" /></SelectTrigger></FormControl>
                         <SelectContent>
-                          {SUBJECT_CATEGORIES.map(cat => <SelectItem key={cat} value={cat}>{cat}</SelectItem>)}
+                          {SUBJECT_CATEGORIES_OPTIONS.map(cat => <SelectItem key={cat} value={cat}>{cat}</SelectItem>)}
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -355,7 +410,10 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel className="md:hidden">Total Marks</FormLabel>
-                      <FormControl><Input type="number" placeholder="Total" {...field} className="text-center" /></FormControl>
+                      <FormControl><Input type="number" placeholder="Total" {...field} className="text-center" 
+                                     onChange={e => field.onChange(parseInt(e.target.value) || 0)}
+                                     value={field.value || ''} 
+                      /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -366,7 +424,10 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel className="md:hidden">Pass Marks</FormLabel>
-                      <FormControl><Input type="number" placeholder="Pass" {...field} className="text-center" /></FormControl>
+                      <FormControl><Input type="number" placeholder="Pass" {...field} className="text-center" 
+                                     onChange={e => field.onChange(parseInt(e.target.value) || 0)}
+                                     value={field.value || ''} 
+                      /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -377,7 +438,10 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel className="md:hidden">Theory Marks</FormLabel>
-                      <FormControl><Input type="number" placeholder="e.g. 70" {...field} className="text-center" /></FormControl>
+                      <FormControl><Input type="number" placeholder="e.g. 70" {...field} className="text-center" 
+                                     onChange={e => field.onChange(parseInt(e.target.value) || 0)}
+                                     value={field.value || ''} 
+                      /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -388,7 +452,10 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel className="md:hidden">Practical Marks</FormLabel>
-                      <FormControl><Input type="number" placeholder="e.g. 15" {...field} className="text-center" /></FormControl>
+                      <FormControl><Input type="number" placeholder="e.g. 15" {...field} className="text-center" 
+                                     onChange={e => field.onChange(parseInt(e.target.value) || 0)}
+                                     value={field.value || ''} 
+                      /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -400,7 +467,7 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
                       variant="destructive"
                       size="icon"
                       onClick={() => remove(index)}
-                      className="mt-4 md:mt-0 h-9 w-9" // Standard icon button size
+                      className="mt-4 md:mt-0 h-9 w-9"
                       aria-label="Remove subject"
                     >
                       <Trash2 className="h-4 w-4" />
@@ -408,7 +475,7 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
                   )}
                 </div>
               </div>
-            ))}
+            )})}
             <Button
               type="button"
               variant="outline"
@@ -431,7 +498,7 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
               <p className="text-sm font-medium text-destructive">{form.formState.errors.subjects.root.message}</p>
             )}
           </div>
-          <div className="mt-8"> {/* Add margin to separate from subject section */}
+          <div className="mt-8">
             <Button type="submit" className="w-full py-3 text-base" disabled={isLoading}>
               {isLoading ? <Loader2 className="animate-spin mr-2"/> : null} 
               {isEditMode ? 'Update Marksheet Preview' : 'Generate Marksheet Preview'}
@@ -439,6 +506,6 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
           </div>
         </form>
       </Form>
-    // </Card>
   );
 }
+

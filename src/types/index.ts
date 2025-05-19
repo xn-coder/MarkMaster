@@ -1,6 +1,6 @@
 
 import type { z } from 'zod';
-import type { marksheetFormSchema, subjectEntrySchema, ACADEMIC_YEAR_OPTIONS } from '@/components/app/marksheet-form-schema';
+import type { marksheetFormSchema, subjectEntrySchema, ACADEMIC_YEAR_OPTIONS, SUBJECT_CATEGORIES_OPTIONS } from '@/components/app/marksheet-form-schema';
 
 // For the form itself
 export type SubjectEntryFormData = z.infer<typeof subjectEntrySchema>;
@@ -43,4 +43,11 @@ export interface MarksheetDisplayData {
   place: string; // Constant: "Samastipur"
 }
 
+// For subject templates
+export interface SubjectTemplateItem {
+  subjectName: string;
+  category: typeof SUBJECT_CATEGORIES_OPTIONS[number];
+  totalMarks: number;
+  passMarks: number;
+}
     
