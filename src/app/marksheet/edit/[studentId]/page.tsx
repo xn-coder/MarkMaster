@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase/client';
 import { MarksheetForm } from '@/components/app/marksheet-form';
@@ -10,50 +10,9 @@ import type { MarksheetFormData, MarksheetDisplayData, MarksheetSubjectDisplayEn
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Loader2, ArrowLeft } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { AppHeader } from '@/components/app/app-header';
-
-// Mock student data - in a real app, this would come from an API/Supabase
-const mockStudentDatabase: Record<string, Partial<MarksheetFormData>> = {
-  '2004': { // Rohan Kumar from dashboard mock
-    studentName: 'Rohan Kumar',
-    fatherName: 'Mr. Kumar',
-    motherName: 'Mrs. Kumar',
-    rollNumber: 'RK101',
-    dateOfBirth: new Date('2007-05-15'),
-    gender: 'Male',
-    faculty: 'SCIENCE',
-    academicYear: '11th',
-    section: 'A',
-    sessionStartYear: 2025,
-    overallPassingThresholdPercentage: 33,
-    subjects: [
-      { subjectName: 'Physics', category: 'Compulsory', totalMarks: 100, passMarks: 33, theoryMarksObtained: 60, practicalMarksObtained: 25 },
-      { subjectName: 'Chemistry', category: 'Compulsory', totalMarks: 100, passMarks: 33, theoryMarksObtained: 55, practicalMarksObtained: 28 },
-      { subjectName: 'Mathematics', category: 'Compulsory', totalMarks: 100, passMarks: 33, theoryMarksObtained: 70, practicalMarksObtained: 0 },
-      { subjectName: 'English', category: 'Elective', totalMarks: 100, passMarks: 33, theoryMarksObtained: 65, practicalMarksObtained: 0 },
-    ],
-  },
-   '68532': { // Prashik Likhar
-    studentName: 'Prashik Likhar',
-    fatherName: 'Mr. Likhar',
-    motherName: 'Mrs. Likhar',
-    rollNumber: 'PL202',
-    dateOfBirth: new Date('2002-08-20'),
-    gender: 'Male',
-    faculty: 'COMMERCE',
-    academicYear: '1st Year',
-    section: 'B',
-    sessionStartYear: 2018,
-    overallPassingThresholdPercentage: 40,
-    subjects: [
-      { subjectName: 'Accountancy', category: 'Compulsory', totalMarks: 100, passMarks: 40, theoryMarksObtained: 75, practicalMarksObtained: 0 },
-      { subjectName: 'Business Studies', category: 'Compulsory', totalMarks: 100, passMarks: 40, theoryMarksObtained: 68, practicalMarksObtained: 0 },
-      { subjectName: 'Economics', category: 'Compulsory', totalMarks: 100, passMarks: 40, theoryMarksObtained: 72, practicalMarksObtained: 0 },
-    ],
-  },
-};
-
+import type { ACADEMIC_YEAR_OPTIONS, SUBJECT_CATEGORIES_OPTIONS } from '@/components/app/marksheet-form-schema';
 
 const defaultPageSubtitle = `(Affiliated By Bihar School Examination Board, Patna)
 [Estd. - 1983] College Code: 53010
@@ -68,7 +27,7 @@ export default function EditMarksheetPage() {
   const { toast } = useToast();
 
   const [authStatus, setAuthStatus] = useState<'loading' | 'authenticated' | 'unauthenticated'>('loading');
-  const [initialData, setInitialData] = useState<Partial<MarksheetFormData> | null>(null);
+  const [initialData, setInitialData] = useState<MarksheetFormData | null>(null);
   const [isLoadingData, setIsLoadingData] = useState(true);
   
   const [isLoadingFormSubmission, setIsLoadingFormSubmission] = useState(false); 
@@ -80,38 +39,102 @@ export default function EditMarksheetPage() {
       const { data: { session }, error } = await supabase.auth.getSession();
       if (error || !session) {
         setAuthStatus('unauthenticated');
+        router.push('/login');
       } else {
         setAuthStatus('authenticated');
       }
     };
     checkAuthentication();
-  }, []); 
+  }, [router]); 
 
   useEffect(() => {
-    if (authStatus === 'unauthenticated') {
-      router.push('/login');
-    } else if (authStatus === 'authenticated') {
+    if (authStatus === 'authenticated' && studentId) {
       setFooterYear(new Date().getFullYear());
-      if (studentId) {
-        setTimeout(() => {
-          const data = mockStudentDatabase[studentId];
-          if (data) {
-            setInitialData(data);
-          } else {
-            toast({ title: 'Error', description: 'Student data not found.', variant: 'destructive' });
-            router.push('/'); 
-          }
-          setIsLoadingData(false);
-        }, 500); 
-      }
-    }
-  }, [authStatus, router, studentId, toast]);
+      setIsLoadingData(true);
 
-  const generateMarksheetNo = (faculty: string, rollNumber: string, sessionEndYear: number): string => {
+      const fetchStudentData = async () => {
+        try {
+          // Fetch student details
+          const { data: studentDetails, error: studentError } = await supabase
+            .from('student_details')
+            .select('*')
+            .eq('student_id', studentId)
+            .single();
+
+          if (studentError || !studentDetails) {
+            toast({ title: 'Error', description: `Student data not found for ID: ${studentId}. ${studentError?.message || ''}`, variant: 'destructive' });
+            setInitialData(null);
+            setIsLoadingData(false);
+            return;
+          }
+
+          // Fetch subject marks
+          const { data: subjectMarks, error: marksError } = await supabase
+            .from('student_marks_details')
+            .select('*')
+            .eq('student_id', studentId);
+
+          if (marksError) {
+            toast({ title: 'Error Fetching Subjects', description: marksError.message, variant: 'destructive' });
+            // Proceed with student data but empty subjects, or handle as full error
+          }
+          
+          // Transform data for the form
+          let sessionStartYear = new Date().getFullYear() -1;
+          let sessionEndYear = new Date().getFullYear();
+          if (studentDetails.academic_year && studentDetails.academic_year.includes('-')) {
+            const years = studentDetails.academic_year.split('-');
+            sessionStartYear = parseInt(years[0], 10);
+            sessionEndYear = parseInt(years[1], 10);
+          }
+
+
+          const transformedData: MarksheetFormData = {
+            studentName: studentDetails.name,
+            fatherName: studentDetails.father_name,
+            motherName: studentDetails.mother_name,
+            rollNumber: studentDetails.roll_no, // Use roll_no from DB
+            dateOfBirth: studentDetails.dob ? parseISO(studentDetails.dob) : new Date(), // Ensure dob is parsed correctly
+            gender: studentDetails.gender as MarksheetFormData['gender'],
+            faculty: studentDetails.faculty as MarksheetFormData['faculty'],
+            academicYear: studentDetails.class as typeof ACADEMIC_YEAR_OPTIONS[number], // DB 'class' maps to form 'academicYear'
+            section: studentDetails.section,
+            sessionStartYear: sessionStartYear,
+            sessionEndYear: sessionEndYear,
+            overallPassingThresholdPercentage: 33, // Default, or fetch if stored per student
+            subjects: subjectMarks?.map(mark => ({
+              id: mark.id?.toString() || crypto.randomUUID(), // Ensure ID for key
+              subjectName: mark.subject_name,
+              category: mark.category as typeof SUBJECT_CATEGORIES_OPTIONS[number],
+              totalMarks: mark.max_marks,
+              passMarks: mark.pass_marks,
+              theoryMarksObtained: mark.theory_marks_obtained ?? 0,
+              practicalMarksObtained: mark.practical_marks_obtained ?? 0,
+            })) || [],
+          };
+          
+          setInitialData(transformedData);
+
+        } catch (error) {
+          console.error("Error fetching student data for edit:", error);
+          toast({ title: 'Fetch Error', description: 'Could not load student data.', variant: 'destructive' });
+          setInitialData(null);
+        } finally {
+          setIsLoadingData(false);
+        }
+      };
+
+      fetchStudentData();
+    } else if (authStatus === 'unauthenticated') {
+         router.push('/login');
+    }
+  }, [authStatus, studentId, toast, router]);
+
+  const generateMarksheetNo = (faculty: string, rollNumber: string, sessionEndYearNumber: number): string => {
     const facultyCode = faculty.substring(0, 2).toUpperCase();
     const month = format(new Date(), 'MMM').toUpperCase();
     const sequence = String(Math.floor(Math.random() * 900) + 100); 
-    return `${facultyCode}/${month}/${sessionEndYear}/${rollNumber.slice(-3) || sequence}`;
+    return `${facultyCode}/${month}/${sessionEndYearNumber}/${rollNumber.slice(-3) || sequence}`;
   };
   
   const processFormData = (data: MarksheetFormData): MarksheetDisplayData => {
@@ -165,18 +188,20 @@ export default function EditMarksheetPage() {
 
   const handleFormSubmit = async (data: MarksheetFormData) => {
     setIsLoadingFormSubmission(true);
+    // TODO: Implement Supabase update logic here
+    // For now, it will just process for display as before
     try {
       const processedData = processFormData(data);
       setMarksheetData(processedData);
       toast({
-        title: 'Marksheet Updated',
-        description: 'Previewing the updated marksheet.',
+        title: 'Marksheet Data Processed',
+        description: 'Previewing the marksheet. Saving to database is not yet implemented for edits.',
       });
     } catch (error) {
       console.error("Error processing marksheet:", error);
       toast({
         title: 'Error',
-        description: 'Could not process marksheet data.',
+        description: 'Could not process marksheet data for preview.',
         variant: 'destructive',
       });
     } finally {
@@ -193,20 +218,11 @@ export default function EditMarksheetPage() {
   }
 
 
-  if (authStatus === 'loading' || (authStatus === 'authenticated' && isLoadingData && !initialData)) {
+  if (authStatus === 'loading' || (authStatus === 'authenticated' && isLoadingData)) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
         <p className="ml-2 text-muted-foreground">{authStatus === 'loading' ? 'Verifying session...' : 'Loading student data...'}</p>
-      </div>
-    );
-  }
-
-  if (authStatus === 'unauthenticated') {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-background">
-        <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        <p className="ml-2 text-muted-foreground">Redirecting to login...</p>
       </div>
     );
   }
@@ -225,7 +241,7 @@ export default function EditMarksheetPage() {
         />
         <main className="flex-grow container mx-auto px-4 py-8 sm:px-6 lg:px-8 flex flex-col items-center justify-center">
             <h1 className="text-2xl font-bold text-destructive mb-4">Student Not Found</h1>
-            <p className="text-muted-foreground mb-6">The student data for ID '{studentId}' could not be loaded.</p>
+            <p className="text-muted-foreground mb-6 text-center">The student data for ID '{studentId}' could not be loaded from the database. <br/> Please check the ID or ensure the student record exists.</p>
             <Button onClick={() => router.push('/')}>
                 <ArrowLeft className="mr-2 h-4 w-4" /> Go Back to Dashboard
             </Button>
@@ -279,4 +295,4 @@ export default function EditMarksheetPage() {
     </div>
   );
 }
-
+    
