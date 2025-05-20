@@ -61,11 +61,17 @@ export default function ImportDataPage() {
 
  useEffect(() => {
     const checkAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        setAuthStatus('authenticated');
-      } else {
-        setAuthStatus('unauthenticated');
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          setAuthStatus('authenticated');
+        } else {
+          setAuthStatus('unauthenticated');
+          router.push('/login');
+        }
+      } catch (error) {
+        console.error("Error checking auth status:", error);
+        setAuthStatus('unauthenticated'); // Fallback to unauthenticated on error
         router.push('/login');
       }
     };
@@ -146,9 +152,9 @@ export default function ImportDataPage() {
             const dobRaw = row['Date of Birth'];
             const gender = String(row['Gender'] || '').trim();
             const faculty = String(row['Faculty'] || '').trim();
-            const studentClass = String(row['Class'] || '').trim(); // e.g., 11th, 1st Year
+            const studentClass = String(row['Class'] || '').trim();
             const section = String(row['Section'] || '').trim();
-            const academicSession = String(row['Academic Session'] || '').trim(); // e.g., 2023-2024
+            const academicSession = String(row['Academic Session'] || '').trim();
 
             const currentFeedback: StudentImportFeedbackItem = { rowNumber: rowNum, name: studentName, status: 'skipped', message: ''};
 
@@ -176,22 +182,21 @@ export default function ImportDataPage() {
             }
             
             const generatedStudentId = crypto.randomUUID();
-            studentNameToGeneratedIdMap.set(studentName, generatedStudentId); // Map by name for marks linkage
+            studentNameToGeneratedIdMap.set(studentName, generatedStudentId);
 
             studentInserts.push({
               student_id: generatedStudentId,
-              roll_no: generatedStudentId, // Using generated ID as roll_no
+              roll_no: generatedStudentId, 
               name: studentName,
               father_name: fatherName,
               mother_name: motherName,
               dob: dobFormatted,
               gender: gender,
               faculty: faculty,
-              class: studentClass, // Storing "11th", "1st Year" etc.
+              class: studentClass, 
               section: section,
-              academic_year: academicSession, // Storing "2023-2024"
+              academic_year: academicSession, 
             });
-             // Tentatively mark as addable, will update after DB op
             currentFeedback.status = 'added'; 
             currentFeedback.studentId = generatedStudentId;
             currentFeedback.message = 'Pending database insertion.';
@@ -206,7 +211,6 @@ export default function ImportDataPage() {
 
             if (studentInsertError) {
               results.summaryMessages.push({ type: 'error', message: `Error inserting student details: ${studentInsertError.message}` });
-              // Update feedback for students that failed to insert
               studentInserts.forEach(si => {
                 const feedback = results.studentFeedback.find(f => f.studentId === si.student_id);
                 if (feedback) {
@@ -214,18 +218,20 @@ export default function ImportDataPage() {
                   feedback.message = `Database insert failed: ${studentInsertError.message}`;
                 }
               });
+              results.totalStudentsAdded = 0; // Reset if main insert fails
             } else {
               results.totalStudentsAdded = insertedStudents?.length || 0;
               results.summaryMessages.push({ type: 'success', message: `${results.totalStudentsAdded} student(s) details successfully prepared for insertion or inserted.` });
                insertedStudents?.forEach(is => {
-                 const feedback = results.studentFeedback.find(f => f.studentId === is.student_id);
+                 const feedback = results.studentFeedback.find(f => f.studentId === is.student_id && f.status === 'added');
                  if (feedback) {
-                   feedback.status = 'added';
                    feedback.message = 'Successfully added to database.';
                  }
                });
             }
              results.totalStudentsSkipped = results.totalStudentsProcessed - results.totalStudentsAdded;
+          } else {
+             results.totalStudentsSkipped = results.totalStudentsProcessed; // All were skipped due to validation
           }
         }
 
@@ -244,7 +250,7 @@ export default function ImportDataPage() {
             const rowNum = i + 2;
 
             const studentNameForMarks = String(row['Name'] || '').trim();
-            const subjectName = String(row['Subject Name'] || '').trim(); // Assuming this column exists
+            const subjectName = String(row['Subject Name'] || '').trim(); 
             const subjectCategory = String(row['Subject Category'] || '').trim();
             const maxMarksRaw = row['Max Marks'];
             const passMarksRaw = row['Pass Marks'];
@@ -260,7 +266,7 @@ export default function ImportDataPage() {
 
 
             if (!studentNameForMarks || !subjectName || !subjectCategory || isNaN(maxMarks) || isNaN(passMarks)) {
-              currentFeedback.message = "Missing required fields (Student Name, Subject Name, Category) or invalid Max/Pass Marks.";
+              currentFeedback.message = "Missing required fields (Name, Subject Name, Subject Category) or invalid Max/Pass Marks.";
               results.marksFeedback.push(currentFeedback);
               results.totalMarksSkipped++;
               continue;
@@ -268,7 +274,7 @@ export default function ImportDataPage() {
             
             const studentId = studentNameToGeneratedIdMap.get(studentNameForMarks);
             if (!studentId) {
-              currentFeedback.message = `Student "${studentNameForMarks}" not found in 'Student Details' sheet of this file or not added.`;
+              currentFeedback.message = `Student "${studentNameForMarks}" not found in 'Student Details' sheet of this file or not added. Marks for this subject skipped.`;
               results.marksFeedback.push(currentFeedback);
               results.totalMarksSkipped++;
               continue;
@@ -313,24 +319,28 @@ export default function ImportDataPage() {
             if (marksInsertError) {
               results.summaryMessages.push({ type: 'error', message: `Error inserting marks details: ${marksInsertError.message}` });
               marksInserts.forEach(mi => {
-                const feedback = results.marksFeedback.find(f => f.studentName && studentNameToGeneratedIdMap.get(f.studentName) === mi.student_id && f.subjectName === mi.subject_name);
+                const studentNameFromMap = Array.from(studentNameToGeneratedIdMap.entries()).find(([,id]) => id === mi.student_id)?.[0];
+                const feedback = results.marksFeedback.find(f => f.studentName === studentNameFromMap && f.subjectName === mi.subject_name && f.status === 'added');
                 if(feedback) {
                     feedback.status = 'error';
                     feedback.message = `Database insert failed: ${marksInsertError.message}`;
                 }
               });
+              results.totalMarksAdded = 0; // Reset if main insert fails
             } else {
               results.totalMarksAdded = insertedMarks?.length || 0;
               results.summaryMessages.push({ type: 'success', message: `${results.totalMarksAdded} marks records successfully inserted.` });
               insertedMarks?.forEach(im => {
-                 const studentName = Array.from(studentNameToGeneratedIdMap.entries()).find(([name, id]) => id === im.student_id)?.[0] || "Unknown Student";
-                 const feedback = results.marksFeedback.find(f => f.studentName === studentName && f.subjectName === im.subject_name && f.status === 'added'); // Check status to only update pending ones
+                 const studentName = Array.from(studentNameToGeneratedIdMap.entries()).find(([,id]) => id === im.student_id)?.[0] || "Unknown Student";
+                 const feedback = results.marksFeedback.find(f => f.studentName === studentName && f.subjectName === im.subject_name && f.status === 'added');
                  if(feedback) {
                     feedback.message = 'Successfully added to database.';
                  }
               });
             }
              results.totalMarksSkipped = results.totalMarksProcessed - results.totalMarksAdded;
+          } else {
+             results.totalMarksSkipped = results.totalMarksProcessed; // All were skipped due to validation
           }
         }
         toast({ title: "Import Processed", description: "Review the details below." });
@@ -342,9 +352,9 @@ export default function ImportDataPage() {
         setImportResults(results);
         setIsLoading(false);
         if (fileInputRef.current) {
-          fileInputRef.current.value = ''; // Reset file input
+          fileInputRef.current.value = ''; 
         }
-        setFile(null); // Clear selected file state
+        setFile(null); 
       }
     };
     reader.onerror = () => {
@@ -382,7 +392,7 @@ export default function ImportDataPage() {
               Upload an Excel file with student details and their marks.
               Ensure your file has two sheets: "Student Details" and "Student Marks Details".
               Required columns for "Student Details": Name, Father Name, Mother Name, Date of Birth, Gender, Faculty, Class, Section, Academic Session.
-              Required columns for "Student Marks Details": Name (must match Student Details sheet), Subject Name, Subject Category, Max Marks, Pass Marks. Optional: Theory Marks Obtained, Practical Marks Obtained.
+              Required columns for "Student Marks Details": Name (must match a Name in Student Details sheet), Subject Name, Subject Category, Max Marks, Pass Marks. Optional: Theory Marks Obtained, Practical Marks Obtained.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -414,11 +424,16 @@ export default function ImportDataPage() {
                 <h3 className="text-xl font-semibold border-b pb-2">Import Results</h3>
                 
                 {importResults.summaryMessages.map((msg, idx) => (
-                  <div key={`summary-${idx}`} className={`p-3 rounded-md text-sm ${
-                    msg.type === 'success' ? 'bg-green-100 text-green-700' :
-                    msg.type === 'error' ? 'bg-red-100 text-red-700' :
-                    msg.type === 'warning' ? 'bg-yellow-100 text-yellow-700' : 'bg-blue-100 text-blue-700'
+                  <div key={`summary-${idx}`} className={`p-3 rounded-md text-sm flex items-center gap-2 ${
+                    msg.type === 'success' ? 'bg-green-100 text-green-700 border border-green-300' :
+                    msg.type === 'error' ? 'bg-red-100 text-red-700 border border-red-300' :
+                    msg.type === 'warning' ? 'bg-yellow-100 text-yellow-700 border border-yellow-300' : 
+                    'bg-blue-100 text-blue-700 border border-blue-300' // info
                   }`}>
+                    {msg.type === 'success' && <CheckCircle className="h-5 w-5" />}
+                    {msg.type === 'error' && <XCircle className="h-5 w-5" />}
+                    {msg.type === 'warning' && <AlertTriangle className="h-5 w-5" />}
+                    {msg.type === 'info' && <AlertTriangle className="h-5 w-5" />} {/* Using AlertTriangle for info too, or choose another */}
                     {msg.message}
                   </div>
                 ))}
@@ -426,20 +441,22 @@ export default function ImportDataPage() {
                 <Separator />
 
                 <div>
-                  <h4 className="text-lg font-medium">Student Details Feedback ({importResults.studentFeedback.length} rows processed)</h4>
-                  <p className="text-sm text-muted-foreground">Added: {importResults.totalStudentsAdded}, Skipped/Errors: {importResults.totalStudentsSkipped + importResults.studentFeedback.filter(f=>f.status === 'error' && f.message !== 'Database insert failed: studentInsertError.message').length}</p>
+                  <h4 className="text-lg font-medium">Student Details Feedback ({importResults.totalStudentsProcessed} rows processed)</h4>
+                  <p className="text-sm text-muted-foreground">Added: {importResults.totalStudentsAdded}, Skipped/Errors: {importResults.totalStudentsSkipped + importResults.studentFeedback.filter(f=>f.status === 'error' && !(f.message.startsWith('Database insert failed'))).length}</p>
                   {importResults.studentFeedback.length > 0 && (
                     <ScrollArea className="h-60 mt-2 border rounded-md p-2">
                       {importResults.studentFeedback.map((item, idx) => (
-                        <div key={`student-${idx}`} className="text-xs p-1.5 border-b last:border-b-0">
-                          Row {item.rowNumber}: <span className="font-semibold">{item.name}</span> - 
-                          <span className={`ml-1 font-medium ${
-                            item.status === 'added' ? 'text-green-600' : 
-                            item.status === 'skipped' ? 'text-yellow-600' : 'text-red-600'
+                        <div key={`student-${idx}`} className="text-xs p-1.5 border-b last:border-b-0 flex items-start">
+                           {item.status === 'added' && <CheckCircle className="h-3.5 w-3.5 text-green-600 mr-1.5 flex-shrink-0" />}
+                           {(item.status === 'skipped' || item.status === 'error') && <XCircle className="h-3.5 w-3.5 text-red-600 mr-1.5 flex-shrink-0" />}
+                          <span className="font-semibold">Row {item.rowNumber}:</span>&nbsp;
+                          <span className="font-medium">{item.name}</span>&nbsp;-&nbsp; 
+                          <span className={`font-medium ${
+                            item.status === 'added' ? 'text-green-600' : 'text-red-600'
                           }`}>
                             {item.status.toUpperCase()}
                           </span>
-                          : {item.message} {item.details && `(${item.details})`}
+                          :&nbsp;{item.message} {item.details && `(${item.details})`}
                         </div>
                       ))}
                     </ScrollArea>
@@ -449,20 +466,22 @@ export default function ImportDataPage() {
                 <Separator />
 
                 <div>
-                  <h4 className="text-lg font-medium">Marks Details Feedback ({importResults.marksFeedback.length} rows processed)</h4>
-                   <p className="text-sm text-muted-foreground">Added: {importResults.totalMarksAdded}, Skipped/Errors: {importResults.totalMarksSkipped + importResults.marksFeedback.filter(f=>f.status === 'error').length}</p>
+                  <h4 className="text-lg font-medium">Marks Details Feedback ({importResults.totalMarksProcessed} rows processed)</h4>
+                   <p className="text-sm text-muted-foreground">Added: {importResults.totalMarksAdded}, Skipped/Errors: {importResults.totalMarksSkipped + importResults.marksFeedback.filter(f=>f.status === 'error' && !(f.message.startsWith('Database insert failed'))).length}</p>
                   {importResults.marksFeedback.length > 0 && (
                     <ScrollArea className="h-60 mt-2 border rounded-md p-2">
                       {importResults.marksFeedback.map((item, idx) => (
-                        <div key={`mark-${idx}`} className="text-xs p-1.5 border-b last:border-b-0">
-                          Row {item.rowNumber}: Student <span className="font-semibold">{item.studentName}</span>, Subject <span className="font-semibold">{item.subjectName}</span> -
-                           <span className={`ml-1 font-medium ${
-                            item.status === 'added' ? 'text-green-600' : 
-                            item.status === 'skipped' ? 'text-yellow-600' : 'text-red-600'
+                        <div key={`mark-${idx}`} className="text-xs p-1.5 border-b last:border-b-0 flex items-start">
+                           {item.status === 'added' && <CheckCircle className="h-3.5 w-3.5 text-green-600 mr-1.5 flex-shrink-0" />}
+                           {(item.status === 'skipped' || item.status === 'error') && <XCircle className="h-3.5 w-3.5 text-red-600 mr-1.5 flex-shrink-0" />}
+                          <span className="font-semibold">Row {item.rowNumber}:</span>&nbsp;
+                          Student <span className="font-medium">{item.studentName}</span>, Subject <span className="font-medium">{item.subjectName}</span>&nbsp;-&nbsp;
+                           <span className={`font-medium ${
+                            item.status === 'added' ? 'text-green-600' : 'text-red-600'
                           }`}>
                             {item.status.toUpperCase()}
                           </span>
-                          : {item.message} {item.details && `(${item.details})`}
+                          :&nbsp;{item.message} {item.details && `(${item.details})`}
                         </div>
                       ))}
                     </ScrollArea>
