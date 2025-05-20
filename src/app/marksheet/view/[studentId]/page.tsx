@@ -21,7 +21,7 @@ www.saryugcollege.com`;
 export default function ViewMarksheetPage() {
   const router = useRouter();
   const params = useParams();
-  const studentSystemId = params.studentId as string; // This is now the system UUID
+  const studentSystemId = params.studentId as string; 
   const { toast } = useToast();
 
   const [authStatus, setAuthStatus] = useState<'loading' | 'authenticated' | 'unauthenticated'>('loading');
@@ -58,7 +58,7 @@ export default function ViewMarksheetPage() {
           const { data: studentDetails, error: studentError } = await supabase
             .from('student_details')
             .select('*')
-            .eq('id', studentSystemId) // Fetch by system UUID 'id'
+            .eq('id', studentSystemId) 
             .single();
 
           if (studentError || !studentDetails) {
@@ -71,7 +71,7 @@ export default function ViewMarksheetPage() {
           const { data: subjectMarks, error: marksError } = await supabase
             .from('student_marks_details')
             .select('*')
-            .eq('student_detail_id', studentSystemId); // Fetch marks by system UUID 'student_detail_id'
+            .eq('student_detail_id', studentSystemId); 
 
           if (marksError) {
             toast({ title: 'Error Fetching Subjects', description: marksError.message, variant: 'destructive' });
@@ -202,7 +202,7 @@ export default function ViewMarksheetPage() {
             }
           />
         </div>
-        <main className="flex-grow container mx-auto px-4 py-8 sm:px-6 lg:px-8 flex flex-col items-center justify-center print:p-0 print:m-0 print:h-full print:container-none print:max-w-none">
+        <main className="flex-grow container mx-auto px-4 py-8 sm:px-6 lg:px-8 flex flex-col items-center justify-center print:p-0 print:m-0 print:h-full print:container-none print:max-w-none max-w-screen-xl">
           <h1 className="text-2xl font-bold text-destructive mb-4">Marksheet Not Found</h1>
           <p className="text-muted-foreground mb-6 text-center">The marksheet data for student ID '{studentSystemId}' could not be loaded. <br /> Please check the ID or ensure the student and their marks exist in the database.</p>
           <Button onClick={() => router.push('/')}>
@@ -210,7 +210,7 @@ export default function ViewMarksheetPage() {
           </Button>
         </main>
         <footer className="py-4 border-t border-border mt-auto print:hidden">
-          <div className="container mx-auto px-4 sm:px-6 lg:px-8 text-center text-xs text-muted-foreground">
+          <div className="container mx-auto px-4 sm:px-6 lg:px-8 text-center text-xs text-muted-foreground max-w-screen-xl">
             {footerYear && <p>Copyright ©{footerYear} by Saryug College, Samastipur, Bihar. Design By Mantix.</p>}
           </div>
         </footer>
@@ -232,7 +232,7 @@ export default function ViewMarksheetPage() {
         />
       </div>
 
-      <main className="flex-grow container mx-auto px-4 py-8 sm:px-6 lg:px-8 print:p-0 print:m-0 print:h-full print:container-none print:max-w-none">
+      <main className="flex-grow container mx-auto px-4 py-8 sm:px-6 lg:px-8 print:p-0 print:m-0 print:h-full print:container-none print:max-w-none max-w-screen-xl">
         {marksheetData ? (
           <MarksheetDisplay data={marksheetData} />
         ) : (
@@ -243,7 +243,7 @@ export default function ViewMarksheetPage() {
       </main>
 
       <footer className="py-4 border-t border-border mt-auto print:hidden">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 text-center text-xs text-muted-foreground">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 text-center text-xs text-muted-foreground max-w-screen-xl">
           {footerYear && <p>Copyright ©{footerYear} by Saryug College, Samastipur, Bihar. Design By Mantix.</p>}
           {!footerYear && <p>Copyright by Saryug College, Samastipur, Bihar. Design By Mantix.</p>}
         </div>

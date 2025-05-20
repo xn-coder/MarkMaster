@@ -23,7 +23,7 @@ www.saryugcollege.com`;
 export default function EditMarksheetPage() {
   const router = useRouter();
   const params = useParams();
-  const studentSystemId = params.studentId as string; // This is now the system UUID
+  const studentSystemId = params.studentId as string; 
   const { toast } = useToast();
 
   const [authStatus, setAuthStatus] = useState<'loading' | 'authenticated' | 'unauthenticated'>('loading');
@@ -63,7 +63,7 @@ export default function EditMarksheetPage() {
           const { data: studentDetails, error: studentError } = await supabase
             .from('student_details')
             .select('*')
-            .eq('id', studentSystemId) // Fetch by system UUID 'id'
+            .eq('id', studentSystemId) 
             .single();
 
           if (studentError || !studentDetails) {
@@ -76,7 +76,7 @@ export default function EditMarksheetPage() {
           const { data: subjectMarks, error: marksError } = await supabase
             .from('student_marks_details')
             .select('*')
-            .eq('student_detail_id', studentSystemId); // Fetch marks by system UUID 'student_detail_id'
+            .eq('student_detail_id', studentSystemId); 
 
           if (marksError) {
             toast({ title: 'Error Fetching Subjects', description: marksError.message, variant: 'destructive' });
@@ -91,11 +91,11 @@ export default function EditMarksheetPage() {
           }
 
           const transformedData: MarksheetFormData = {
-            system_id: studentDetails.id, // Store the system ID
+            system_id: studentDetails.id, 
             studentName: studentDetails.name,
             fatherName: studentDetails.father_name,
             motherName: studentDetails.mother_name,
-            rollNumber: studentDetails.roll_no, // User-facing roll number
+            rollNumber: studentDetails.roll_no, 
             dateOfBirth: studentDetails.dob ? parseISO(studentDetails.dob) : new Date(),
             gender: studentDetails.gender as MarksheetFormData['gender'],
             faculty: studentDetails.faculty as MarksheetFormData['faculty'],
@@ -103,9 +103,9 @@ export default function EditMarksheetPage() {
             section: studentDetails.section,
             sessionStartYear: sessionStartYear,
             sessionEndYear: sessionEndYear,
-            overallPassingThresholdPercentage: 33, // Default or fetch if stored
+            overallPassingThresholdPercentage: 33, 
             subjects: subjectMarks?.map(mark => ({
-              id: mark.mark_id?.toString() || crypto.randomUUID(), // Assuming mark_id is PK for subject entries
+              id: mark.mark_id?.toString() || crypto.randomUUID(), 
               subjectName: mark.subject_name,
               category: mark.category as typeof SUBJECT_CATEGORIES_OPTIONS[number],
               totalMarks: mark.max_marks,
@@ -173,7 +173,7 @@ export default function EditMarksheetPage() {
 
     return {
       ...data,
-      system_id: data.system_id || studentSystemId, // Ensure system_id is carried
+      system_id: data.system_id || studentSystemId, 
       subjects: subjectsDisplay,
       collegeCode: "53010",
       marksheetNo: generateMarksheetNo(data.faculty, data.rollNumber, data.sessionEndYear),
@@ -212,20 +212,20 @@ export default function EditMarksheetPage() {
           section: data.section,
           academic_year: `${data.sessionStartYear}-${data.sessionEndYear}`,
         })
-        .eq('id', studentSystemId); // Update using system UUID 'id'
+        .eq('id', studentSystemId); 
 
       if (studentUpdateError) throw studentUpdateError;
 
       const { error: deleteMarksError } = await supabase
         .from('student_marks_details')
         .delete()
-        .eq('student_detail_id', studentSystemId); // Delete using system UUID 'student_detail_id'
+        .eq('student_detail_id', studentSystemId); 
 
       if (deleteMarksError) throw deleteMarksError;
 
       if (data.subjects && data.subjects.length > 0) {
         const marksToInsert = data.subjects.map(subject => ({
-          student_detail_id: studentSystemId, // Link marks using system UUID
+          student_detail_id: studentSystemId, 
           subject_name: subject.subjectName,
           category: subject.category,
           max_marks: subject.totalMarks,
@@ -284,7 +284,7 @@ export default function EditMarksheetPage() {
             }
           />
         </div>
-        <main className="flex-grow container mx-auto px-4 py-8 sm:px-6 lg:px-8 flex flex-col items-center justify-center print:p-0 print:m-0 print:h-full print:container-none print:max-w-none">
+        <main className="flex-grow container mx-auto px-4 py-8 sm:px-6 lg:px-8 flex flex-col items-center justify-center print:p-0 print:m-0 print:h-full print:container-none print:max-w-none max-w-screen-xl">
           <h1 className="text-2xl font-bold text-destructive mb-4">Student Not Found</h1>
           <p className="text-muted-foreground mb-6 text-center">The student data for ID '{studentSystemId}' could not be loaded. <br /> Please check the ID or ensure the student record exists.</p>
           <Button onClick={() => router.push('/')}>
@@ -292,7 +292,7 @@ export default function EditMarksheetPage() {
           </Button>
         </main>
         <footer className="py-4 border-t border-border mt-auto print:hidden">
-          <div className="container mx-auto px-4 sm:px-6 lg:px-8 text-center text-xs text-muted-foreground">
+          <div className="container mx-auto px-4 sm:px-6 lg:px-8 text-center text-xs text-muted-foreground max-w-screen-xl">
             {footerYear && <p>Copyright ©{footerYear} by Saryug College, Samastipur, Bihar. Design By Mantix.</p>}
           </div>
         </footer>
@@ -315,7 +315,7 @@ export default function EditMarksheetPage() {
         />
       </div>
 
-      <main className="flex-grow container mx-auto px-4 py-8 sm:px-6 lg:px-8 print:p-0 print:m-0 print:h-full print:container-none print:max-w-none">
+      <main className="flex-grow container mx-auto px-4 py-8 sm:px-6 lg:px-8 print:p-0 print:m-0 print:h-full print:container-none print:max-w-none max-w-screen-xl">
         <div className="mb-6 text-center print:hidden">
           <h1 className="text-2xl font-bold text-primary">
             {marksheetData ? 'Updated Marksheet Preview' : `Edit Marksheet for ${initialData?.studentName || 'Student'} (Roll: ${initialData?.rollNumber})`}
@@ -333,7 +333,7 @@ export default function EditMarksheetPage() {
       </main>
 
       <footer className="py-4 border-t border-border mt-auto print:hidden">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 text-center text-xs text-muted-foreground">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 text-center text-xs text-muted-foreground max-w-screen-xl">
           {footerYear && <p>Copyright ©{footerYear} by Saryug College, Samastipur, Bihar. Design By Mantix.</p>}
           {!footerYear && <p>Copyright by Saryug College, Samastipur, Bihar. Design By Mantix.</p>}
         </div>

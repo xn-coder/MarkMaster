@@ -66,7 +66,7 @@ export default function AdminDashboardPage() {
   const [isExporting, setIsExporting] = useState(false);
 
   const [allStudents, setAllStudents] = useState<StudentRowData[]>([]);
-  const [displayedStudents, setDisplayedStudents] = useState<StudentRowData[]>([]);
+  
 
   // State for dynamic filter options
   const [dynamicAcademicYearOptions, setDynamicAcademicYearOptions] = useState<string[]>(['All Academic Years']);
@@ -140,7 +140,7 @@ export default function AdminDashboardPage() {
     try {
       const { data: studentsData, error } = await supabase
         .from('student_details')
-        .select('id, roll_no, name, faculty, class, academic_year'); // 'id' is system_id, 'class' is studentClass
+        .select('id, roll_no, name, faculty, class, academic_year'); 
 
       if (error) {
         throw error;
@@ -148,11 +148,11 @@ export default function AdminDashboardPage() {
       
       if (studentsData) {
         const formattedStudents: StudentRowData[] = studentsData.map(s => ({
-          system_id: s.id, // map 'id' from DB to 'system_id'
+          system_id: s.id, 
           roll_no: s.roll_no,
           name: s.name,
-          academicYear: s.academic_year, // this is the session string like "2023-2024"
-          studentClass: s.class, // map 'class' from DB to 'studentClass'
+          academicYear: s.academic_year, 
+          studentClass: s.class, 
           faculty: s.faculty,
         }));
         setAllStudents(formattedStudents);
@@ -172,7 +172,7 @@ export default function AdminDashboardPage() {
     }
   };
   
- useEffect(() => {
+ const displayedStudents = useMemo(() => {
     let filtered = allStudents;
 
     if (academicYearFilter !== 'All Academic Years') {
@@ -185,25 +185,23 @@ export default function AdminDashboardPage() {
     if (filterStartYearNum !== null || filterEndYearNum !== null) {
       filtered = filtered.filter(student => {
         if (!student.academicYear || !student.academicYear.includes('-')) {
-          return false; // Skip if academicYear is malformed or missing
+          return false; 
         }
         const [studentSessionStartStr, studentSessionEndStr] = student.academicYear.split('-');
         const studentSessionStartYear = parseInt(studentSessionStartStr, 10);
         const studentSessionEndYear = parseInt(studentSessionEndStr, 10);
 
         if (isNaN(studentSessionStartYear) || isNaN(studentSessionEndYear)) {
-            return false; // Skip if parsing fails
+            return false; 
         }
 
         let include = true;
         if (filterStartYearNum !== null) {
-          // Student's session must end on or after the filter's start year
           if (studentSessionEndYear < filterStartYearNum) {
             include = false;
           }
         }
         if (filterEndYearNum !== null) {
-          // Student's session must start on or before the filter's end year
           if (studentSessionStartYear > filterEndYearNum) {
             include = false;
           }
@@ -222,10 +220,13 @@ export default function AdminDashboardPage() {
     if (classFilter !== 'All Classes') {
       filtered = filtered.filter(student => student.studentClass === classFilter);
     }
-
-    setDisplayedStudents(filtered);
-    setCurrentPage(1); 
+    return filtered;
   }, [allStudents, academicYearFilter, startYearFilter, endYearFilter, studentIdFilter, studentNameFilter, classFilter]);
+
+
+  useEffect(() => {
+    setCurrentPage(1); 
+  }, [displayedStudents]);
 
 
   const paginatedStudents = useMemo(() => {
@@ -249,26 +250,24 @@ export default function AdminDashboardPage() {
     }
 
     try {
-      // First, delete associated marks
+      
       const { error: marksError } = await supabase
         .from('student_marks_details')
         .delete()
-        .eq('student_detail_id', student.system_id); // Use system_id which maps to 'id' in student_details
+        .eq('student_detail_id', student.system_id); 
 
       if (marksError) {
         throw new Error(`Could not delete marks for ${student.name}: ${marksError.message}`);
       }
 
-      // Then, delete the student
+      
       const { error: studentError } = await supabase
         .from('student_details')
         .delete()
-        .eq('id', student.system_id); // Use system_id which maps to 'id' in student_details
+        .eq('id', student.system_id); 
 
       if (studentError) {
-        // This part might be tricky: if student delete fails, marks are already gone.
-        // For simplicity, we'll report the student deletion error.
-        // A more robust solution might involve transactions if your DB supports them easily with Supabase.
+        
         throw new Error(`Could not delete student ${student.name}: ${studentError.message}. Their marks might have been deleted.`);
       }
 
@@ -276,7 +275,7 @@ export default function AdminDashboardPage() {
         title: 'Student Deleted',
         description: `${student.name} (Roll No: ${student.roll_no}) and their marks have been deleted.`,
       });
-      // Refetch data to update the list and filter options
+      
       await handleLoadStudentData();
     } catch (error: any) {
       toast({
@@ -303,36 +302,36 @@ export default function AdminDashboardPage() {
     const studentDetailsSheetData: any[] = [];
     const studentMarksDataSheet: any[] = [];
 
-    // Headers for Student Details Sheet
+    
     const studentDetailHeaders = ["Student System ID", "Roll No", "Name", "Father Name", "Mother Name", "Date of Birth", "Gender", "Faculty", "Class", "Section", "Academic Session"];
-    // Headers for Student Marks Details Sheet
+    
     const studentMarkHeaders = ["Student System ID", "Roll No", "Name", "Subject Name", "Subject Category", "Max Marks", "Pass Marks", "Theory Marks Obtained", "Practical Marks Obtained", "Obtained Total Marks"];
 
 
     try {
       for (const displayedStudent of displayedStudents) {
-        // Fetch full student details from the database
+        
         const { data: studentDetails, error: studentError } = await supabase
           .from('student_details')
           .select('*')
-          .eq('id', displayedStudent.system_id) // Use system_id for fetching
+          .eq('id', displayedStudent.system_id) 
           .single();
 
         if (studentError || !studentDetails) {
           console.error(`Error fetching details for student ${displayedStudent.system_id}:`, studentError);
-          // Optionally add a row with an error message to the sheet, or skip
-          studentDetailsDataSheet.push({
+          
+          studentDetailsSheetData.push({
             "Student System ID": displayedStudent.system_id,
             "Roll No": displayedStudent.roll_no,
             "Name": displayedStudent.name,
-            "Father Name": "Error fetching", // Indicate data fetching issue
-            // ... other fields as N/A or error indicators
+            "Father Name": "Error fetching", 
+            
           });
-          continue; // Skip to next student if details can't be fetched
+          continue; 
         }
 
-        // Add to Student Details Sheet
-        studentDetailsDataSheet.push({
+        
+        studentDetailsSheetData.push({
           "Student System ID": studentDetails.id,
           "Roll No": studentDetails.roll_no,
           "Name": studentDetails.name,
@@ -346,23 +345,23 @@ export default function AdminDashboardPage() {
           "Academic Session": studentDetails.academic_year,
         });
 
-        // Fetch marks for this student
+        
         const { data: marksDetails, error: marksError } = await supabase
           .from('student_marks_details')
           .select('*')
-          .eq('student_detail_id', studentDetails.id); // Link via the student's system ID
+          .eq('student_detail_id', studentDetails.id); 
 
         if (marksError) {
           console.error(`Error fetching marks for student ${studentDetails.id}:`, marksError);
-          // Optionally, handle this - e.g., add a placeholder row in marks sheet or log
+          
         }
 
         if (marksDetails && marksDetails.length > 0) {
           for (const mark of marksDetails) {
             studentMarksDataSheet.push({
-              "Student System ID": studentDetails.id, // For linking/reference
-              "Roll No": studentDetails.roll_no,     // For easier human reading
-              "Name": studentDetails.name,           // For easier human reading
+              "Student System ID": studentDetails.id, 
+              "Roll No": studentDetails.roll_no,     
+              "Name": studentDetails.name,           
               "Subject Name": mark.subject_name,
               "Subject Category": mark.category,
               "Max Marks": mark.max_marks,
@@ -373,7 +372,7 @@ export default function AdminDashboardPage() {
             });
           }
         } else {
-          // If no marks, add a row indicating this for the student in marks sheet
+          
           studentMarksDataSheet.push({
             "Student System ID": studentDetails.id,
             "Roll No": studentDetails.roll_no,
@@ -384,7 +383,7 @@ export default function AdminDashboardPage() {
         }
       }
 
-      if (studentDetailsDataSheet.length === 0 && studentMarksDataSheet.length === 0) {
+      if (studentDetailsSheetData.length === 0 && studentMarksDataSheet.length === 0) {
         toast({ title: "No Detailed Data", description: "Could not fetch detailed data for the selected students.", variant: "destructive" });
         setIsExporting(false);
         return;
@@ -392,38 +391,38 @@ export default function AdminDashboardPage() {
 
       const workbook = XLSX.utils.book_new();
 
-      // Create Student Details Sheet if data exists
-      if (studentDetailsDataSheet.length > 0) {
-        const wsStudentDetails = XLSX.utils.json_to_sheet(studentDetailsDataSheet, {header: studentDetailHeaders, skipHeader: false });
+      
+      if (studentDetailsSheetData.length > 0) {
+        const wsStudentDetails = XLSX.utils.json_to_sheet(studentDetailsSheetData, {header: studentDetailHeaders, skipHeader: false });
         XLSX.utils.book_append_sheet(workbook, wsStudentDetails, "Student Details");
       }
 
-      // Create Student Marks Details Sheet if data exists
+      
       if (studentMarksDataSheet.length > 0) {
         const wsStudentMarks = XLSX.utils.json_to_sheet(studentMarksDataSheet, {header: studentMarkHeaders, skipHeader: false });
         XLSX.utils.book_append_sheet(workbook, wsStudentMarks, "Student Marks Details");
       }
       
-      // Auto-size columns for all sheets
+      
       Object.keys(workbook.Sheets).forEach(sheetName => {
         const sheet = workbook.Sheets[sheetName];
-        // Ensure sheet['!cols'] is initialized
+        
         if (!sheet['!cols']) sheet['!cols'] = [];
         
         const jsonSheet = XLSX.utils.sheet_to_json<any>(sheet, { header: 1 });
         if (jsonSheet.length > 0) {
-            const cols = jsonSheet[0] as any[]; // First row (headers)
+            const cols = jsonSheet[0] as any[]; 
              if (cols) {
-                const colWidths = cols.map((_, i) => { // Iterate based on number of columns in header
-                    let maxLen = String(cols[i] || '').length; // Header length
-                    jsonSheet.forEach((row: any) => { // Iterate through all rows
+                const colWidths = cols.map((_, i) => { 
+                    let maxLen = String(cols[i] || '').length; 
+                    jsonSheet.forEach((row: any) => { 
                         const cellValue = row[i];
-                        if (cellValue != null) { // Check if cell has value
+                        if (cellValue != null) { 
                             const len = String(cellValue).length;
                             if (len > maxLen) maxLen = len;
                         }
                     });
-                    return { wch: maxLen + 2 }; // Add a little padding
+                    return { wch: maxLen + 2 }; 
                 });
                 sheet['!cols'] = colWidths;
             }
@@ -458,9 +457,9 @@ export default function AdminDashboardPage() {
         pageSubtitle={dashboardPageSubtitle}
       />
 
-      <main className="flex-grow container mx-auto px-4 py-6 sm:px-6 lg:px-8">
+      <main className="flex-grow container mx-auto px-4 py-6 sm:px-6 lg:px-8 max-w-screen-xl">
         <div className="bg-primary text-primary-foreground p-3 rounded-md shadow-md mb-6">
-          <div className="container mx-auto px-0 sm:px-0 lg:px-0"> {/* Inner container removed for bar */}
+          <div className="container mx-auto px-0 sm:px-0 lg:px-0"> 
             <div className="flex flex-col sm:flex-row justify-between items-center gap-2">
               <h2 className="text-xl font-semibold">STUDENT DETAILS</h2>
               <div className="flex flex-wrap gap-2">
@@ -606,7 +605,7 @@ export default function AdminDashboardPage() {
                     <TableRow>
                       <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                         {allStudents.length === 0 && !isLoadingData ? 'Click "Load Student Data" above to view student records, or "Import Data".' :
-                          (allStudents.length > 0 && displayedStudents.length === 0) ? 'No students found matching your filters.' :
+                          (displayedStudents.length === 0) ? 'No students found matching your filters.' :
                             'No student data available. Try loading or adding students.'}
                       </TableCell>
                     </TableRow>
@@ -632,7 +631,7 @@ export default function AdminDashboardPage() {
       </main>
 
       <footer className="py-4 border-t border-border mt-auto print:hidden">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between text-xs text-muted-foreground">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between text-xs text-muted-foreground max-w-screen-xl">
           <p className="mb-2 sm:mb-0 text-center sm:text-left">Copyright ©{footerYear || new Date().getFullYear()} by Saryug College, Samastipur, Bihar.</p>
           <p className="text-center sm:text-right">Design By Mantix.</p>
         </div>

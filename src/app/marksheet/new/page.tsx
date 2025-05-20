@@ -59,7 +59,7 @@ export default function NewMarksheetPage() {
   const generateMarksheetNo = (faculty: string, rollNumber: string, sessionEndYear: number): string => {
     const facultyCode = faculty.substring(0, 2).toUpperCase();
     const month = format(new Date(), 'MMM').toUpperCase();
-    const sequence = String(Math.floor(Math.random() * 900) + 100); // Random 3-digit sequence
+    const sequence = String(Math.floor(Math.random() * 900) + 100); 
     return `${facultyCode}/${month}/${sessionEndYear}/${rollNumber.slice(-3) || sequence}`;
   };
 
@@ -99,12 +99,12 @@ export default function NewMarksheetPage() {
 
     return {
       ...data,
-      system_id: systemId, // Include the generated system ID
-      collegeCode: "53010", // Hardcoded as per example
+      system_id: systemId, 
+      collegeCode: "53010", 
       subjects: subjectsDisplay,
       marksheetNo: generateMarksheetNo(data.faculty, data.rollNumber, data.sessionEndYear),
       sessionDisplay: `${data.sessionStartYear}-${data.sessionEndYear}`,
-      classDisplay: `${data.academicYear} (${data.section})`, // Using form's academicYear as Class
+      classDisplay: `${data.academicYear} (${data.section})`, 
       aggregateMarksCompulsoryElective,
       totalPossibleMarksCompulsoryElective,
       overallResult,
@@ -117,13 +117,13 @@ export default function NewMarksheetPage() {
   const handleFormSubmit = async (data: MarksheetFormData) => {
     setIsLoadingFormSubmission(true);
     
-    // Uniqueness Check
+    
     const { data: existingStudent, error: checkError } = await supabase
       .from('student_details')
       .select('id')
       .eq('roll_no', data.rollNumber)
       .eq('academic_year', `${data.sessionStartYear}-${data.sessionEndYear}`)
-      .eq('class', data.academicYear) // Form's 'academicYear' field is used as 'class'
+      .eq('class', data.academicYear) 
       .eq('section', data.section)
       .eq('faculty', data.faculty)
       .maybeSingle();
@@ -148,23 +148,23 @@ export default function NewMarksheetPage() {
       return;
     }
 
-    const systemGeneratedId = crypto.randomUUID(); // Generate UUID for the new student
+    const systemGeneratedId = crypto.randomUUID(); 
 
     try {
       const dobFormatted = format(data.dateOfBirth, 'yyyy-MM-dd');
 
       const studentToInsert = {
-        id: systemGeneratedId, // Use generated UUID as PK
-        roll_no: data.rollNumber, // User-entered roll number
+        id: systemGeneratedId, 
+        roll_no: data.rollNumber, 
         name: data.studentName,
         father_name: data.fatherName,
         mother_name: data.motherName,
         dob: dobFormatted,
         gender: data.gender,
         faculty: data.faculty,
-        class: data.academicYear, // Form's 'academicYear' (e.g., "11th") goes into DB 'class'
+        class: data.academicYear, 
         section: data.section,
-        academic_year: `${data.sessionStartYear}-${data.sessionEndYear}`, // Session string
+        academic_year: `${data.sessionStartYear}-${data.sessionEndYear}`, 
       };
 
       const { data: insertedStudentData, error: studentError } = await supabase
@@ -185,7 +185,7 @@ export default function NewMarksheetPage() {
       }
 
       const subjectMarksToInsert = data.subjects.map(subject => ({
-        student_detail_id: insertedStudentData.id, // Link using the new system UUID
+        student_detail_id: insertedStudentData.id, 
         subject_name: subject.subjectName,
         category: subject.category,
         max_marks: subject.totalMarks,
@@ -202,7 +202,7 @@ export default function NewMarksheetPage() {
 
         if (subjectMarksError) {
           console.error('Error inserting subject marks:', subjectMarksError);
-          // Attempt to delete the just-inserted student if marks fail, to avoid orphaned student record
+          
           await supabase.from('student_details').delete().eq('id', insertedStudentData.id);
           toast({
             title: 'Database Error',
@@ -246,8 +246,7 @@ export default function NewMarksheetPage() {
 
   const handleCreateNew = () => {
     setMarksheetData(null);
-     // Optionally reset the form to default state if MarksheetForm supports it
-     // Or, force a re-render with key prop if MarksheetForm's internal state needs full reset
+     
   };
 
   if (authStatus === 'loading') {
@@ -274,7 +273,7 @@ export default function NewMarksheetPage() {
         />
       </div>
 
-      <main className="flex-grow container mx-auto px-4 py-8 sm:px-6 lg:px-8 print:p-0 print:m-0 print:h-full print:container-none print:max-w-none">
+      <main className="flex-grow container mx-auto px-4 py-8 sm:px-6 lg:px-8 print:p-0 print:m-0 print:h-full print:container-none print:max-w-none max-w-screen-xl">
         <div className="mb-6 text-center print:hidden">
           <h1 className="text-2xl font-bold text-primary">
             {marksheetData ? 'Marksheet Preview' : 'Create New Marksheet'}
@@ -292,7 +291,7 @@ export default function NewMarksheetPage() {
       </main>
 
       <footer className="py-4 border-t border-border mt-auto print:hidden">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 text-center text-xs text-muted-foreground">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 text-center text-xs text-muted-foreground max-w-screen-xl">
           {footerYear && <p>Copyright ©{footerYear} by Saryug College, Samastipur, Bihar. Design By Mantix.</p>}
           {!footerYear && <p>Copyright by Saryug College, Samastipur, Bihar. Design By Mantix.</p>}
         </div>
@@ -300,4 +299,3 @@ export default function NewMarksheetPage() {
     </div>
   );
 }
-

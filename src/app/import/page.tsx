@@ -8,7 +8,7 @@ import * as XLSX from 'xlsx';
 import { format, parse, isValid, parseISO } from 'date-fns';
 import { AppHeader } from '@/components/app/app-header';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input'; // Kept for type consistency, though hidden
+import { Input } from '@/components/ui/input'; 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
@@ -33,27 +33,27 @@ www.saryugcollege.com`;
 const generateAcademicSessionOptions = () => {
   const currentYear = new Date().getFullYear();
   const startYear = 1970;
-  const endYear = currentYear + 2; // Sessions up to e.g., 2025-2026 if currentYear is 2024
+  const endYear = currentYear + 2; 
   const options = ['Select Session'];
   for (let i = startYear; i <= endYear; i++) {
     options.push(`${i}-${i + 1}`);
   }
-  return options.reverse(); // Puts most recent sessions at the top
+  return options.reverse(); 
 };
 
 const ACADEMIC_SESSION_OPTIONS = generateAcademicSessionOptions();
 
 const parseExcelDate = (excelDate: any): string | null => {
   if (typeof excelDate === 'number') {
-    // Try to parse Excel serial date number
+    
     const date = XLSX.SSF.parse_date_code(excelDate);
     if (date) {
       const month = String(date.m).padStart(2, '0');
       const day = String(date.d).padStart(2, '0');
-      return `${date.y}-${month}-${day}`; // yyyy-MM-dd
+      return `${date.y}-${month}-${day}`; 
     }
   } else if (typeof excelDate === 'string') {
-    // Try parsing common date string formats
+    
     const formatsToTry = ["yyyy-MM-dd", "dd-MM-yyyy", "MM/dd/yyyy", "dd/MM/yyyy", "yyyy/MM/dd"];
     for (const fmt of formatsToTry) {
       try {
@@ -61,9 +61,9 @@ const parseExcelDate = (excelDate: any): string | null => {
         if (isValid(parsedDate)) {
           return format(parsedDate, 'yyyy-MM-dd');
         }
-      } catch (e) { /* ignore parse error and try next format */ }
+      } catch (e) {  }
     }
-    // Fallback for ISO strings
+    
     if (isValid(parseISO(excelDate))) {
       return format(parseISO(excelDate), 'yyyy-MM-dd');
     }
@@ -107,7 +107,7 @@ export default function ImportDataPage() {
     if (selectedFile) {
       if (selectedFile.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' || selectedFile.type === 'application/vnd.ms-excel') {
         setFile(selectedFile);
-        setImportResults(null); // Reset previous results when a new file is selected
+        setImportResults(null); 
       } else {
         toast({ title: "Invalid File Type", description: "Please select an Excel file (.xlsx or .xls).", variant: "destructive" });
         setFile(null);
@@ -150,7 +150,7 @@ export default function ImportDataPage() {
       return;
     }
 
-    // Validate academic session format (YYYY-YYYY)
+    
     const academicYearParts = selectedAcademicSession.split('-');
     if (academicYearParts.length !== 2 || !/^\d{4}$/.test(academicYearParts[0].trim()) || !/^\d{4}$/.test(academicYearParts[1].trim())) {
       toast({ title: "Invalid Session Format", description: `The selected Academic Session "${selectedAcademicSession}" is not valid. Expected YYYY-YYYY.`, variant: "destructive" });
@@ -183,14 +183,14 @@ export default function ImportDataPage() {
         totalMarksSkipped: 0,
       };
 
-      // Map from Excel Student ID (Roll No) to newly generated system UUID for this import session
+      
       const excelStudentIdToSystemIdMap = new Map<string, string>();
-      const processedSubjectKeysForImport = new Set<string>(); // To track systemUUID_subjectName for duplicates in current file
+      const processedSubjectKeysForImport = new Set<string>(); 
 
       try {
-        const workbook = XLSX.read(data, { type: 'array', cellDates: false }); // cellDates: false to read dates as raw values
+        const workbook = XLSX.read(data, { type: 'array', cellDates: false }); 
 
-        // --- Process Student Details Sheet ---
+        
         const studentDetailsSheetName = 'Student Details';
         const studentDetailsSheet = workbook.Sheets[studentDetailsSheetName];
         if (!studentDetailsSheet) {
@@ -202,17 +202,17 @@ export default function ImportDataPage() {
 
           for (let i = 0; i < studentDetailsJson.length; i++) {
             const row = studentDetailsJson[i];
-            const rowNum = i + 2; // Excel row number (1-based, +1 for header)
+            const rowNum = i + 2; 
 
-            // Extract data, trim strings and handle potential null/undefined
+            
             const excelStudentId = String(row['Student ID'] || '').trim();
             const studentName = String(row['Student Name'] || '').trim();
             const fatherName = String(row['Father Name'] || '').trim();
             const motherName = String(row['Mother Name'] || '').trim();
-            const dobRaw = row['Date of Birth']; // Keep raw for parsing
+            const dobRaw = row['Date of Birth']; 
             const gender = String(row['Gender'] || '').trim();
             const faculty = String(row['Faculty'] || '').trim();
-            const studentClass = String(row['Class'] || '').trim(); // 'Class' from Excel
+            const studentClass = String(row['Class'] || '').trim(); 
             const section = String(row['Section'] || '').trim();
 
             const currentFeedback: StudentImportFeedbackItem = { rowNumber: rowNum, excelStudentId: excelStudentId, name: studentName, status: 'skipped', message: '' };
@@ -232,7 +232,7 @@ export default function ImportDataPage() {
               continue;
             }
 
-            // Uniqueness check
+            
             const { data: existingStudent, error: checkError } = await supabase
               .from('student_details')
               .select('id')
@@ -258,32 +258,32 @@ export default function ImportDataPage() {
               continue;
             }
             
-            // Check for duplicate Student ID within the current Excel file processing (for mapping purposes)
+            
             if (excelStudentIdToSystemIdMap.has(excelStudentId)) {
                 currentFeedback.message = `Duplicate Student ID "${excelStudentId}" found within the 'Student Details' sheet. Only the first instance will be processed for mapping marks.`;
                 results.studentFeedback.push(currentFeedback);
-                results.totalStudentsSkipped++; // This student won't be added, previous one was already processed or skipped.
+                results.totalStudentsSkipped++; 
                 continue;
             }
 
             const systemGeneratedId = crypto.randomUUID();
-            excelStudentIdToSystemIdMap.set(excelStudentId, systemGeneratedId); // Map Excel ID to system ID for marks linkage
+            excelStudentIdToSystemIdMap.set(excelStudentId, systemGeneratedId); 
             currentFeedback.generatedSystemId = systemGeneratedId;
 
             studentInserts.push({
-              id: systemGeneratedId, // New system UUID as PK
-              roll_no: excelStudentId, // Excel Student ID stored in roll_no
+              id: systemGeneratedId, 
+              roll_no: excelStudentId, 
               name: studentName,
               father_name: fatherName,
               mother_name: motherName,
               dob: dobFormatted,
               gender: gender,
               faculty: faculty,
-              class: studentClass, // Storing the value from 'Class' column in Excel
+              class: studentClass, 
               section: section,
-              academic_year: selectedAcademicSession, // Session from dropdown
+              academic_year: selectedAcademicSession, 
             });
-            currentFeedback.status = 'added'; // Tentatively added, actual status on DB result
+            currentFeedback.status = 'added'; 
             currentFeedback.message = 'Pending database insertion.';
             results.studentFeedback.push(currentFeedback);
           }
@@ -296,16 +296,16 @@ export default function ImportDataPage() {
 
             if (studentInsertError) {
               results.summaryMessages.push({ type: 'error', message: `Error inserting student details: ${studentInsertError.message}` });
-              // Update feedback for students that failed to insert
+              
               studentInserts.forEach(si => {
                 const feedback = results.studentFeedback.find(f => f.generatedSystemId === si.id && f.status === 'added');
                 if (feedback) {
                   feedback.status = 'error';
                   feedback.message = `Database insert failed: ${studentInsertError.message}`;
                 } else {
-                  // This case should ideally not happen if feedback items are pushed correctly
+                  
                   results.studentFeedback.push({
-                    rowNumber: -1, // Indicates it wasn't tied to a specific row error initially
+                    rowNumber: -1, 
                     excelStudentId: si.roll_no,
                     name: si.name,
                     generatedSystemId: si.id,
@@ -314,11 +314,11 @@ export default function ImportDataPage() {
                   });
                 }
               });
-              results.totalStudentsAdded = 0; // None were actually added if the batch insert fails
+              results.totalStudentsAdded = 0; 
             } else {
               results.totalStudentsAdded = insertedStudents?.length || 0;
               results.summaryMessages.push({ type: 'success', message: `${results.totalStudentsAdded} student(s) details successfully prepared for insertion or inserted.` });
-              // Update feedback for successfully inserted students
+              
               insertedStudents?.forEach(is => {
                 const feedback = results.studentFeedback.find(f => f.generatedSystemId === is.id && f.status === 'added');
                 if (feedback) {
@@ -335,7 +335,7 @@ export default function ImportDataPage() {
           }
         }
 
-        // --- Process Student Marks Details Sheet ---
+        
         const studentMarksSheetName = 'Student Marks Details';
         const studentMarksSheet = workbook.Sheets[studentMarksSheetName];
         if (!studentMarksSheet) {
@@ -350,7 +350,7 @@ export default function ImportDataPage() {
             const rowNum = i + 2;
 
             const excelStudentIdForMarks = String(row['Student ID'] || '').trim();
-            const studentNameForFeedback = String(row['Name'] || '').trim(); // For feedback clarity
+            const studentNameForFeedback = String(row['Name'] || '').trim(); 
             const subjectName = String(row['Subject Name'] || '').trim();
             const subjectCategory = String(row['Subject Category'] || '').trim();
             const maxMarksRaw = row['Max Marks'];
@@ -375,7 +375,7 @@ export default function ImportDataPage() {
               continue;
             }
             
-            // Duplicate subject check for the *same student* in the *current import file*
+            
             const subjectKey = `${systemIdForMarks}_${subjectName.trim().toLowerCase()}`;
             if (processedSubjectKeysForImport.has(subjectKey)) {
               currentFeedback.message = `Duplicate subject "${subjectName}" for Student ID "${excelStudentIdForMarks}" (System ID: ${systemIdForMarks}) in this file. Skipped.`;
@@ -395,12 +395,12 @@ export default function ImportDataPage() {
               results.totalMarksSkipped++;
               continue;
             }
-            // Mark this subject as processed for this student in this import
+            
             processedSubjectKeysForImport.add(subjectKey);
 
             const obtainedTotalMarks = (isNaN(theoryMarks) ? 0 : theoryMarks) + (isNaN(practicalMarks) ? 0 : practicalMarks);
 
-            // Validations for marks
+            
             if (obtainedTotalMarks > maxMarks) {
               currentFeedback.message = `Obtained marks (${obtainedTotalMarks}) exceed Max Marks (${maxMarks}).`;
               results.marksFeedback.push(currentFeedback);
@@ -415,7 +415,7 @@ export default function ImportDataPage() {
             }
 
             marksInserts.push({
-              student_detail_id: systemIdForMarks, // Use the mapped system UUID
+              student_detail_id: systemIdForMarks, 
               subject_name: subjectName,
               category: subjectCategory,
               max_marks: maxMarks,
@@ -438,8 +438,8 @@ export default function ImportDataPage() {
             if (marksInsertError) {
               results.summaryMessages.push({ type: 'error', message: `Error inserting marks details: ${marksInsertError.message}` });
               marksInserts.forEach(mi => {
-                // Find the corresponding feedback item to update its status
-                // This is a bit complex due to mapping; for simplicity, we'll find by student_detail_id and subject_name
+                
+                
                 const feedback = results.marksFeedback.find(f =>
                   f.excelStudentId === Array.from(excelStudentIdToSystemIdMap.entries()).find(([, sysId]) => sysId === mi.student_detail_id)?.[0] &&
                   f.subjectName === mi.subject_name &&
@@ -449,10 +449,10 @@ export default function ImportDataPage() {
                   feedback.status = 'error';
                   feedback.message = `Database insert failed: ${marksInsertError.message}`;
                 } else {
-                  // Fallback if feedback item not found, though it should be
+                  
                   results.marksFeedback.push({
-                    rowNumber: -1, // Indicates not tied to a specific row's initial processing
-                    excelStudentId: `For System ID ${mi.student_detail_id}`, // Fallback feedback
+                    rowNumber: -1, 
+                    excelStudentId: `For System ID ${mi.student_detail_id}`, 
                     studentName: `N/A`,
                     subjectName: mi.subject_name,
                     status: 'error',
@@ -460,11 +460,11 @@ export default function ImportDataPage() {
                   });
                 }
               });
-              results.totalMarksAdded = 0; // None were actually added
+              results.totalMarksAdded = 0; 
             } else {
               results.totalMarksAdded = insertedMarks?.length || 0;
               results.summaryMessages.push({ type: 'success', message: `${results.totalMarksAdded} marks records successfully inserted.` });
-              // Update feedback for successfully inserted marks
+              
               insertedMarks?.forEach(im => {
                  const feedback = results.marksFeedback.find(f =>
                     Array.from(excelStudentIdToSystemIdMap.entries()).some(([excelId, sysId]) => 
@@ -496,9 +496,9 @@ export default function ImportDataPage() {
         setImportResults(results);
         setIsLoading(false);
         if (fileInputRef.current) {
-          fileInputRef.current.value = ''; // Clear file input
+          fileInputRef.current.value = ''; 
         }
-        setFile(null); // Reset file state
+        setFile(null); 
       }
     };
     reader.onerror = () => {
@@ -527,7 +527,7 @@ export default function ImportDataPage() {
           </Button>
         }
       />
-      <main className="flex-grow container mx-auto px-4 py-8 sm:px-6 lg:px-8">
+      <main className="flex-grow container mx-auto px-4 py-8 sm:px-6 lg:px-8 max-w-screen-xl">
         <Card className="max-w-3xl mx-auto">
           <CardHeader>
             <CardTitle className="text-2xl">Import Student Data</CardTitle>
@@ -601,7 +601,7 @@ export default function ImportDataPage() {
                   <div key={`summary-${idx}`} className={`p-3 rounded-md text-sm flex items-center gap-2 ${msg.type === 'success' ? 'bg-green-100 text-green-700 border border-green-300' :
                     msg.type === 'error' ? 'bg-red-100 text-red-700 border border-red-300' :
                       msg.type === 'warning' ? 'bg-yellow-100 text-yellow-700 border border-yellow-300' :
-                        'bg-blue-100 text-blue-700 border border-blue-300' // Info
+                        'bg-blue-100 text-blue-700 border border-blue-300' 
                     }`}>
                     {msg.type === 'success' && <CheckCircle className="h-5 w-5" />}
                     {msg.type === 'error' && <XCircle className="h-5 w-5" />}
@@ -626,8 +626,8 @@ export default function ImportDataPage() {
                           <span className="font-semibold">Row {item.rowNumber}:</span>&nbsp;
                           <span className="font-medium">Excel ID: {item.excelStudentId || 'N/A'}, Name: {item.name}</span>&nbsp;-&nbsp;
                           <span className={`font-medium ${item.status === 'added' ? 'text-green-600' :
-                            item.status === 'skipped' ? 'text-yellow-600' : // Skipped is yellow/orange
-                              'text-red-600' // Error is red
+                            item.status === 'skipped' ? 'text-yellow-600' : 
+                              'text-red-600' 
                             }`}>
                             {item.status.toUpperCase()}
                           </span>
@@ -653,8 +653,8 @@ export default function ImportDataPage() {
                           <span className="font-semibold">Row {item.rowNumber}:</span>&nbsp;
                           Excel Student ID: <span className="font-medium">{item.excelStudentId || 'N/A'}</span>, Name: <span className="font-medium">{item.studentName}</span>, Subject: <span className="font-medium">{item.subjectName}</span>&nbsp;-&nbsp;
                           <span className={`font-medium ${item.status === 'added' ? 'text-green-600' :
-                            item.status === 'skipped' ? 'text-yellow-600' : // Skipped is yellow/orange
-                              'text-red-600' // Error is red
+                            item.status === 'skipped' ? 'text-yellow-600' : 
+                              'text-red-600' 
                             }`}>
                             {item.status.toUpperCase()}
                           </span>
@@ -670,11 +670,10 @@ export default function ImportDataPage() {
         </Card>
       </main>
       <footer className="py-4 border-t border-border mt-auto print:hidden">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 text-center text-xs text-muted-foreground">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 text-center text-xs text-muted-foreground max-w-screen-xl">
           <p>Copyright ©{new Date().getFullYear()} by Saryug College, Samastipur, Bihar. Design By Mantix.</p>
         </div>
       </footer>
     </div>
   );
 }
-
