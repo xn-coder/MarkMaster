@@ -11,14 +11,12 @@ import React, { useState } from 'react';
 
 interface AppHeaderProps {
   pageTitle?: string;
-  pageSubtitle?: string | React.ReactNode; // Allow ReactNode for more complex subtitles
-  customRightContent?: React.ReactNode;
+  pageSubtitle?: string | React.ReactNode;
 }
 
 export function AppHeader({
   pageTitle = "SARYUG COLLEGE",
-  pageSubtitle, // Subtitle is now optional and can be complex
-  customRightContent,
+  pageSubtitle,
 }: AppHeaderProps) {
   const router = useRouter();
   const { toast } = useToast();
@@ -35,12 +33,6 @@ export function AppHeader({
       router.push('/login');
     }
   };
-
-  const defaultRightContent = (
-    <Button variant="default" onClick={handleLogout} disabled={isLoggingOut} size="sm">
-      {isLoggingOut ? <Loader2 className="animate-spin" /> : <LogOut className="mr-2 h-4 w-4" />} Logout
-    </Button>
-  );
 
   const renderSubtitle = () => {
     if (!pageSubtitle) return null;
@@ -68,27 +60,23 @@ export function AppHeader({
         );
       });
     }
-    // If pageSubtitle is already ReactNode
     return pageSubtitle;
   };
-
 
   return (
     <header className="bg-secondary text-secondary-foreground py-3 shadow-sm print:hidden">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between max-w-screen-xl">
-        {/* Left: Logo */}
         <div className="flex items-center gap-3 flex-shrink-0">
           <Image
             src="/college-logo.png"
             alt="College Logo"
-            width={70} // Increased from 60
-            height={70} // Increased from 60
+            width={70}
+            height={70}
             className="rounded-full"
             data-ai-hint="college logo"
           />
         </div>
 
-        {/* Middle: College Name/Details */}
         <div className="text-center mx-4 flex-grow">
           <h1 className="text-lg sm:text-xl font-bold text-primary">
             {pageTitle}
@@ -96,9 +84,10 @@ export function AppHeader({
           {renderSubtitle()}
         </div>
 
-        {/* Right: Action Button */}
         <div className="flex-shrink-0">
-          {customRightContent !== undefined ? customRightContent : defaultRightContent}
+          <Button variant="default" onClick={handleLogout} disabled={isLoggingOut} size="sm">
+            {isLoggingOut ? <Loader2 className="animate-spin" /> : <LogOut className="mr-2 h-4 w-4" />} Logout
+          </Button>
         </div>
       </div>
     </header>

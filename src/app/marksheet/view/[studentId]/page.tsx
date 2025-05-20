@@ -192,15 +192,7 @@ export default function ViewMarksheetPage() {
     return (
       <div className="min-h-screen bg-background text-foreground flex flex-col print:h-full print:bg-white">
         <div className="print:hidden">
-          <AppHeader
-            pageTitle="SARYUG COLLEGE"
-            pageSubtitle={defaultPageSubtitle}
-            customRightContent={
-              <Button variant="outline" onClick={() => router.push('/')} size="sm">
-                <ArrowLeft className="mr-2 h-4 w-4" /> Back to Dashboard
-              </Button>
-            }
-          />
+          <AppHeader pageSubtitle={defaultPageSubtitle} />
         </div>
         <main className="flex-grow container mx-auto px-4 py-8 sm:px-6 lg:px-8 flex flex-col items-center justify-center print:p-0 print:m-0 print:h-full print:container-none print:max-w-none max-w-screen-xl">
           <h1 className="text-2xl font-bold text-destructive mb-4">Marksheet Not Found</h1>
@@ -221,15 +213,7 @@ export default function ViewMarksheetPage() {
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col print:h-full print:bg-white">
       <div className="print:hidden">
-        <AppHeader
-          pageTitle="SARYUG COLLEGE"
-          pageSubtitle={defaultPageSubtitle}
-          customRightContent={
-            <Button variant="outline" onClick={() => router.push('/')} size="sm">
-              <ArrowLeft className="mr-2 h-4 w-4" /> Back to Dashboard
-            </Button>
-          }
-        />
+        <AppHeader pageSubtitle={defaultPageSubtitle} />
       </div>
 
       <main className="flex-grow container mx-auto px-4 py-8 sm:px-6 lg:px-8 print:p-0 print:m-0 print:h-full print:container-none print:max-w-none max-w-screen-xl">

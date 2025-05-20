@@ -117,12 +117,12 @@ export default function NewMarksheetPage() {
   const handleFormSubmit = async (data: MarksheetFormData) => {
     setIsLoadingFormSubmission(true);
     
-    
+    const academicSessionString = `${data.sessionStartYear}-${data.sessionEndYear}`;
     const { data: existingStudent, error: checkError } = await supabase
       .from('student_details')
       .select('id')
       .eq('roll_no', data.rollNumber)
-      .eq('academic_year', `${data.sessionStartYear}-${data.sessionEndYear}`)
+      .eq('academic_year', academicSessionString)
       .eq('class', data.academicYear) 
       .eq('section', data.section)
       .eq('faculty', data.faculty)
@@ -164,7 +164,7 @@ export default function NewMarksheetPage() {
         faculty: data.faculty,
         class: data.academicYear, 
         section: data.section,
-        academic_year: `${data.sessionStartYear}-${data.sessionEndYear}`, 
+        academic_year: academicSessionString, 
       };
 
       const { data: insertedStudentData, error: studentError } = await supabase
@@ -261,18 +261,7 @@ export default function NewMarksheetPage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col print:h-full">
-      <div className="print:hidden">
-        <AppHeader
-          pageTitle="SARYUG COLLEGE"
-          pageSubtitle={defaultPageSubtitle}
-          customRightContent={
-            <Button variant="outline" onClick={() => router.push('/')} size="sm">
-              <ArrowLeft className="mr-2 h-4 w-4" /> Back to Dashboard
-            </Button>
-          }
-        />
-      </div>
-
+      <AppHeader pageSubtitle={defaultPageSubtitle} />
       <main className="flex-grow container mx-auto px-4 py-8 sm:px-6 lg:px-8 print:p-0 print:m-0 print:h-full print:container-none print:max-w-none max-w-screen-xl">
         <div className="mb-6 text-center print:hidden">
           <h1 className="text-2xl font-bold text-primary">
