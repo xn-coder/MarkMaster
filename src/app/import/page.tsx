@@ -8,12 +8,12 @@ import * as XLSX from 'xlsx';
 import { format, parse, isValid, parseISO } from 'date-fns';
 import { AppHeader } from '@/components/app/app-header';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Input } from '@/components/ui/input'; // Kept for type consistency, though hidden
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Upload, FileText, CheckCircle, XCircle, AlertTriangle, ArrowLeft } from 'lucide-react';
+import { Loader2, Upload, FileText, CheckCircle, XCircle, AlertTriangle, ArrowLeft, Download, Info } from 'lucide-react';
 import type { ImportProcessingResults, StudentImportFeedbackItem, MarksImportFeedbackItem, GeneralImportMessage } from '@/types';
 
 const pageSubtitle = `(Affiliated By Bihar School Examination Board, Patna)
@@ -94,6 +94,27 @@ export default function ImportDataPage() {
 
   const triggerFileInput = () => {
     fileInputRef.current?.click();
+  };
+
+  const handleDownloadSampleFile = () => {
+    const studentDetailsHeaders = ["Name", "Father Name", "Mother Name", "Date of Birth", "Gender", "Faculty", "Class", "Section", "Academic Session"];
+    const sampleStudentRow = ["John Doe", "Robert Doe", "Jane Doe", "15-07-2003", "Male", "SCIENCE", "12th", "B", "2024-2026"];
+    
+    const studentMarksHeaders = ["Name", "Subject Name", "Subject Category", "Max Marks", "Pass Marks", "Theory Marks Obtained", "Practical Marks Obtained"];
+    const sampleMarkRow = ["John Doe", "Physics", "Elective", 100, 33, 65, 25];
+
+    const studentDetailsData = [studentDetailsHeaders, sampleStudentRow];
+    const studentMarksData = [studentMarksHeaders, sampleMarkRow];
+
+    const wsStudentDetails = XLSX.utils.aoa_to_sheet(studentDetailsData);
+    const wsStudentMarks = XLSX.utils.aoa_to_sheet(studentMarksData);
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, wsStudentDetails, "Student Details");
+    XLSX.utils.book_append_sheet(workbook, wsStudentMarks, "Student Marks Details");
+
+    XLSX.writeFile(workbook, "sample-import-template.xlsx");
+    toast({ title: "Sample File Downloading", description: "sample-import-template.xlsx should start downloading."});
   };
 
   const handleImport = async () => {
@@ -218,7 +239,7 @@ export default function ImportDataPage() {
                   feedback.message = `Database insert failed: ${studentInsertError.message}`;
                 }
               });
-              results.totalStudentsAdded = 0; // Reset if main insert fails
+              results.totalStudentsAdded = 0; 
             } else {
               results.totalStudentsAdded = insertedStudents?.length || 0;
               results.summaryMessages.push({ type: 'success', message: `${results.totalStudentsAdded} student(s) details successfully prepared for insertion or inserted.` });
@@ -231,7 +252,7 @@ export default function ImportDataPage() {
             }
              results.totalStudentsSkipped = results.totalStudentsProcessed - results.totalStudentsAdded;
           } else {
-             results.totalStudentsSkipped = results.totalStudentsProcessed; // All were skipped due to validation
+             results.totalStudentsSkipped = results.totalStudentsProcessed; 
           }
         }
 
@@ -326,7 +347,7 @@ export default function ImportDataPage() {
                     feedback.message = `Database insert failed: ${marksInsertError.message}`;
                 }
               });
-              results.totalMarksAdded = 0; // Reset if main insert fails
+              results.totalMarksAdded = 0; 
             } else {
               results.totalMarksAdded = insertedMarks?.length || 0;
               results.summaryMessages.push({ type: 'success', message: `${results.totalMarksAdded} marks records successfully inserted.` });
@@ -340,7 +361,7 @@ export default function ImportDataPage() {
             }
              results.totalMarksSkipped = results.totalMarksProcessed - results.totalMarksAdded;
           } else {
-             results.totalMarksSkipped = results.totalMarksProcessed; // All were skipped due to validation
+             results.totalMarksSkipped = results.totalMarksProcessed; 
           }
         }
         toast({ title: "Import Processed", description: "Review the details below." });
@@ -388,12 +409,21 @@ export default function ImportDataPage() {
         <Card className="max-w-3xl mx-auto">
           <CardHeader>
             <CardTitle className="text-2xl">Import Student Data</CardTitle>
-            <CardDescription>
-              Upload an Excel file with student details and their marks.
-              Ensure your file has two sheets: "Student Details" and "Student Marks Details".
-              Required columns for "Student Details": Name, Father Name, Mother Name, Date of Birth, Gender, Faculty, Class, Section, Academic Session.
-              Required columns for "Student Marks Details": Name (must match a Name in Student Details sheet), Subject Name, Subject Category, Max Marks, Pass Marks. Optional: Theory Marks Obtained, Practical Marks Obtained.
+            <CardDescription className="space-y-1">
+              <p>
+                Upload an Excel file with student details and their marks.
+                Ensure your file has two sheets: "Student Details" and "Student Marks Details".
+              </p>
+              <p>
+                Required columns for "Student Details": Name, Father Name, Mother Name, Date of Birth, Gender, Faculty, Class, Section, Academic Session.
+              </p>
+              <p>
+                Required columns for "Student Marks Details": Name (must match a Name in Student Details sheet), Subject Name, Subject Category, Max Marks, Pass Marks. Optional: Theory Marks Obtained, Practical Marks Obtained.
+              </p>
             </CardDescription>
+             <Button variant="link" onClick={handleDownloadSampleFile} className="p-0 h-auto self-start text-sm mt-2">
+              <Download className="mr-2 h-4 w-4" /> Download Sample Template
+            </Button>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="space-y-2">
@@ -428,12 +458,12 @@ export default function ImportDataPage() {
                     msg.type === 'success' ? 'bg-green-100 text-green-700 border border-green-300' :
                     msg.type === 'error' ? 'bg-red-100 text-red-700 border border-red-300' :
                     msg.type === 'warning' ? 'bg-yellow-100 text-yellow-700 border border-yellow-300' : 
-                    'bg-blue-100 text-blue-700 border border-blue-300' // info
+                    'bg-blue-100 text-blue-700 border border-blue-300'
                   }`}>
                     {msg.type === 'success' && <CheckCircle className="h-5 w-5" />}
                     {msg.type === 'error' && <XCircle className="h-5 w-5" />}
                     {msg.type === 'warning' && <AlertTriangle className="h-5 w-5" />}
-                    {msg.type === 'info' && <AlertTriangle className="h-5 w-5" />} {/* Using AlertTriangle for info too, or choose another */}
+                    {msg.type === 'info' && <Info className="h-5 w-5" />}
                     {msg.message}
                   </div>
                 ))}
@@ -448,11 +478,14 @@ export default function ImportDataPage() {
                       {importResults.studentFeedback.map((item, idx) => (
                         <div key={`student-${idx}`} className="text-xs p-1.5 border-b last:border-b-0 flex items-start">
                            {item.status === 'added' && <CheckCircle className="h-3.5 w-3.5 text-green-600 mr-1.5 flex-shrink-0" />}
-                           {(item.status === 'skipped' || item.status === 'error') && <XCircle className="h-3.5 w-3.5 text-red-600 mr-1.5 flex-shrink-0" />}
+                           {item.status === 'skipped' && <AlertTriangle className="h-3.5 w-3.5 text-yellow-700 mr-1.5 flex-shrink-0" />}
+                           {item.status === 'error' && <XCircle className="h-3.5 w-3.5 text-red-600 mr-1.5 flex-shrink-0" />}
                           <span className="font-semibold">Row {item.rowNumber}:</span>&nbsp;
                           <span className="font-medium">{item.name}</span>&nbsp;-&nbsp; 
                           <span className={`font-medium ${
-                            item.status === 'added' ? 'text-green-600' : 'text-red-600'
+                            item.status === 'added' ? 'text-green-600' :
+                            item.status === 'skipped' ? 'text-yellow-700' :
+                            'text-red-600'
                           }`}>
                             {item.status.toUpperCase()}
                           </span>
@@ -473,11 +506,14 @@ export default function ImportDataPage() {
                       {importResults.marksFeedback.map((item, idx) => (
                         <div key={`mark-${idx}`} className="text-xs p-1.5 border-b last:border-b-0 flex items-start">
                            {item.status === 'added' && <CheckCircle className="h-3.5 w-3.5 text-green-600 mr-1.5 flex-shrink-0" />}
-                           {(item.status === 'skipped' || item.status === 'error') && <XCircle className="h-3.5 w-3.5 text-red-600 mr-1.5 flex-shrink-0" />}
+                           {item.status === 'skipped' && <AlertTriangle className="h-3.5 w-3.5 text-yellow-700 mr-1.5 flex-shrink-0" />}
+                           {item.status === 'error' && <XCircle className="h-3.5 w-3.5 text-red-600 mr-1.5 flex-shrink-0" />}
                           <span className="font-semibold">Row {item.rowNumber}:</span>&nbsp;
                           Student <span className="font-medium">{item.studentName}</span>, Subject <span className="font-medium">{item.subjectName}</span>&nbsp;-&nbsp;
                            <span className={`font-medium ${
-                            item.status === 'added' ? 'text-green-600' : 'text-red-600'
+                            item.status === 'added' ? 'text-green-600' :
+                            item.status === 'skipped' ? 'text-yellow-700' :
+                            'text-red-600'
                           }`}>
                             {item.status.toUpperCase()}
                           </span>
