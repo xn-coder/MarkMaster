@@ -97,11 +97,11 @@ export default function ImportDataPage() {
   };
 
   const handleDownloadSampleFile = () => {
-    const studentDetailsHeaders = ["Name", "Father Name", "Mother Name", "Date of Birth", "Gender", "Faculty", "Class", "Section", "Academic Session"];
-    const sampleStudentRow = ["John Doe", "Robert Doe", "Jane Doe", "15-07-2003", "Male", "SCIENCE", "12th", "B", "2024-2026"];
+    const studentDetailsHeaders = ["Student ID", "Student Name", "Father Name", "Mother Name", "Date of Birth", "Gender", "Faculty", "Class", "Section", "Academic Session"];
+    const sampleStudentRow = ["S001", "John Doe", "Robert Doe", "Jane Doe", "15-07-2003", "Male", "SCIENCE", "12th", "B", "2024-2026"];
     
     const studentMarksHeaders = ["Name", "Subject Name", "Subject Category", "Max Marks", "Pass Marks", "Theory Marks Obtained", "Practical Marks Obtained"];
-    const sampleMarkRow = ["John Doe", "Physics", "Elective", 100, 33, 65, 25];
+    const sampleMarkRow = ["John Doe", "Physics", "Elective", 100, 33, 65, 25]; // Name matches Student Name in sampleStudentRow
 
     const studentDetailsData = [studentDetailsHeaders, sampleStudentRow];
     const studentMarksData = [studentMarksHeaders, sampleMarkRow];
@@ -148,7 +148,7 @@ export default function ImportDataPage() {
         totalMarksSkipped: 0,
       };
       
-      const studentNameToGeneratedIdMap = new Map<string, string>();
+      const studentNameToDbIdMap = new Map<string, string>(); // Maps Student Name (from Excel) to Student ID (from Excel, used as DB ID)
 
       try {
         const workbook = XLSX.read(data, { type: 'array', cellDates: false });
@@ -167,7 +167,8 @@ export default function ImportDataPage() {
             const row = studentDetailsJson[i];
             const rowNum = i + 2; // Excel row number (assuming header is row 1)
             
-            const studentName = String(row['Name'] || '').trim();
+            const studentIdFromExcel = String(row['Student ID'] || '').trim();
+            const studentName = String(row['Student Name'] || '').trim();
             const fatherName = String(row['Father Name'] || '').trim();
             const motherName = String(row['Mother Name'] || '').trim();
             const dobRaw = row['Date of Birth'];
@@ -177,10 +178,10 @@ export default function ImportDataPage() {
             const section = String(row['Section'] || '').trim();
             const academicSession = String(row['Academic Session'] || '').trim();
 
-            const currentFeedback: StudentImportFeedbackItem = { rowNumber: rowNum, name: studentName, status: 'skipped', message: ''};
+            const currentFeedback: StudentImportFeedbackItem = { rowNumber: rowNum, name: studentName, studentId: studentIdFromExcel, status: 'skipped', message: ''};
 
-            if (!studentName || !fatherName || !motherName || !dobRaw || !gender || !faculty || !studentClass || !section || !academicSession) {
-              currentFeedback.message = "Missing one or more required fields (Name, Father Name, Mother Name, DOB, Gender, Faculty, Class, Section, Academic Session).";
+            if (!studentIdFromExcel || !studentName || !fatherName || !motherName || !dobRaw || !gender || !faculty || !studentClass || !section || !academicSession) {
+              currentFeedback.message = "Missing one or more required fields (Student ID, Student Name, Father Name, Mother Name, DOB, Gender, Faculty, Class, Section, Academic Session).";
               results.studentFeedback.push(currentFeedback);
               results.totalStudentsSkipped++;
               continue;
@@ -202,12 +203,11 @@ export default function ImportDataPage() {
               continue;
             }
             
-            const generatedStudentId = crypto.randomUUID();
-            studentNameToGeneratedIdMap.set(studentName, generatedStudentId);
+            studentNameToDbIdMap.set(studentName, studentIdFromExcel); // Map Student Name to the Excel-provided Student ID
 
             studentInserts.push({
-              student_id: generatedStudentId,
-              roll_no: generatedStudentId, 
+              student_id: studentIdFromExcel, // Use Excel Student ID as DB student_id
+              roll_no: studentIdFromExcel,    // Use Excel Student ID as DB roll_no
               name: studentName,
               father_name: fatherName,
               mother_name: motherName,
@@ -219,7 +219,7 @@ export default function ImportDataPage() {
               academic_year: academicSession, 
             });
             currentFeedback.status = 'added'; 
-            currentFeedback.studentId = generatedStudentId;
+            currentFeedback.studentId = studentIdFromExcel;
             currentFeedback.message = 'Pending database insertion.';
             results.studentFeedback.push(currentFeedback);
           }
@@ -270,7 +270,7 @@ export default function ImportDataPage() {
             const row = studentMarksJson[i];
             const rowNum = i + 2;
 
-            const studentNameForMarks = String(row['Name'] || '').trim();
+            const studentNameForMarks = String(row['Name'] || '').trim(); // Still linking by "Name" from marks sheet
             const subjectName = String(row['Subject Name'] || '').trim(); 
             const subjectCategory = String(row['Subject Category'] || '').trim();
             const maxMarksRaw = row['Max Marks'];
@@ -293,9 +293,9 @@ export default function ImportDataPage() {
               continue;
             }
             
-            const studentId = studentNameToGeneratedIdMap.get(studentNameForMarks);
-            if (!studentId) {
-              currentFeedback.message = `Student "${studentNameForMarks}" not found in 'Student Details' sheet of this file or not added. Marks for this subject skipped.`;
+            const dbStudentId = studentNameToDbIdMap.get(studentNameForMarks); // Get the actual DB student_id (which was Student ID from Excel)
+            if (!dbStudentId) {
+              currentFeedback.message = `Student "${studentNameForMarks}" not found in 'Student Details' sheet (based on 'Student Name' to 'Student ID' mapping) or not added. Marks for this subject skipped.`;
               results.marksFeedback.push(currentFeedback);
               results.totalMarksSkipped++;
               continue;
@@ -317,7 +317,7 @@ export default function ImportDataPage() {
             }
 
             marksInserts.push({
-              student_id: studentId,
+              student_id: dbStudentId, // Use the mapped DB student_id
               subject_name: subjectName,
               category: subjectCategory,
               max_marks: maxMarks,
@@ -340,8 +340,12 @@ export default function ImportDataPage() {
             if (marksInsertError) {
               results.summaryMessages.push({ type: 'error', message: `Error inserting marks details: ${marksInsertError.message}` });
               marksInserts.forEach(mi => {
-                const studentNameFromMap = Array.from(studentNameToGeneratedIdMap.entries()).find(([,id]) => id === mi.student_id)?.[0];
-                const feedback = results.marksFeedback.find(f => f.studentName === studentNameFromMap && f.subjectName === mi.subject_name && f.status === 'added');
+                 // Find feedback based on the original student name used for linking from the marks sheet
+                const feedback = results.marksFeedback.find(f => 
+                    f.studentName === Array.from(studentNameToDbIdMap.entries()).find(([,id]) => id === mi.student_id)?.[0] && 
+                    f.subjectName === mi.subject_name && 
+                    f.status === 'added'
+                );
                 if(feedback) {
                     feedback.status = 'error';
                     feedback.message = `Database insert failed: ${marksInsertError.message}`;
@@ -352,8 +356,12 @@ export default function ImportDataPage() {
               results.totalMarksAdded = insertedMarks?.length || 0;
               results.summaryMessages.push({ type: 'success', message: `${results.totalMarksAdded} marks records successfully inserted.` });
               insertedMarks?.forEach(im => {
-                 const studentName = Array.from(studentNameToGeneratedIdMap.entries()).find(([,id]) => id === im.student_id)?.[0] || "Unknown Student";
-                 const feedback = results.marksFeedback.find(f => f.studentName === studentName && f.subjectName === im.subject_name && f.status === 'added');
+                 const studentNameFromMap = Array.from(studentNameToDbIdMap.entries()).find(([,id]) => id === im.student_id)?.[0] || "Unknown Student";
+                 const feedback = results.marksFeedback.find(f => 
+                    f.studentName === studentNameFromMap && 
+                    f.subjectName === im.subject_name && 
+                    f.status === 'added'
+                 );
                  if(feedback) {
                     feedback.message = 'Successfully added to database.';
                  }
@@ -415,10 +423,10 @@ export default function ImportDataPage() {
                 Ensure your file has two sheets: "Student Details" and "Student Marks Details".
               </p>
               <p>
-                Required columns for "Student Details": Name, Father Name, Mother Name, Date of Birth, Gender, Faculty, Class, Section, Academic Session.
+                Required columns for "Student Details": Student ID, Student Name, Father Name, Mother Name, Date of Birth, Gender, Faculty, Class, Section, Academic Session. Student ID will be used as the Roll Number.
               </p>
               <p>
-                Required columns for "Student Marks Details": Name (must match a Name in Student Details sheet), Subject Name, Subject Category, Max Marks, Pass Marks. Optional: Theory Marks Obtained, Practical Marks Obtained.
+                Required columns for "Student Marks Details": Name (must match a "Student Name" in Student Details sheet), Subject Name, Subject Category, Max Marks, Pass Marks. Optional: Theory Marks Obtained, Practical Marks Obtained.
               </p>
             </CardDescription>
              <Button variant="link" onClick={handleDownloadSampleFile} className="p-0 h-auto self-start text-sm mt-2">
@@ -481,7 +489,7 @@ export default function ImportDataPage() {
                            {item.status === 'skipped' && <AlertTriangle className="h-3.5 w-3.5 text-yellow-700 mr-1.5 flex-shrink-0" />}
                            {item.status === 'error' && <XCircle className="h-3.5 w-3.5 text-red-600 mr-1.5 flex-shrink-0" />}
                           <span className="font-semibold">Row {item.rowNumber}:</span>&nbsp;
-                          <span className="font-medium">{item.name}</span>&nbsp;-&nbsp; 
+                          <span className="font-medium">ID: {item.studentId || 'N/A'}, Name: {item.name}</span>&nbsp;-&nbsp; 
                           <span className={`font-medium ${
                             item.status === 'added' ? 'text-green-600' :
                             item.status === 'skipped' ? 'text-yellow-700' :
