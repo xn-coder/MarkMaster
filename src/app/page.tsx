@@ -63,7 +63,8 @@ const START_YEARS = ['All Start Years', ...Array.from({ length: new Date().getFu
 const END_YEARS = ['All End Years', ...Array.from({ length: new Date().getFullYear() + 2 - 2019 + 1 }, (_, i) => (2019 + i).toString()).reverse()];
 const CLASSES = ['All Classes', '1st Year', '2nd Year', '3rd Year', '10th', '11th', '12th', 'B.A.', 'B.Com', 'B.Tech'];
 
-const dashboardSubtitle = `(Affiliated By Bihar School Examination Board, Patna)
+const dashboardPageTitle = "SARYUG COLLEGE";
+const dashboardPageSubtitle = `(Affiliated By Bihar School Examination Board, Patna)
 [Estd. - 1983] College Code: 53010
 Chitragupta Nagar, Mohanpur, Samastipur, Bihar - 848101
 www.saryugcollege.com`;
@@ -72,7 +73,6 @@ export default function AdminDashboardPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [isAuthLoading, setIsAuthLoading] = useState(true);
-  const [isClient, setIsClient] = useState(false);
   const [isLoadingData, setIsLoadingData] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
@@ -94,7 +94,6 @@ export default function AdminDashboardPage() {
   const [footerYear, setFooterYear] = useState<number | null>(null);
 
   useEffect(() => {
-    setIsClient(true);
     setFooterYear(new Date().getFullYear());
     const checkAuthAndRedirect = async () => {
       const { data: { session }, error } = await supabase.auth.getSession();
@@ -224,7 +223,7 @@ export default function AdminDashboardPage() {
 
         studentDetailsData.push({
           "Student ID": studentDetails.student_id,
-          "Student Name": studentDetails.name,
+          "Name": studentDetails.name,
           "Father Name": studentDetails.father_name,
           "Mother Name": studentDetails.mother_name,
           "Date of Birth": studentDetails.dob ? format(parseISO(studentDetails.dob), 'dd-MM-yyyy') : '',
@@ -248,7 +247,7 @@ export default function AdminDashboardPage() {
           for (const mark of marksDetails) {
             studentMarksData.push({
               "Student ID": studentDetails.student_id,
-              "Student Name": studentDetails.name,
+              "Name": studentDetails.name, // Student Name for reference in marks sheet
               "Subject Name": mark.subject_name,
               "Subject Category": mark.category,
               "Max Marks": mark.max_marks,
@@ -261,7 +260,7 @@ export default function AdminDashboardPage() {
         } else {
            studentMarksData.push({
               "Student ID": studentDetails.student_id,
-              "Student Name": studentDetails.name,
+              "Name": studentDetails.name,
               "Subject Name": "N/A",
               "Subject Category": "N/A",
               "Max Marks": "N/A",
@@ -322,13 +321,11 @@ export default function AdminDashboardPage() {
     if (typeof excelDate === 'number') {
       const date = XLSX.SSF.parse_date_code(excelDate);
       if (date) {
-        // Pad month and day with leading zeros if necessary
         const month = String(date.m).padStart(2, '0');
         const day = String(date.d).padStart(2, '0');
-        return `${date.y}-${month}-${day}`; // Format as YYYY-MM-DD
+        return `${date.y}-${month}-${day}`; 
       }
     } else if (typeof excelDate === 'string') {
-      // Try parsing common string date formats
       const formatsToTry = ["yyyy-MM-dd", "dd-MM-yyyy", "MM/dd/yyyy", "dd/MM/yyyy"];
       for (const fmt of formatsToTry) {
         try {
@@ -338,12 +335,11 @@ export default function AdminDashboardPage() {
           }
         } catch (e) {/* ignore parse error and try next format */}
       }
-      // If it's already in ISO format from a previous parse or direct input
       if (isValid(parseISO(excelDate))) {
         return format(parseISO(excelDate), 'yyyy-MM-dd');
       }
     }
-    return null; // Return null if parsing fails
+    return null; 
   };
 
 
@@ -357,6 +353,11 @@ export default function AdminDashboardPage() {
     setIsImporting(true);
     toast({ title: "Importing Data", description: "Processing Excel file, please wait..." });
 
+    const studentNameToGeneratedIdMap = new Map<string, string>();
+    let importedStudentsCount = 0;
+    let importedMarksCount = 0;
+    let skippedMarksCount = 0;
+
     try {
       const reader = new FileReader();
       reader.onload = async (e) => {
@@ -367,53 +368,54 @@ export default function AdminDashboardPage() {
           return;
         }
 
-        const workbook = XLSX.read(data, { type: 'array', cellDates: false }); // cellDates: false to handle dates manually
+        const workbook = XLSX.read(data, { type: 'array', cellDates: false });
 
         // --- Process Student Details ---
         const studentDetailsSheetName = 'Student Details';
         const studentDetailsSheet = workbook.Sheets[studentDetailsSheetName];
         if (!studentDetailsSheet) {
-          toast({ title: "Import Error", description: `Sheet "${studentDetailsSheetName}" not found.`, variant: "destructive" });
+          toast({ title: "Import Error", description: `Sheet "${studentDetailsSheetName}" not found. Please ensure your Excel file has this sheet.`, variant: "destructive" });
           setIsImporting(false);
           return;
         }
         const studentDetailsJson = XLSX.utils.sheet_to_json<any>(studentDetailsSheet, { raw: false, defval: null });
 
-        let importedStudentsCount = 0;
         const studentInserts = [];
 
         for (const row of studentDetailsJson) {
-          const rollNumber = String(row['Roll Number'] || '').trim();
-          const studentName = String(row['Student Name'] || '').trim();
+          const studentName = String(row['Name'] || '').trim();
           const fatherName = String(row['Father Name'] || '').trim();
           const motherName = String(row['Mother Name'] || '').trim();
           const dobRaw = row['Date of Birth'];
           const gender = String(row['Gender'] || '').trim();
           const faculty = String(row['Faculty'] || '').trim();
-          const studentClass = String(row['Class'] || '').trim(); // 'Class' from Excel, maps to db 'class'
+          const studentClass = String(row['Class'] || '').trim();
           const section = String(row['Section'] || '').trim();
           const academicSession = String(row['Academic Session'] || '').trim();
 
-          if (!rollNumber || !studentName || !fatherName || !motherName || !dobRaw || !gender || !faculty || !studentClass || !section || !academicSession) {
-            console.warn("Skipping row due to missing required student details:", row);
+          if (!studentName || !fatherName || !motherName || !dobRaw || !gender || !faculty || !studentClass || !section || !academicSession) {
+            console.warn("Skipping student row due to missing required details:", row);
             continue;
           }
           
           const dobFormatted = parseExcelDate(dobRaw);
           if (!dobFormatted) {
-            console.warn(`Skipping student ${studentName} due to invalid date of birth: ${dobRaw}`);
+            console.warn(`Skipping student "${studentName}" due to invalid date of birth: ${dobRaw}`);
             continue;
           }
 
           const academicYearParts = academicSession.split('-');
           if (academicYearParts.length !== 2 || !/^\d{4}$/.test(academicYearParts[0]) || !/^\d{4}$/.test(academicYearParts[1])) {
-             console.warn(`Skipping student ${studentName} due to invalid academic session format: ${academicSession}`);
+             console.warn(`Skipping student "${studentName}" due to invalid academic session format: ${academicSession}. Expected YYYY-YYYY.`);
              continue;
           }
+          
+          const generatedStudentId = crypto.randomUUID();
+          studentNameToGeneratedIdMap.set(studentName, generatedStudentId);
 
           studentInserts.push({
-            student_id: rollNumber,
-            roll_no: rollNumber,
+            student_id: generatedStudentId,
+            roll_no: generatedStudentId, // Using generated ID as roll_no
             name: studentName,
             father_name: fatherName,
             mother_name: motherName,
@@ -427,14 +429,14 @@ export default function AdminDashboardPage() {
         }
         
         if (studentInserts.length > 0) {
-          const { error: studentInsertError, count: insertedCount } = await supabase
+          const { error: studentInsertError, count: insertedStudentCount } = await supabase
             .from('student_details')
-            .insert(studentInserts, { upsert: true }); // Use upsert to update if student_id exists
+            .insert(studentInserts); 
 
           if (studentInsertError) {
-            toast({ title: "Student Import Error", description: `Failed to import some student details: ${studentInsertError.message}. Some data might be partially imported.`, variant: "destructive" });
+            toast({ title: "Student Import Error", description: `Failed to import some student details: ${studentInsertError.message}.`, variant: "destructive" });
           }
-          importedStudentsCount = insertedCount || 0;
+          importedStudentsCount = insertedStudentCount || 0;
         }
 
 
@@ -442,66 +444,71 @@ export default function AdminDashboardPage() {
         const studentMarksSheetName = 'Student Marks Details';
         const studentMarksSheet = workbook.Sheets[studentMarksSheetName];
         if (!studentMarksSheet) {
-          toast({ title: "Import Error", description: `Sheet "${studentMarksSheetName}" not found. Student details might have been imported.`, variant: "destructive" });
-          setIsImporting(false);
-          return;
-        }
-        const studentMarksJson = XLSX.utils.sheet_to_json<any>(studentMarksSheet, { raw: false, defval: null });
-        
-        let importedMarksCount = 0;
-        const marksInserts = [];
+          toast({ title: "Import Warning", description: `Sheet "${studentMarksSheetName}" not found. Student details might have been imported, but marks were not.`, variant: "default" });
+        } else {
+            const studentMarksJson = XLSX.utils.sheet_to_json<any>(studentMarksSheet, { raw: false, defval: null });
+            const marksInserts = [];
 
-        for (const row of studentMarksJson) {
-          const rollNumber = String(row['Roll Number'] || '').trim();
-          const subjectName = String(row['Subject Name'] || '').trim();
-          const subjectCategory = String(row['Subject Category'] || '').trim();
-          const maxMarks = parseFloat(String(row['Max Marks'] || '0'));
-          const passMarks = parseFloat(String(row['Pass Marks'] || '0'));
-          const theoryMarks = parseFloat(String(row['Theory Marks Obtained'] || '0'));
-          const practicalMarks = parseFloat(String(row['Practical Marks Obtained'] || '0'));
+            for (const row of studentMarksJson) {
+              const studentNameForMarks = String(row['Name'] || '').trim();
+              const subjectName = String(row['Subject Name'] || '').trim(); // Assuming this column exists
+              const subjectCategory = String(row['Subject Category'] || '').trim();
+              const maxMarks = parseFloat(String(row['Max Marks'] || '0'));
+              const passMarks = parseFloat(String(row['Pass Marks'] || '0'));
+              const theoryMarks = parseFloat(String(row['Theory Marks Obtained'] || '0'));
+              const practicalMarks = parseFloat(String(row['Practical Marks Obtained'] || '0'));
 
-          if (!rollNumber || !subjectName || !subjectCategory || isNaN(maxMarks) || isNaN(passMarks) ) {
-            console.warn("Skipping row due to missing required marks details or invalid numbers:", row);
-            continue;
-          }
-          
-          const obtainedTotalMarks = (isNaN(theoryMarks) ? 0 : theoryMarks) + (isNaN(practicalMarks) ? 0 : practicalMarks);
+              if (!studentNameForMarks || !subjectName || !subjectCategory || isNaN(maxMarks) || isNaN(passMarks) ) {
+                console.warn("Skipping marks row due to missing required details or invalid numbers:", row);
+                skippedMarksCount++;
+                continue;
+              }
+              
+              const studentId = studentNameToGeneratedIdMap.get(studentNameForMarks);
+              if (!studentId) {
+                console.warn(`Skipping marks for student "${studentNameForMarks}" as they were not found in the 'Student Details' sheet of this Excel file.`);
+                skippedMarksCount++;
+                continue;
+              }
+              
+              const obtainedTotalMarks = (isNaN(theoryMarks) ? 0 : theoryMarks) + (isNaN(practicalMarks) ? 0 : practicalMarks);
 
-          marksInserts.push({
-            student_id: rollNumber,
-            subject_name: subjectName,
-            category: subjectCategory,
-            max_marks: maxMarks,
-            pass_marks: passMarks,
-            theory_marks_obtained: isNaN(theoryMarks) ? 0 : theoryMarks,
-            practical_marks_obtained: isNaN(practicalMarks) ? 0 : practicalMarks,
-            obtained_total_marks: obtainedTotalMarks,
-          });
-        }
+              marksInserts.push({
+                student_id: studentId,
+                subject_name: subjectName,
+                category: subjectCategory,
+                max_marks: maxMarks,
+                pass_marks: passMarks,
+                theory_marks_obtained: isNaN(theoryMarks) ? null : theoryMarks, // Store null if NaN
+                practical_marks_obtained: isNaN(practicalMarks) ? null : practicalMarks, // Store null if NaN
+                obtained_total_marks: obtainedTotalMarks,
+              });
+            }
 
-        if (marksInserts.length > 0) {
-           // For marks, it's safer to delete existing marks for these students and re-insert
-           // to avoid duplicates if the import is run multiple times.
-           const uniqueStudentIdsForMarks = [...new Set(marksInserts.map(m => m.student_id))];
-           if (uniqueStudentIdsForMarks.length > 0) {
-             await supabase.from('student_marks_details').delete().in('student_id', uniqueStudentIdsForMarks);
-           }
+            if (marksInserts.length > 0) {
+              const { error: marksInsertError, count: insertedMarks } = await supabase
+                .from('student_marks_details')
+                .insert(marksInserts);
 
-          const { error: marksInsertError, count: insertedMarks } = await supabase
-            .from('student_marks_details')
-            .insert(marksInserts);
-
-          if (marksInsertError) {
-            toast({ title: "Marks Import Error", description: `Failed to import some marks: ${marksInsertError.message}. Student details might have been imported.`, variant: "destructive" });
-          }
-          importedMarksCount = insertedMarks || 0;
+              if (marksInsertError) {
+                toast({ title: "Marks Import Error", description: `Failed to import some marks: ${marksInsertError.message}.`, variant: "destructive" });
+              }
+              importedMarksCount = insertedMarks || 0;
+            }
         }
         
+        let summaryMessage = `Imported ${importedStudentsCount} student(s) and ${importedMarksCount} marks record(s).`;
+        if (skippedMarksCount > 0) {
+            summaryMessage += ` Skipped ${skippedMarksCount} marks record(s) due to missing student name link or data issues. Check console for details.`;
+        }
+
         toast({
           title: "Import Complete",
-          description: `Successfully processed file. Imported/Updated ${importedStudentsCount} student(s) and ${importedMarksCount} marks record(s). Refresh data to see changes.`,
+          description: summaryMessage,
         });
-        await handleLoadStudentData(); // Refresh the dashboard
+        if (importedStudentsCount > 0 || importedMarksCount > 0) {
+            await handleLoadStudentData(); 
+        }
 
       };
       reader.onerror = () => {
@@ -516,13 +523,13 @@ export default function AdminDashboardPage() {
     } finally {
       setIsImporting(false);
       if (fileInputRef.current) {
-        fileInputRef.current.value = ''; // Reset file input
+        fileInputRef.current.value = ''; 
       }
     }
   };
 
 
-  if (!isClient || isAuthLoading) {
+  if (!isAuthLoading) { // Render null or a minimal loader if auth is still loading on client
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -533,13 +540,13 @@ export default function AdminDashboardPage() {
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
       <AppHeader
-        pageTitle="SARYUG COLLEGE"
-        pageSubtitle={dashboardSubtitle}
+        pageTitle={dashboardPageTitle}
+        pageSubtitle={dashboardPageSubtitle}
       />
 
       <main className="flex-grow container mx-auto px-4 py-6 sm:px-6 lg:px-8">
        <div className="bg-primary text-primary-foreground p-3 rounded-md shadow-md mb-6">
-          <div className="container mx-auto px-0 sm:px-0 lg:px-0"> {/* Ensure this inner container also has no extra padding */}
+          <div className="container mx-auto px-0 sm:px-0 lg:px-0"> 
             <div className="flex flex-col sm:flex-row justify-between items-center gap-2">
               <h2 className="text-xl font-semibold">STUDENT DETAILS</h2>
               <div className="flex flex-wrap gap-2">
@@ -659,7 +666,14 @@ export default function AdminDashboardPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {paginatedStudents.length > 0 ? paginatedStudents.map((student) => (
+                  {isLoadingData ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center py-8">
+                        <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto" />
+                        <p className="text-muted-foreground mt-2">Loading student data...</p>
+                      </TableCell>
+                    </TableRow>
+                  ) : paginatedStudents.length > 0 ? paginatedStudents.map((student) => (
                     <TableRow key={student.id}>
                       <TableCell>{student.id}</TableCell>
                       <TableCell>{student.name}</TableCell>
@@ -685,7 +699,6 @@ export default function AdminDashboardPage() {
                     <TableRow>
                       <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                         {allStudents.length === 0 && !isLoadingData && !isAuthLoading && !isImporting ? 'Click "Load Student Data" above to view student records, or "Import Data".' :
-                          isLoadingData ? 'Loading student data...' :
                           isImporting ? 'Importing data, please wait...' :
                             (allStudents.length > 0 && displayedStudents.length === 0) ? 'No students found matching your filters.' :
                               'No student data available. Try loading or adding students.'}
@@ -721,3 +734,4 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
+
