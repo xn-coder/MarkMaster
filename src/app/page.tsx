@@ -9,7 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { AppHeader } from '@/components/app/app-header'; 
+import { AppHeader } from '@/components/app/app-header';
 import {
   Select,
   SelectContent,
@@ -48,21 +48,20 @@ import {
   Loader2
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import { format } from 'date-fns';
 
 interface StudentRowData {
-  id: string; 
+  id: string;
   name: string;
-  academicYear: string; // This refers to the session like "2025-2027"
-  studentClass: string; // This refers to class like "11th", "1st Year"
+  academicYear: string; // Session like "2025-2027"
+  studentClass: string; // Class like "11th", "1st Year"
   faculty: string;
 }
-
 
 const ACADEMIC_YEARS = ['All Academic Years', '2025-2027', '2024-2028', '2024-2026', '2023-2025', '2022-2024', '2022-2023', '2021-2023', '2021-2022', '2018-2019'];
 const START_YEARS = ['All Start Years', ...Array.from({ length: new Date().getFullYear() + 1 - 2018 + 1 }, (_, i) => (2018 + i).toString()).reverse()];
 const END_YEARS = ['All End Years', ...Array.from({ length: new Date().getFullYear() + 2 - 2019 + 1 }, (_, i) => (2019 + i).toString()).reverse()];
 const CLASSES = ['All Classes', '1st Year', '2nd Year', '3rd Year', '10th', '11th', '12th', 'B.A.', 'B.Com', 'B.Tech'];
-
 
 const dashboardSubtitle = `(Affiliated By Bihar School Examination Board, Patna)
 [Estd. - 1983] College Code: 53010
@@ -74,9 +73,10 @@ export default function AdminDashboardPage() {
   const { toast } = useToast();
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [isClient, setIsClient] = useState(false);
-  const [isLoadingData, setIsLoadingData] = useState(false); 
+  const [isLoadingData, setIsLoadingData] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
 
-  const [allStudents, setAllStudents] = useState<StudentRowData[]>([]); 
+  const [allStudents, setAllStudents] = useState<StudentRowData[]>([]);
   const [displayedStudents, setDisplayedStudents] = useState<StudentRowData[]>([]);
 
   const [academicYearFilter, setAcademicYearFilter] = useState('All Academic Years');
@@ -89,7 +89,6 @@ export default function AdminDashboardPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [entriesPerPage, setEntriesPerPage] = useState(10);
   const [footerYear, setFooterYear] = useState<number | null>(null);
-
 
   useEffect(() => {
     setIsClient(true);
@@ -114,7 +113,7 @@ export default function AdminDashboardPage() {
       authListener.subscription.unsubscribe();
     };
   }, [router]);
-  
+
   const handleLoadStudentData = async () => {
     setIsLoadingData(true);
     const { data: students, error } = await supabase
@@ -124,6 +123,7 @@ export default function AdminDashboardPage() {
     if (error) {
       toast({ title: "Error Loading Students", description: error.message, variant: "destructive" });
       setAllStudents([]);
+      setDisplayedStudents([]);
       setIsLoadingData(false);
       return;
     }
@@ -132,15 +132,15 @@ export default function AdminDashboardPage() {
       const formattedStudents: StudentRowData[] = students.map(s => ({
         id: s.student_id,
         name: s.name,
-        academicYear: s.academic_year, 
-        studentClass: s.class, 
+        academicYear: s.academic_year,
+        studentClass: s.class,
         faculty: s.faculty,
       }));
       setAllStudents(formattedStudents);
-      setCurrentPage(1); 
-      toast({ title: "Student Data Loaded", description: `${formattedStudents.length} students loaded from the database.` });
+      // Filtering logic will update displayedStudents
     } else {
       setAllStudents([]);
+      setDisplayedStudents([]);
       toast({ title: "No Students Found", description: "No student records were returned from the database." });
     }
     setIsLoadingData(false);
@@ -152,7 +152,7 @@ export default function AdminDashboardPage() {
     if (academicYearFilter !== 'All Academic Years') {
       filtered = filtered.filter(student => student.academicYear === academicYearFilter);
     }
-        
+
     if (studentIdFilter) {
       filtered = filtered.filter(student => student.id.toLowerCase().includes(studentIdFilter.toLowerCase()));
     }
@@ -162,10 +162,10 @@ export default function AdminDashboardPage() {
     if (classFilter !== 'All Classes') {
       filtered = filtered.filter(student => student.studentClass === classFilter);
     }
-    
+
     setDisplayedStudents(filtered);
-    setCurrentPage(1); 
-  }, [allStudents, academicYearFilter, studentIdFilter, studentNameFilter, classFilter, startYearFilter, endYearFilter]);
+    setCurrentPage(1);
+  }, [allStudents, academicYearFilter, studentIdFilter, studentNameFilter, classFilter]);
 
 
   const paginatedStudents = useMemo(() => {
@@ -184,15 +184,15 @@ export default function AdminDashboardPage() {
   };
 
   const handleDeleteStudent = async (student: StudentRowData) => {
-    toast({ 
-      title: 'Confirm Deletion', 
+    toast({
+      title: 'Confirm Deletion',
       description: `Are you sure you want to delete ${student.name} (ID: ${student.id})? This action cannot be undone. (Deletion not implemented yet)`,
-      variant: 'destructive' 
+      variant: 'destructive'
     });
     console.log("Attempting to delete student (not implemented):", student);
   };
 
-  const handleExportToExcel = () => {
+  const handleExportToExcel = async () => {
     if (displayedStudents.length === 0) {
       toast({
         title: "No Data to Export",
@@ -202,29 +202,109 @@ export default function AdminDashboardPage() {
       return;
     }
 
-    const worksheetData = displayedStudents.map(student => ({
-      "Student ID": student.id,
-      "Student Name": student.name,
-      "Academic Year": student.academicYear,
-      "Class": student.studentClass,
-      "Faculty": student.faculty,
-    }));
+    setIsExporting(true);
+    toast({ title: "Exporting Data", description: "Fetching student details and marks, please wait..." });
 
-    const worksheet = XLSX.utils.json_to_sheet(worksheetData);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Students");
+    const exportData = [];
 
-    // Auto-size columns
-    const columnWidths = Object.keys(worksheetData[0] || {}).map(key => ({
-      wch: Math.max(key.length, ...worksheetData.map(row => String(row[key as keyof typeof row] || '').length)) + 2 // Add a little padding
-    }));
-    worksheet["!cols"] = columnWidths;
-    
-    XLSX.writeFile(workbook, "students-export.xlsx");
-    toast({
-      title: "Export Successful",
-      description: "Student data has been exported to students-export.xlsx",
-    });
+    try {
+      for (const student of displayedStudents) {
+        const { data: studentDetails, error: studentError } = await supabase
+          .from('student_details')
+          .select('*')
+          .eq('student_id', student.id)
+          .single();
+
+        if (studentError) {
+          console.error(`Error fetching details for student ${student.id}:`, studentError);
+          continue; // Skip this student or handle error appropriately
+        }
+
+        const { data: marksDetails, error: marksError } = await supabase
+          .from('student_marks_details')
+          .select('*')
+          .eq('student_id', student.id);
+
+        if (marksError) {
+          console.error(`Error fetching marks for student ${student.id}:`, marksError);
+          // Decide if you want to include student details even if marks fail
+        }
+
+        if (marksDetails && marksDetails.length > 0) {
+          for (const mark of marksDetails) {
+            exportData.push({
+              "Student ID": studentDetails.student_id,
+              "Student Name": studentDetails.name,
+              "Father Name": studentDetails.father_name,
+              "Mother Name": studentDetails.mother_name,
+              "Date of Birth": studentDetails.dob ? format(new Date(studentDetails.dob), 'dd-MM-yyyy') : '',
+              "Gender": studentDetails.gender,
+              "Faculty": studentDetails.faculty,
+              "Class": studentDetails.class, // Form's academicYear (11th, 12th)
+              "Section": studentDetails.section,
+              "Academic Session": studentDetails.academic_year, // Form's session (2023-2024)
+              "Subject Name": mark.subject_name,
+              "Subject Category": mark.category,
+              "Max Marks": mark.max_marks,
+              "Pass Marks": mark.pass_marks,
+              "Theory Marks Obtained": mark.theory_marks_obtained,
+              "Practical Marks Obtained": mark.practical_marks_obtained,
+              "Obtained Total Marks": mark.obtained_total_marks,
+            });
+          }
+        } else {
+          // Student has no marks, still include their details
+          exportData.push({
+            "Student ID": studentDetails.student_id,
+            "Student Name": studentDetails.name,
+            "Father Name": studentDetails.father_name,
+            "Mother Name": studentDetails.mother_name,
+            "Date of Birth": studentDetails.dob ? format(new Date(studentDetails.dob), 'dd-MM-yyyy') : '',
+            "Gender": studentDetails.gender,
+            "Faculty": studentDetails.faculty,
+            "Class": studentDetails.class,
+            "Section": studentDetails.section,
+            "Academic Session": studentDetails.academic_year,
+            "Subject Name": "N/A",
+            "Subject Category": "N/A",
+            "Max Marks": "N/A",
+            "Pass Marks": "N/A",
+            "Theory Marks Obtained": "N/A",
+            "Practical Marks Obtained": "N/A",
+            "Obtained Total Marks": "N/A",
+          });
+        }
+      }
+
+      if (exportData.length === 0) {
+        toast({ title: "No Detailed Data", description: "Could not fetch detailed data for the selected students.", variant: "destructive"});
+        setIsExporting(false);
+        return;
+      }
+
+      const worksheet = XLSX.utils.json_to_sheet(exportData);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Student Marks Details");
+
+      // Auto-size columns
+      if (exportData.length > 0) {
+        const columnWidths = Object.keys(exportData[0]).map(key => ({
+          wch: Math.max(key.length, ...exportData.map(row => String(row[key as keyof typeof row] ?? '').length)) + 2
+        }));
+        worksheet["!cols"] = columnWidths;
+      }
+
+      XLSX.writeFile(workbook, "student_marks_export.xlsx");
+      toast({
+        title: "Export Successful",
+        description: "Student details and marks exported to student_marks_export.xlsx",
+      });
+    } catch (error: any) {
+      console.error("Error during Excel export:", error);
+      toast({ title: "Export Failed", description: error.message || "An unknown error occurred.", variant: "destructive" });
+    } finally {
+      setIsExporting(false);
+    }
   };
 
 
@@ -238,41 +318,41 @@ export default function AdminDashboardPage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
-      <AppHeader 
-        pageTitle="SARYUG COLLEGE" 
-        pageSubtitle={dashboardSubtitle} 
+      <AppHeader
+        pageTitle="SARYUG COLLEGE"
+        pageSubtitle={dashboardSubtitle}
       />
 
       <main className="flex-grow container mx-auto px-4 py-6 sm:px-6 lg:px-8">
         <div className="bg-primary text-primary-foreground p-3 rounded-md shadow-md mb-6">
-            <div className="container mx-auto px-0 sm:px-0 lg:px-0">
-              <div className="flex flex-col sm:flex-row justify-between items-center gap-2">
-                <h2 className="text-xl font-semibold">STUDENT DETAILS</h2>
-                <div className="flex flex-wrap gap-2">
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    className="text-primary-foreground hover:bg-accent hover:text-accent-foreground"
-                    onClick={handleLoadStudentData}
-                    disabled={isLoadingData}
-                  >
-                    {isLoadingData ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />} Load Student Data
-                  </Button>
-                  <Link href="/marksheet/new" passHref>
-                    <Button variant="ghost" size="sm" className="text-primary-foreground hover:bg-accent hover:text-accent-foreground">
-                      <FilePlus2 className="mr-2 h-4 w-4" /> Create New
-                    </Button>
-                  </Link>
+          <div className="container mx-auto px-0 sm:px-0 lg:px-0">
+            <div className="flex flex-col sm:flex-row justify-between items-center gap-2">
+              <h2 className="text-xl font-semibold">STUDENT DETAILS</h2>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-primary-foreground hover:bg-accent hover:text-accent-foreground"
+                  onClick={handleLoadStudentData}
+                  disabled={isLoadingData}
+                >
+                  {isLoadingData ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />} Load Student Data
+                </Button>
+                <Link href="/marksheet/new" passHref>
                   <Button variant="ghost" size="sm" className="text-primary-foreground hover:bg-accent hover:text-accent-foreground">
-                    <Upload className="mr-2 h-4 w-4" /> Import Data
+                    <FilePlus2 className="mr-2 h-4 w-4" /> Create New
                   </Button>
-                  <Button variant="ghost" size="sm" className="text-primary-foreground hover:bg-accent hover:text-accent-foreground" onClick={handleExportToExcel}>
-                    <Download className="mr-2 h-4 w-4" /> Export to Excel
-                  </Button>
-                </div>
+                </Link>
+                <Button variant="ghost" size="sm" className="text-primary-foreground hover:bg-accent hover:text-accent-foreground">
+                  <Upload className="mr-2 h-4 w-4" /> Import Data
+                </Button>
+                <Button variant="ghost" size="sm" className="text-primary-foreground hover:bg-accent hover:text-accent-foreground" onClick={handleExportToExcel} disabled={isExporting}>
+                  {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />} Export to Excel
+                </Button>
               </div>
             </div>
           </div>
+        </div>
 
         <Card className="mb-6 shadow-md">
           <CardContent className="pt-6">
@@ -327,16 +407,16 @@ export default function AdminDashboardPage() {
 
         <Card className="shadow-md">
           <CardHeader className="flex flex-row items-center gap-2">
-              <Label htmlFor="showEntries" className="text-sm whitespace-nowrap">Show</Label>
-              <Select value={String(entriesPerPage)} onValueChange={(value) => { setEntriesPerPage(Number(value)); setCurrentPage(1);}}>
-                <SelectTrigger id="showEntries" className="w-20 h-8 text-sm">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {[10, 25, 50].map(num => <SelectItem key={num} value={String(num)}>{num}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              <span className="text-sm text-muted-foreground">entries</span>
+            <Label htmlFor="showEntries" className="text-sm whitespace-nowrap">Show</Label>
+            <Select value={String(entriesPerPage)} onValueChange={(value) => { setEntriesPerPage(Number(value)); setCurrentPage(1); }}>
+              <SelectTrigger id="showEntries" className="w-20 h-8 text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {[10, 25, 50].map(num => <SelectItem key={num} value={String(num)}>{num}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <span className="text-sm text-muted-foreground">entries</span>
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
@@ -378,9 +458,9 @@ export default function AdminDashboardPage() {
                     <TableRow>
                       <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                         {allStudents.length === 0 && !isLoadingData && !isAuthLoading ? 'Click "Load Student Data" above to view student records.' :
-                         isLoadingData ? 'Loading student data...' : 
-                         (allStudents.length > 0 && displayedStudents.length === 0) ? 'No students found matching your filters.' :
-                         'No student data available. Try loading or adding students.'}
+                          isLoadingData ? 'Loading student data...' :
+                            (allStudents.length > 0 && displayedStudents.length === 0) ? 'No students found matching your filters.' :
+                              'No student data available. Try loading or adding students.'}
                       </TableCell>
                     </TableRow>
                   )}
@@ -406,11 +486,11 @@ export default function AdminDashboardPage() {
 
       <footer className="py-4 border-t border-border mt-auto print:hidden">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between text-xs text-muted-foreground">
-            <p className="mb-2 sm:mb-0 text-center sm:text-left">Copyright ©{footerYear || new Date().getFullYear()} by Saryug College, Samastipur, Bihar.</p>
-            <p className="text-center sm:text-right">Design By Mantix.</p>
+          <p className="mb-2 sm:mb-0 text-center sm:text-left">Copyright ©{footerYear || new Date().getFullYear()} by Saryug College, Samastipur, Bihar.</p>
+          <p className="text-center sm:text-right">Design By Mantix.</p>
         </div>
       </footer>
     </div>
   );
 }
-
+    
