@@ -5,7 +5,7 @@ import type * as React from 'react';
 import type { MarksheetDisplayData } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Download, Printer, FilePlus2, ArrowLeft } from 'lucide-react';
 import Image from 'next/image';
 import { format } from 'date-fns';
@@ -18,8 +18,27 @@ interface MarksheetDisplayProps {
 }
 
 export function MarksheetDisplay({ data, onCreateNew, onEditBack }: MarksheetDisplayProps) {
+  const marksheetRef = React.useRef<HTMLDivElement>(null);
+
   const handlePrint = () => {
     window.print();
+  };
+
+  const handleDownloadPDF = () => {
+    if (typeof window !== 'undefined' && marksheetRef.current) {
+      import('html2pdf.js').then((html2pdf) => {
+        const element = marksheetRef.current;
+        const opt = {
+          margin: [10, 12, 10, 12], // top, left, bottom, right (in mm) - matches @page margin
+          filename: `${data.studentName.replace(/\s+/g, '-')}-Marksheet.pdf`,
+          image: { type: 'jpeg', quality: 0.98 },
+          html2canvas: { scale: 2 },
+          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        };
+
+        html2pdf.default().from(element).set(opt).save();
+      });
+    } else console.log("Error: Cannot run html2pdf outside of browser environment.")
   };
 
   const compulsorySubjects = data.subjects.filter(s => s.category === 'Compulsory');
@@ -28,8 +47,8 @@ export function MarksheetDisplay({ data, onCreateNew, onEditBack }: MarksheetDis
 
 
   return (
-    <div className="marksheet-print-container bg-gray-100 print:bg-white py-8 print:py-0 flex justify-center">
-      <Card className="marksheet-card w-full max-w-[210mm] min-h-[297mm] mx-auto shadow-lg print:shadow-none border-4 border-black print:border-4 print:border-black my-4 print:my-0 print:mx-0 bg-white p-1 print:p-0.5 relative">
+    <div className="marksheet-print-container bg-gray-100 print:bg-white py-8 print:py-0 flex justify-center items-center flex-col">
+      <Card ref={marksheetRef} className="marksheet-card w-full max-w-[210mm] min-h-[297mm] shadow-lg print:shadow-none border-4 border-black print:border-4 print:border-black my-4 print:my-0 print:mx-0 bg-white p-1 print:p-0.5 relative">
         {/* Watermark */}
         <div className="absolute inset-0 flex items-center justify-center z-0 pointer-events-none">
           <Image
@@ -42,45 +61,44 @@ export function MarksheetDisplay({ data, onCreateNew, onEditBack }: MarksheetDis
           />
         </div>
 
-        <div className="border border-black print:border-black p-4 print:p-[0.5cm] flex flex-col h-full relative z-10 print:border print:border-black">
+        <div className="border border-black print:border-black p-4 print:p-[0.8cm] flex flex-col h-full relative z-10 print:border print:border-black">
           
           <header className="relative mb-1 print:mb-0.5">
             <div className="absolute top-0 right-0 text-[10px] print:text-[8pt] text-blue-600 hover:underline">
-              <a
-                href="http://www.saryugcollege.com"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                www.saryugcollege.com
-              </a>
+ <a
+ href="http://www.saryugcollege.com"
+ target="_blank"
+ rel="noopener noreferrer"
+ >
+ www.saryugcollege.com
+ </a>
             </div>
             
             <div className="flex flex-col items-center w-full mb-1 print:mb-0.5">
-                <div className="flex items-center justify-center w-full">
-                    <div className="flex-shrink-0 mr-3 print:mr-2">
-                    <Image
-                        src="/college-logo.png"
-                        alt="College Logo"
-                        width={70} 
-                        height={70}
-                        className=""
-                        data-ai-hint="college logo"
-                    />
-                    </div>
-                    <div className="text-left">
-                        <h1 className="font-serif font-bold text-2xl print:text-xl" style={{ color: '#032781' }}>SARYUG COLLEGE</h1>
+              <div className="relative w-full text-center">
+                <div className="absolute left-0 top-[65%] transform -translate-y-1/2 ml-4 print:ml-2"> {/* Adjusted top */}
+                  <Image
+ src="/college-logo.png"
+            alt="College Logo" // Keep the alt text
+ width={100} // Increased width from 70 to 100
+ height={70}
+ data-ai-hint="college logo"
+ />
+ </div>
+                <div className="text-center w-full mx-auto"> {/* Center the text container */}
+ <h1 className="font-serif font-bold text-2xl print:text-xl" style={{ color: '#032781' }}>SARYUG COLLEGE</h1>
                         <p className="font-sans text-sm print:text-xs text-black font-semibold">
                             Chitragupta Nagar, Mohanpur, Samastipur, Bihar - 848101
                         </p>
                         <p className="font-sans text-xs print:text-[10px] text-black">
                             Affiliated By Bihar School Examination Board | [Estd. - 1983]
-                        </p>
+                        </p> {/* Increased margin-top for space */}
                         <p className="font-sans font-bold text-xs print:text-[10px] text-black mt-0.5">College Code: {data.collegeCode}</p>
                     </div>
-                </div>
+ </div>
             </div>
 
-            <div className="text-center mt-2 print:mt-1 mb-3 print:mb-[0.6cm]">
+            <div className="text-center mt-6 print:mt-4 mb-3 print:mb-[0.6cm]">
               <div
                 className="rounded-md inline-block mx-auto"
                 style={{ backgroundColor: '#DB2A2A' }} 
@@ -94,7 +112,8 @@ export function MarksheetDisplay({ data, onCreateNew, onEditBack }: MarksheetDis
             </div>
           </header>
 
-          <h3 className="text-center font-bold text-lg print:text-base underline decoration-1 underline-offset-2 mb-3 print:mb-[0.6cm] text-black">Student Details</h3>
+          <h3 className="text-center font-bold text-lg print:text-base mb-1 print:mb-0.5 text-black">Student Details</h3>
+          <hr className="border-gray-300 print:border-gray-300 mb-3 print:mb-[0.6cm]" />
 
           <div className="mb-3 print:mb-2 grid grid-cols-2 gap-x-12 print:gap-x-16 gap-y-1 text-sm print:text-xs font-sans text-black">
             <div className="flex items-baseline justify-start text-left">
@@ -132,47 +151,47 @@ export function MarksheetDisplay({ data, onCreateNew, onEditBack }: MarksheetDis
           <div className="flex-grow flex flex-col -mt-1 print:-mt-0.5">
             <section className="my-3 print:my-[0.5cm]">
                 <div className="overflow-x-auto">
-                <Table className="border-collapse w-full text-black print:text-black text-xs print:text-[9px]">
-                    <TableHeader className="bg-gray-100 print:bg-gray-100 hover:bg-gray-100 print:hover:bg-gray-100">
-                        <TableRow className="border-b border-black bg-transparent print:bg-transparent hover:bg-transparent print:hover:bg-transparent dark:hover:bg-inherit">
-                            <TableHead rowSpan={2} className="w-[8%] text-center border border-black font-bold text-black align-middle p-1 print:p-0.5 text-sm print:text-[10px]">
-                                Sr. no.</TableHead>
-                            <TableHead rowSpan={2} className="min-w-[25%] border border-black font-bold text-black text-center align-middle p-1 print:p-0.5 text-sm print:text-[10px]">Subject</TableHead>
-                            <TableHead rowSpan={2} className="w-[12%] text-center border border-black font-bold text-black align-middle p-1 print:p-0.5 text-sm print:text-[10px]">Total Marks</TableHead>
-                            <TableHead rowSpan={2} className="w-[12%] text-center border border-black font-bold text-black align-middle p-1 print:p-0.5 text-sm print:text-[10px]">Passing Marks</TableHead>
-                            <TableHead colSpan={2} className="text-center border border-black font-bold text-black align-middle p-1 print:p-0.5 text-sm print:text-[10px]">Marks Obtained</TableHead>
-                            <TableHead rowSpan={2} className="w-[12%] text-center border border-black font-bold text-black align-middle p-1 print:p-0.5 text-sm print:text-[10px]">Total</TableHead>
+                <Table className="border-collapse w-full text-black print:text-black text-xs print:text-[9px] bg-transparent print:bg-transparent">
+                    <TableHeader className="bg-gray-100 print:bg-transparent hover:bg-gray-100 print:hover:bg-transparent">
+                        <TableRow className="border-b border-black bg-transparent print:bg-transparent hover:bg-transparent print:hover:bg-transparent dark:hover:bg-inherit print:h-[20px]"> {/* Added print height */}
+                            <TableHead rowSpan={2} className="w-[8%] text-center border border-black font-bold text-black align-middle p-1 print:p-0.5 text-base print:text-[11px]">
+                                Sr. No.</TableHead> {/* Increased font size */}
+                            <TableHead rowSpan={2} className="min-w-[25%] border border-black font-bold text-black text-center align-middle p-1 print:p-0.5 text-base print:text-[11px]">Subject</TableHead>
+                            <TableHead rowSpan={2} className="w-[12%] text-center border border-black font-bold text-black align-middle p-1 print:p-0.5 text-base print:text-[11px]">Total Marks</TableHead>
+                            <TableHead rowSpan={2} className="w-[12%] text-center border border-black font-bold text-black align-middle p-1 print:p-0.5 text-base print:text-[11px]">Passing Marks</TableHead>
+                            <TableHead colSpan={2} className="text-center border border-black font-bold text-black align-middle p-1 print:p-0.5 text-base print:text-[11px]">Marks Obtained</TableHead>
+                            <TableHead rowSpan={2} className="w-[12%] text-center border border-black font-bold text-black align-middle p-1 print:p-0.5 text-base print:text-[11px]">Total</TableHead>
                         </TableRow>
-                        <TableRow className="border-b border-black bg-transparent print:bg-transparent hover:bg-transparent print:hover:bg-transparent dark:hover:bg-inherit">
-                            <TableHead className="text-center border border-black font-bold text-black align-middle p-1 print:p-0.5 text-xs print:text-[9px]">Theory</TableHead>
-                            <TableHead className="text-center border border-black font-bold text-black align-middle p-1 print:p-0.5 text-xs print:text-[9px]">Practical</TableHead>
+                        <TableRow className="border-b border-black bg-transparent print:bg-transparent hover:bg-transparent print:hover:bg-transparent dark:hover:bg-inherit font-bold text-black text-sm print:text-[11px]"> {/* Increased font size */}
+                            <TableHead className="text-center border border-black font-bold text-black align-middle p-1 print:p-0.5 text-xs print:text-[11px]">Theory</TableHead>
+                            <TableHead className="text-center border border-black font-bold text-black align-middle p-1 print:p-0.5 text-xs print:text-[11px]">Practical</TableHead>
                         </TableRow>
                     </TableHeader>
 
-                    <TableBody>
-                        {compulsorySubjects.length > 0 && (
+                    <TableBody className="text-xs print:text-[9px]"> {/* Set default font size for body */}
+ {compulsorySubjects.length > 0 && (
                             <TableRow className="font-bold bg-gray-50 print:bg-gray-50 hover:bg-gray-50 print:hover:bg-gray-50 dark:hover:bg-inherit">
-                                <TableCell
+                                <TableCell 
                                     colSpan={7}
                                     className="border border-black py-0.5 px-1 print:py-0.25 print:px-0.5 text-left text-xs print:text-[10px] text-black"
                                 >
                                     COMPULSORY SUBJECTS
                                 </TableCell>
                             </TableRow>
-                        )}
-                        {compulsorySubjects.map((subject, index) => (
-                            <TableRow key={`comp-${index}`} className="border-b border-black h-[22px] print:h-[20px] hover:bg-transparent print:hover:bg-transparent dark:hover:bg-inherit text-xs print:text-[9px]">
+ )}
+                        {compulsorySubjects.map((subject, index) => ( 
+                            <TableRow key={`comp-${index}`} className="border-b border-black h-[22px] print:h-[20px] hover:bg-transparent print:hover:bg-transparent dark:hover:bg-inherit"> {/* Removed redundant text-xs */}
                                 <TableCell className="text-center border border-black p-1 print:p-0.5">{index + 1}</TableCell>
                                 <TableCell className="border border-black p-1 print:p-0.5 text-left bg-transparent print:bg-transparent">{subject.subjectName}</TableCell>
                                 <TableCell className="text-center border border-black p-1 print:p-0.5">{subject.totalMarks}</TableCell>
                                 <TableCell className="text-center border border-black p-1 print:p-0.5">{subject.passMarks}</TableCell>
-                                <TableCell className="text-center border border-black p-1 print:p-0.5 bg-transparent print:bg-transparent">{subject.theoryMarksObtained}</TableCell>
-                                <TableCell className="text-center border border-black p-1 print:p-0.5 bg-transparent print:bg-transparent">{subject.practicalMarksObtained}</TableCell>
+                                <TableCell className="text-center border border-black p-1 print:p-0.5">{subject.theoryMarksObtained}</TableCell>
+                                <TableCell className="text-center border border-black p-1 print:p-0.5">{subject.practicalMarksObtained}</TableCell>
                                 <TableCell className="text-center border border-black p-1 print:p-0.5 font-bold">{subject.obtainedTotal}</TableCell>
                             </TableRow>
                         ))}
 
-                        {electiveSubjects.length > 0 && (
+ {electiveSubjects.length > 0 && (
                             <TableRow className="font-bold bg-gray-50 print:bg-gray-50 hover:bg-gray-50 print:hover:bg-gray-50 dark:hover:bg-inherit">
                                  <TableCell
                                     colSpan={7}
@@ -181,21 +200,21 @@ export function MarksheetDisplay({ data, onCreateNew, onEditBack }: MarksheetDis
                                     ELECTIVE SUBJECTS
                                 </TableCell>
                             </TableRow>
-                        )} 
+ )}
                        {electiveSubjects.map((subject, index) => (
-                            <TableRow key={`elec-${index}`} className="border-b border-black h-[22px] print:h-[20px] hover:bg-transparent print:hover:bg-transparent dark:hover:bg-inherit text-xs print:text-[9px]">
-                                <TableCell className="text-center border border-black p-1 print:p-0.5">{compulsorySubjects.length + index + 1}</TableCell> 
-                                <TableCell className="border border-black p-1 print:p-0.5 text-left bg-transparent print:bg-transparent">{subject.subjectName}</TableCell>
+                            <TableRow key={`elec-${index}`} className="border-b border-black h-[22px] print:h-[20px] hover:bg-transparent print:hover:bg-transparent dark:hover:bg-inherit"> {/* Removed redundant text-xs */}
+                                <TableCell className="text-center border border-black p-1 print:p-0.5">{compulsorySubjects.length + index + 1}</TableCell>
+                                <TableCell className="border border-black p-1 print:p-0.5 text-left">{subject.subjectName}</TableCell>
                                 <TableCell className="text-center border border-black p-1 print:p-0.5">{subject.totalMarks}</TableCell>
                                 <TableCell className="text-center border border-black p-1 print:p-0.5">{subject.passMarks}</TableCell>
-                                <TableCell className="text-center border border-black p-1 print:p-0.5 bg-transparent print:bg-transparent">{subject.theoryMarksObtained}</TableCell>
-                                <TableCell className="text-center border border-black p-1 print:p-0.5 bg-transparent print:bg-transparent">{subject.practicalMarksObtained}</TableCell>
+                                <TableCell className="text-center border border-black p-1 print:p-0.5">{subject.theoryMarksObtained}</TableCell>
+                                <TableCell className="text-center border border-black p-1 print:p-0.5">{subject.practicalMarksObtained}</TableCell>
                                 <TableCell className="text-center border border-black p-1 print:p-0.5 font-bold">{subject.obtainedTotal}</TableCell>
                             </TableRow>
                         ))}
 
-                        {additionalSubjects.length > 0 && (
-                            <TableRow className="font-bold bg-gray-50 print:bg-gray-50 hover:bg-gray-50 print:hover:bg-gray-50 dark:hover:bg-inherit">
+ {additionalSubjects.length > 0 && (
+                            <TableRow className="font-bold bg-gray-50 print:bg-gray-50 hover:bg-gray-50 print:hover:bg-gray-50 dark:hover:bg-inherit"> 
                                  <TableCell
                                     colSpan={7}
                                     className="border border-black py-0.5 px-1 print:py-0.25 print:px-0.5 text-left text-xs print:text-[10px] text-black"
@@ -203,21 +222,21 @@ export function MarksheetDisplay({ data, onCreateNew, onEditBack }: MarksheetDis
                                     ADDITIONAL SUBJECTS
                                 </TableCell>
                             </TableRow>
-                        )}
+ )}
                         {additionalSubjects.map((subject, index) => (
-                            <TableRow key={`addl-${index}`} className="border-b border-black h-[22px] print:h-[20px] hover:bg-transparent print:hover:bg-transparent dark:hover:bg-inherit text-xs print:text-[9px]">
+                            <TableRow key={`addl-${index}`} className="border-b border-black h-[22px] print:h-[20px] hover:bg-transparent print:hover:bg-transparent dark:hover:bg-inherit"> {/* Removed redundant text-xs */}
                                 <TableCell className="text-center border border-black p-1 print:p-0.5">{compulsorySubjects.length + electiveSubjects.length + index + 1}</TableCell>
                                 <TableCell className="border border-black p-1 print:p-0.5 text-left bg-transparent print:bg-transparent">{subject.subjectName}</TableCell>
                                 <TableCell className="text-center border border-black p-1 print:p-0.5">{subject.totalMarks}</TableCell>
                                 <TableCell className="text-center border border-black p-1 print:p-0.5">{subject.passMarks}</TableCell>
-                                <TableCell className="text-center border border-black p-1 print:p-0.5 bg-transparent print:bg-transparent">{subject.theoryMarksObtained}</TableCell>
-                                <TableCell className="text-center border border-black p-1 print:p-0.5 bg-transparent print:bg-transparent">{subject.practicalMarksObtained}</TableCell>
+                                <TableCell className="text-center border border-black p-1 print:p-0.5">{subject.theoryMarksObtained}</TableCell>
+                                <TableCell className="text-center border border-black p-1 print:p-0.5">{subject.practicalMarksObtained}</TableCell>
                                 <TableCell className="text-center border border-black p-1 print:p-0.5 font-bold">{subject.obtainedTotal}</TableCell>
                             </TableRow>
-                        ))}
-                        <TableRow className="border-t-2 border-black h-[24px] print:h-[22px] hover:bg-transparent print:hover:bg-transparent dark:hover:bg-inherit">
-                            <TableCell colSpan={6} className="text-right border-l border-r border-b border-black p-1 print:p-0.5 pr-2 print:pr-1.5 font-bold text-sm print:text-xs text-black">AGGREGATE (Compulsory + Elective)</TableCell>
-                            <TableCell className="text-right border-r border-b border-black p-1 print:p-0.5 font-bold text-sm print:text-xs text-black bg-transparent hover:bg-transparent print:hover:bg-transparent dark:hover:bg-inherit">{data.aggregateMarksCompulsoryElective}</TableCell>
+ ))}
+                        <TableRow className="border-t-2 border-black h-[24px] print:h-[22px] hover:bg-transparent print:hover:bg-transparent dark:hover:bg-inherit"> 
+                            <TableCell colSpan={6} className="text-right border-l border-r border-b border-black p-1 print:p-0.5 pr-2 print:pr-1.5 font-bold text-sm print:text-xs text-black">AGGREGATE (Compulsory + Elective)</TableCell> 
+                            <TableCell className="text-center border-r border-b border-black p-1 print:p-0.5 font-bold text-sm print:text-xs text-black">{data.aggregateMarksCompulsoryElective}</TableCell>
                         </TableRow>
                     </TableBody> 
                 </Table>
@@ -249,7 +268,7 @@ export function MarksheetDisplay({ data, onCreateNew, onEditBack }: MarksheetDis
         </div>
       </Card>
 
-      <div className="flex flex-col sm:flex-row justify-center gap-3 p-4 print:hidden mt-4">
+      <div className="flex flex-col sm:flex-row justify-center gap-3 p-4 print:hidden mt-4 text-center">
         {onEditBack && (
           <Button variant="outline" onClick={onEditBack}>
             <ArrowLeft className="mr-2 h-4 w-4" /> Back to Edit Form
@@ -260,7 +279,7 @@ export function MarksheetDisplay({ data, onCreateNew, onEditBack }: MarksheetDis
             <FilePlus2 className="mr-2 h-4 w-4" /> Create New
           </Button>
         )}
-        <Button variant="outline" onClick={() => alert('PDF Download to be implemented.')}>
+        <Button variant="outline" onClick={handleDownloadPDF}>
           <Download className="mr-2 h-4 w-4" /> Download PDF
         </Button>
         <Button onClick={handlePrint}>
@@ -304,7 +323,7 @@ export function MarksheetDisplay({ data, onCreateNew, onEditBack }: MarksheetDis
             background-color: white !important;
           }
           .marksheet-card > div:first-child { /* Inner content div */
-             padding: 0.5cm !important; /* Inner padding from the drawn inner border */
+             padding: 0.8cm !important; /* Inner padding from the drawn inner border */
              border-width: 1px !important;
              border-color: black !important;
              margin: 0 !important;
@@ -315,7 +334,7 @@ export function MarksheetDisplay({ data, onCreateNew, onEditBack }: MarksheetDis
           }
 
           /* General print helper classes */
-          .print\\:p-\\[0\\.5cm\\] { padding: 0.5cm !important; } 
+          .print\\:p-\\[0\\.8cm\\] { padding: 0.8cm !important; } 
           .print\\:mb-\\[0\\.6cm\\] { margin-bottom: 0.6cm !important; }
           .print\\:my-\\[0\\.5cm\\] { margin-top: 0.5cm !important; margin-bottom: 0.5cm !important; }
           .print\\:pt-\\[1cm\\] { padding-top: 1cm !important; } 
@@ -369,7 +388,7 @@ export function MarksheetDisplay({ data, onCreateNew, onEditBack }: MarksheetDis
             border: 1px solid black !important; 
             border-collapse: collapse !important;
             page-break-inside: auto !important;
-            background-color: white !important; 
+            background-color: transparent !important; 
           }
           tr.font-bold td.bg-gray-50 { 
             background-color: #F9FAFB !important;
@@ -388,7 +407,7 @@ export function MarksheetDisplay({ data, onCreateNew, onEditBack }: MarksheetDis
 
           @page {
             size: A4 portrait;
-            margin: 1.5cm 1.2cm 1.5cm 1.2cm; /* T R B L */
+            margin: 1.5cm 1.2cm 1.5cm 1.2cm; /* T R B L */ /* Original margin, adjust as needed if changing inner padding affects layout */
           }
         }
       `}</style>

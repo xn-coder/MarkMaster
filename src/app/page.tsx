@@ -47,6 +47,7 @@ import {
   ChevronRight,
   Loader2
 } from 'lucide-react';
+import * as XLSX from 'xlsx';
 
 interface StudentRowData {
   id: string; 
@@ -117,7 +118,7 @@ export default function AdminDashboardPage() {
   const handleLoadStudentData = async () => {
     setIsLoadingData(true);
     const { data: students, error } = await supabase
-      .from('student_details') // Use the correct table name
+      .from('student_details')
       .select('student_id, name, faculty, class, academic_year');
 
     if (error) {
@@ -129,14 +130,14 @@ export default function AdminDashboardPage() {
 
     if (students) {
       const formattedStudents: StudentRowData[] = students.map(s => ({
-        id: s.student_id, // student_id is the primary key and used as id here
+        id: s.student_id,
         name: s.name,
-        academicYear: s.academic_year, // This is the session string "YYYY-YYYY"
-        studentClass: s.class, // This is "11th", "12th", etc.
+        academicYear: s.academic_year, 
+        studentClass: s.class, 
         faculty: s.faculty,
       }));
       setAllStudents(formattedStudents);
-      setCurrentPage(1); // Reset to first page
+      setCurrentPage(1); 
       toast({ title: "Student Data Loaded", description: `${formattedStudents.length} students loaded from the database.` });
     } else {
       setAllStudents([]);
@@ -145,7 +146,6 @@ export default function AdminDashboardPage() {
     setIsLoadingData(false);
   };
 
-  // Apply filters whenever filter values or allStudents change
   useEffect(() => {
     let filtered = allStudents;
 
@@ -184,20 +184,47 @@ export default function AdminDashboardPage() {
   };
 
   const handleDeleteStudent = async (student: StudentRowData) => {
-    // Add a confirmation dialog here in a real app
-    // For now, just a toast and console log.
     toast({ 
       title: 'Confirm Deletion', 
       description: `Are you sure you want to delete ${student.name} (ID: ${student.id})? This action cannot be undone. (Deletion not implemented yet)`,
       variant: 'destructive' 
     });
     console.log("Attempting to delete student (not implemented):", student);
-    // Actual deletion logic (example, needs RLS and error handling):
-    // const { error: marksError } = await supabase.from('student_marks_details').delete().eq('student_id', student.id);
-    // if (marksError) { /* handle error */ }
-    // const { error: studentError } = await supabase.from('student_details').delete().eq('student_id', student.id);
-    // if (studentError) { /* handle error */ }
-    // else { setAllStudents(prev => prev.filter(s => s.id !== student.id)); }
+  };
+
+  const handleExportToExcel = () => {
+    if (displayedStudents.length === 0) {
+      toast({
+        title: "No Data to Export",
+        description: "There are no students currently displayed to export.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const worksheetData = displayedStudents.map(student => ({
+      "Student ID": student.id,
+      "Student Name": student.name,
+      "Academic Year": student.academicYear,
+      "Class": student.studentClass,
+      "Faculty": student.faculty,
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(worksheetData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Students");
+
+    // Auto-size columns
+    const columnWidths = Object.keys(worksheetData[0] || {}).map(key => ({
+      wch: Math.max(key.length, ...worksheetData.map(row => String(row[key as keyof typeof row] || '').length)) + 2 // Add a little padding
+    }));
+    worksheet["!cols"] = columnWidths;
+    
+    XLSX.writeFile(workbook, "students-export.xlsx");
+    toast({
+      title: "Export Successful",
+      description: "Student data has been exported to students-export.xlsx",
+    });
   };
 
 
@@ -217,8 +244,8 @@ export default function AdminDashboardPage() {
       />
 
       <main className="flex-grow container mx-auto px-4 py-6 sm:px-6 lg:px-8">
-         <div className="bg-primary text-primary-foreground p-3 rounded-md shadow-md mb-6">
-            <div className="container mx-auto px-0 sm:px-0 lg:px-0"> {/* Ensures content within this bar aligns with page */}
+        <div className="bg-primary text-primary-foreground p-3 rounded-md shadow-md mb-6">
+            <div className="container mx-auto px-0 sm:px-0 lg:px-0">
               <div className="flex flex-col sm:flex-row justify-between items-center gap-2">
                 <h2 className="text-xl font-semibold">STUDENT DETAILS</h2>
                 <div className="flex flex-wrap gap-2">
@@ -239,7 +266,7 @@ export default function AdminDashboardPage() {
                   <Button variant="ghost" size="sm" className="text-primary-foreground hover:bg-accent hover:text-accent-foreground">
                     <Upload className="mr-2 h-4 w-4" /> Import Data
                   </Button>
-                  <Button variant="ghost" size="sm" className="text-primary-foreground hover:bg-accent hover:text-accent-foreground">
+                  <Button variant="ghost" size="sm" className="text-primary-foreground hover:bg-accent hover:text-accent-foreground" onClick={handleExportToExcel}>
                     <Download className="mr-2 h-4 w-4" /> Export to Excel
                   </Button>
                 </div>
