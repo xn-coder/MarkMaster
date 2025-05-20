@@ -205,7 +205,8 @@ export default function AdminDashboardPage() {
     setIsExporting(true);
     toast({ title: "Exporting Data", description: "Fetching student details and marks, please wait..." });
 
-    const exportData = [];
+    const studentDetailsData = [];
+    const studentMarksData = [];
 
     try {
       for (const student of displayedStudents) {
@@ -220,6 +221,19 @@ export default function AdminDashboardPage() {
           continue; // Skip this student or handle error appropriately
         }
 
+        studentDetailsData.push({
+          "Student ID": studentDetails.student_id,
+          "Student Name": studentDetails.name,
+          "Father Name": studentDetails.father_name,
+          "Mother Name": studentDetails.mother_name,
+          "Date of Birth": studentDetails.dob ? format(new Date(studentDetails.dob), 'dd-MM-yyyy') : '',
+          "Gender": studentDetails.gender,
+          "Faculty": studentDetails.faculty,
+          "Class": studentDetails.class,
+          "Section": studentDetails.section,
+          "Academic Session": studentDetails.academic_year,
+        });
+
         const { data: marksDetails, error: marksError } = await supabase
           .from('student_marks_details')
           .select('*')
@@ -227,22 +241,13 @@ export default function AdminDashboardPage() {
 
         if (marksError) {
           console.error(`Error fetching marks for student ${student.id}:`, marksError);
-          // Decide if you want to include student details even if marks fail
         }
 
         if (marksDetails && marksDetails.length > 0) {
           for (const mark of marksDetails) {
-            exportData.push({
-              "Student ID": studentDetails.student_id,
-              "Student Name": studentDetails.name,
-              "Father Name": studentDetails.father_name,
-              "Mother Name": studentDetails.mother_name,
-              "Date of Birth": studentDetails.dob ? format(new Date(studentDetails.dob), 'dd-MM-yyyy') : '',
-              "Gender": studentDetails.gender,
-              "Faculty": studentDetails.faculty,
-              "Class": studentDetails.class, // Form's academicYear (11th, 12th)
-              "Section": studentDetails.section,
-              "Academic Session": studentDetails.academic_year, // Form's session (2023-2024)
+            studentMarksData.push({
+              "Student ID": studentDetails.student_id, // Include student ID for linking
+              "Student Name": studentDetails.name, // Include student name for reference
               "Subject Name": mark.subject_name,
               "Subject Category": mark.category,
               "Max Marks": mark.max_marks,
@@ -252,52 +257,43 @@ export default function AdminDashboardPage() {
               "Obtained Total Marks": mark.obtained_total_marks,
             });
           }
-        } else {
-          // Student has no marks, still include their details
-          exportData.push({
-            "Student ID": studentDetails.student_id,
-            "Student Name": studentDetails.name,
-            "Father Name": studentDetails.father_name,
-            "Mother Name": studentDetails.mother_name,
-            "Date of Birth": studentDetails.dob ? format(new Date(studentDetails.dob), 'dd-MM-yyyy') : '',
-            "Gender": studentDetails.gender,
-            "Faculty": studentDetails.faculty,
-            "Class": studentDetails.class,
-            "Section": studentDetails.section,
-            "Academic Session": studentDetails.academic_year,
-            "Subject Name": "N/A",
-            "Subject Category": "N/A",
-            "Max Marks": "N/A",
-            "Pass Marks": "N/A",
-            "Theory Marks Obtained": "N/A",
-            "Practical Marks Obtained": "N/A",
-            "Obtained Total Marks": "N/A",
-          });
         }
       }
 
-      if (exportData.length === 0) {
+      if (studentDetailsData.length === 0 && studentMarksData.length === 0) {
         toast({ title: "No Detailed Data", description: "Could not fetch detailed data for the selected students.", variant: "destructive"});
         setIsExporting(false);
         return;
       }
 
-      const worksheet = XLSX.utils.json_to_sheet(exportData);
       const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, "Student Marks Details");
 
-      // Auto-size columns
-      if (exportData.length > 0) {
-        const columnWidths = Object.keys(exportData[0]).map(key => ({
-          wch: Math.max(key.length, ...exportData.map(row => String(row[key as keyof typeof row] ?? '').length)) + 2
+      // Student Details Sheet
+      if (studentDetailsData.length > 0) {
+        const wsStudentDetails = XLSX.utils.json_to_sheet(studentDetailsData);
+        const columnWidthsDetails = Object.keys(studentDetailsData[0]).map(key => ({
+          wch: Math.max(key.length, ...studentDetailsData.map(row => String(row[key as keyof typeof row] ?? '').length)) + 2
         }));
-        worksheet["!cols"] = columnWidths;
+        wsStudentDetails["!cols"] = columnWidthsDetails;
+        XLSX.utils.book_append_sheet(workbook, wsStudentDetails, "Student Details");
       }
 
-      XLSX.writeFile(workbook, "student_marks_export.xlsx");
+
+      // Student Marks Details Sheet
+      if (studentMarksData.length > 0) {
+        const wsStudentMarks = XLSX.utils.json_to_sheet(studentMarksData);
+         const columnWidthsMarks = Object.keys(studentMarksData[0]).map(key => ({
+          wch: Math.max(key.length, ...studentMarksData.map(row => String(row[key as keyof typeof row] ?? '').length)) + 2
+        }));
+        wsStudentMarks["!cols"] = columnWidthsMarks;
+        XLSX.utils.book_append_sheet(workbook, wsStudentMarks, "Student Marks Details");
+      }
+
+
+      XLSX.writeFile(workbook, "students_and_marks_export.xlsx");
       toast({
         title: "Export Successful",
-        description: "Student details and marks exported to student_marks_export.xlsx",
+        description: "Student details and marks exported to students_and_marks_export.xlsx",
       });
     } catch (error: any) {
       console.error("Error during Excel export:", error);
