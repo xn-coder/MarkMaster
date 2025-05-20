@@ -482,7 +482,7 @@ export default function ImportDataPage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
-      <AppHeader pageSubtitle={pageSubtitle} />
+      <AppHeader pageSubtitle={pageSubtitle} showBackButton={true} />
       <main className="flex-grow container mx-auto px-4 py-8 sm:px-6 lg:px-8 max-w-screen-xl">
         <div className="max-w-3xl mx-auto"> 
           <Card> 
