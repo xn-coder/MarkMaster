@@ -88,11 +88,16 @@ export default function AdminDashboardPage() {
   useEffect(() => {
     setFooterYear(new Date().getFullYear());
     const checkAuthAndRedirect = async () => {
-      const { data: { session }, error } = await supabase.auth.getSession();
-      if (error || !session) {
-        router.push('/login');
-      } else {
-        setIsAuthLoading(false);
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (error || !session) {
+          router.push('/login');
+        } else {
+          setIsAuthLoading(false);
+        }
+      } catch (e) {
+        console.error("Auth check error:", e);
+        router.push('/login'); // Fallback on any error during auth check
       }
     };
     checkAuthAndRedirect();
@@ -110,32 +115,38 @@ export default function AdminDashboardPage() {
 
   const handleLoadStudentData = async () => {
     setIsLoadingData(true);
-    const { data: studentsData, error } = await supabase
-      .from('student_details')
-      .select('id, roll_no, name, faculty, class, academic_year'); // Fetch new 'id' (UUID) and 'roll_no'
+    try {
+      const { data: studentsData, error } = await supabase
+        .from('student_details')
+        .select('id, roll_no, name, faculty, class, academic_year');
 
-    if (error) {
-      toast({ title: "Error Loading Students", description: error.message, variant: "destructive" });
+      if (error) {
+        throw error;
+      }
+      
+      if (studentsData) {
+        const formattedStudents: StudentRowData[] = studentsData.map(s => ({
+          system_id: s.id,
+          roll_no: s.roll_no,
+          name: s.name,
+          academicYear: s.academic_year,
+          studentClass: s.class,
+          faculty: s.faculty,
+        }));
+        setAllStudents(formattedStudents);
+        toast({ title: "Student Data Loaded", description: `${formattedStudents.length} records fetched.` });
+      } else {
+        setAllStudents([]);
+        toast({ title: "No Students Found", description: "No student records were returned from the database." });
+      }
+    } catch (error: any) {
+      toast({ title: "Error Loading Students", description: error.message || "Could not fetch student data.", variant: "destructive" });
       setAllStudents([]);
-    } else if (studentsData) {
-      const formattedStudents: StudentRowData[] = studentsData.map(s => ({
-        system_id: s.id, // Map DB 'id' to 'system_id'
-        roll_no: s.roll_no, // Map DB 'roll_no' to 'roll_no'
-        name: s.name,
-        academicYear: s.academic_year,
-        studentClass: s.class,
-        faculty: s.faculty,
-      }));
-      setAllStudents(formattedStudents);
-      toast({ title: "Student Data Loaded", description: `${formattedStudents.length} records fetched.` });
-    } else {
-      setAllStudents([]);
-      toast({ title: "No Students Found", description: "No student records were returned from the database." });
+    } finally {
+      setIsLoadingData(false);
     }
-    setIsLoadingData(false);
   };
   
-  // Apply filters when allStudents or filter criteria change
  useEffect(() => {
     let filtered = allStudents;
 
@@ -148,7 +159,7 @@ export default function AdminDashboardPage() {
     if (endYearFilter !== 'All End Years') {
       filtered = filtered.filter(student => student.academicYear?.endsWith(endYearFilter));
     }
-    if (studentIdFilter) { // This now filters by roll_no
+    if (studentIdFilter) { 
       filtered = filtered.filter(student => student.roll_no.toLowerCase().includes(studentIdFilter.toLowerCase()));
     }
     if (studentNameFilter) {
@@ -159,7 +170,7 @@ export default function AdminDashboardPage() {
     }
 
     setDisplayedStudents(filtered);
-    setCurrentPage(1); // Reset to first page on filter change
+    setCurrentPage(1); 
   }, [allStudents, academicYearFilter, startYearFilter, endYearFilter, studentIdFilter, studentNameFilter, classFilter]);
 
 
@@ -171,45 +182,49 @@ export default function AdminDashboardPage() {
   const totalPages = Math.ceil(displayedStudents.length / entriesPerPage);
 
   const handleViewMarksheet = (student: StudentRowData) => {
-    router.push(`/marksheet/view/${student.system_id}`); // Use system_id for navigation
+    router.push(`/marksheet/view/${student.system_id}`);
   };
 
   const handleEditStudent = (student: StudentRowData) => {
-    router.push(`/marksheet/edit/${student.system_id}`); // Use system_id for navigation
+    router.push(`/marksheet/edit/${student.system_id}`);
   };
 
   const handleDeleteStudent = async (student: StudentRowData) => {
-    const { error: marksError } = await supabase
-      .from('student_marks_details')
-      .delete()
-      .eq('student_detail_id', student.system_id); // Use system_id for FK
-
-    if (marksError) {
-      toast({
-        title: 'Error Deleting Marks',
-        description: `Could not delete marks for ${student.name}: ${marksError.message}`,
-        variant: 'destructive',
-      });
+    if (!confirm(`Are you sure you want to delete student ${student.name} (Roll No: ${student.roll_no}) and all their marks? This action cannot be undone.`)) {
       return;
     }
 
-    const { error: studentError } = await supabase
-      .from('student_details')
-      .delete()
-      .eq('id', student.system_id); // Use system_id for PK
+    try {
+      const { error: marksError } = await supabase
+        .from('student_marks_details')
+        .delete()
+        .eq('student_detail_id', student.system_id); 
 
-    if (studentError) {
-      toast({
-        title: 'Error Deleting Student',
-        description: `Could not delete ${student.name}: ${studentError.message}. Their marks might have been deleted. Please check.`,
-        variant: 'destructive',
-      });
-    } else {
+      if (marksError) {
+        throw new Error(`Could not delete marks for ${student.name}: ${marksError.message}`);
+      }
+
+      const { error: studentError } = await supabase
+        .from('student_details')
+        .delete()
+        .eq('id', student.system_id); 
+
+      if (studentError) {
+        throw new Error(`Could not delete student ${student.name}: ${studentError.message}. Their marks might have been deleted.`);
+      }
+
       toast({
         title: 'Student Deleted',
         description: `${student.name} (Roll No: ${student.roll_no}) and their marks have been deleted.`,
       });
       setAllStudents(prev => prev.filter(s => s.system_id !== student.system_id));
+      // displayedStudents will update automatically via useEffect
+    } catch (error: any) {
+      toast({
+        title: 'Deletion Failed',
+        description: error.message || 'An unexpected error occurred.',
+        variant: 'destructive',
+      });
     }
   };
 
@@ -226,20 +241,33 @@ export default function AdminDashboardPage() {
     setIsExporting(true);
     toast({ title: "Exporting Data", description: "Fetching student details and marks, please wait..." });
 
-    const studentDetailsDataSheet = [];
-    const studentMarksDataSheet = [];
+    const studentDetailsDataSheet: any[] = [];
+    const studentMarksDataSheet: any[] = [];
+
+    // Define headers (important for consistency if some students have no marks)
+    const studentDetailHeaders = ["Student System ID", "Roll No", "Name", "Father Name", "Mother Name", "Date of Birth", "Gender", "Faculty", "Class", "Section", "Academic Session"];
+    const studentMarkHeaders = ["Student System ID", "Roll No", "Name", "Subject Name", "Subject Category", "Max Marks", "Pass Marks", "Theory Marks Obtained", "Practical Marks Obtained", "Obtained Total Marks"];
+
 
     try {
       for (const displayedStudent of displayedStudents) {
         const { data: studentDetails, error: studentError } = await supabase
           .from('student_details')
           .select('*')
-          .eq('id', displayedStudent.system_id) // Fetch by system_id
+          .eq('id', displayedStudent.system_id) 
           .single();
 
         if (studentError || !studentDetails) {
           console.error(`Error fetching details for student ${displayedStudent.system_id}:`, studentError);
-          continue;
+          // Optionally add a row to studentDetailsDataSheet indicating missing data
+          studentDetailsDataSheet.push({
+            "Student System ID": displayedStudent.system_id,
+            "Roll No": displayedStudent.roll_no,
+            "Name": displayedStudent.name,
+            "Father Name": "Error fetching", 
+            // ... fill other known fields or error placeholders
+          });
+          continue; 
         }
 
         studentDetailsDataSheet.push({
@@ -259,7 +287,7 @@ export default function AdminDashboardPage() {
         const { data: marksDetails, error: marksError } = await supabase
           .from('student_marks_details')
           .select('*')
-          .eq('student_detail_id', studentDetails.id); // Fetch marks by system_id (FK)
+          .eq('student_detail_id', studentDetails.id); 
 
         if (marksError) {
           console.error(`Error fetching marks for student ${studentDetails.id}:`, marksError);
@@ -270,7 +298,7 @@ export default function AdminDashboardPage() {
             studentMarksDataSheet.push({
               "Student System ID": studentDetails.id,
               "Roll No": studentDetails.roll_no,
-              "Name": studentDetails.name,
+              "Name": studentDetails.name, // Repeat student name for easy reference in marks sheet
               "Subject Name": mark.subject_name,
               "Subject Category": mark.category,
               "Max Marks": mark.max_marks,
@@ -281,6 +309,7 @@ export default function AdminDashboardPage() {
             });
           }
         } else {
+          // Add a placeholder row if a student has no marks, to maintain consistency or indicate this fact
           studentMarksDataSheet.push({
             "Student System ID": studentDetails.id,
             "Roll No": studentDetails.roll_no,
@@ -300,14 +329,38 @@ export default function AdminDashboardPage() {
       const workbook = XLSX.utils.book_new();
 
       if (studentDetailsDataSheet.length > 0) {
-        const wsStudentDetails = XLSX.utils.json_to_sheet(studentDetailsDataSheet);
+        const wsStudentDetails = XLSX.utils.json_to_sheet(studentDetailsDataSheet, {header: studentDetailHeaders});
         XLSX.utils.book_append_sheet(workbook, wsStudentDetails, "Student Details");
       }
 
       if (studentMarksDataSheet.length > 0) {
-        const wsStudentMarks = XLSX.utils.json_to_sheet(studentMarksDataSheet);
+        const wsStudentMarks = XLSX.utils.json_to_sheet(studentMarksDataSheet, {header: studentMarkHeaders});
         XLSX.utils.book_append_sheet(workbook, wsStudentMarks, "Student Marks Details");
       }
+      
+      // Auto-size columns for all sheets
+      Object.keys(workbook.Sheets).forEach(sheetName => {
+        const sheet = workbook.Sheets[sheetName];
+        const cols = XLSX.utils.sheet_to_json<any>(sheet, { header: 1 })[0];
+        if (cols) {
+            const colWidths = cols.map((col:any, i:number) => {
+                let maxLen = 0;
+                XLSX.utils.sheet_to_json<any>(sheet).forEach(row => {
+                    const cellValue = row[cols[i]];
+                    if (cellValue != null) { // Check for null or undefined
+                        const len = String(cellValue).length;
+                        if (len > maxLen) maxLen = len;
+                    }
+                });
+                // Ensure header length is also considered
+                const headerLen = String(cols[i]).length;
+                if (headerLen > maxLen) maxLen = headerLen;
+                return { wch: maxLen + 2 }; // +2 for a little padding
+            });
+            sheet['!cols'] = colWidths;
+        }
+      });
+
 
       XLSX.writeFile(workbook, "students_and_marks_export.xlsx");
       toast({
@@ -405,7 +458,7 @@ export default function AdminDashboardPage() {
                 </Select>
               </div>
               <div>
-                <Label htmlFor="studentCollegeId">Student Roll No</Label> {/* Changed label */}
+                <Label htmlFor="studentCollegeId">Student Roll No</Label>
                 <Input id="studentCollegeId" placeholder="Roll No" value={studentIdFilter} onChange={e => setStudentIdFilter(e.target.value)} />
               </div>
               <div>
@@ -443,7 +496,7 @@ export default function AdminDashboardPage() {
               <Table>
                 <TableHeader className="bg-primary text-primary-foreground">
                   <TableRow>
-                    <TableHead className="text-white">Roll No</TableHead> {/* Changed header */}
+                    <TableHead className="text-white">Roll No</TableHead>
                     <TableHead className="text-white">Student Name</TableHead>
                     <TableHead className="text-white">Academic Year</TableHead>
                     <TableHead className="text-white">Class</TableHead>
@@ -460,8 +513,8 @@ export default function AdminDashboardPage() {
                       </TableCell>
                     </TableRow>
                   ) : paginatedStudents.length > 0 ? paginatedStudents.map((student) => (
-                    <TableRow key={student.system_id}> {/* Use system_id as key */}
-                      <TableCell>{student.roll_no}</TableCell> {/* Display roll_no */}
+                    <TableRow key={student.system_id}>
+                      <TableCell>{student.roll_no}</TableCell>
                       <TableCell>{student.name}</TableCell>
                       <TableCell>{student.academicYear}</TableCell>
                       <TableCell>{student.studentClass}</TableCell>
