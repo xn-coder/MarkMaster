@@ -100,8 +100,8 @@ export default function ImportDataPage() {
     const studentDetailsHeaders = ["Student ID", "Student Name", "Father Name", "Mother Name", "Date of Birth", "Gender", "Faculty", "Class", "Section", "Academic Session"];
     const sampleStudentRow = ["S001", "John Doe", "Robert Doe", "Jane Doe", "15-07-2003", "Male", "SCIENCE", "12th", "B", "2024-2026"];
     
-    const studentMarksHeaders = ["Name", "Subject Name", "Subject Category", "Max Marks", "Pass Marks", "Theory Marks Obtained", "Practical Marks Obtained"];
-    const sampleMarkRow = ["John Doe", "Physics", "Elective", 100, 33, 65, 25]; // Name matches Student Name in sampleStudentRow
+    const studentMarksHeaders = ["Student ID", "Name", "Subject Name", "Subject Category", "Max Marks", "Pass Marks", "Theory Marks Obtained", "Practical Marks Obtained"];
+    const sampleMarkRow = ["S001", "John Doe", "Physics", "Elective", 100, 33, 65, 25];
 
     const studentDetailsData = [studentDetailsHeaders, sampleStudentRow];
     const studentMarksData = [studentMarksHeaders, sampleMarkRow];
@@ -148,7 +148,7 @@ export default function ImportDataPage() {
         totalMarksSkipped: 0,
       };
       
-      const studentNameToDbIdMap = new Map<string, string>(); // Maps Student Name (from Excel) to Student ID (from Excel, used as DB ID)
+      const validStudentIdsFromDetailsSheet = new Set<string>();
 
       try {
         const workbook = XLSX.read(data, { type: 'array', cellDates: false });
@@ -203,11 +203,11 @@ export default function ImportDataPage() {
               continue;
             }
             
-            studentNameToDbIdMap.set(studentName, studentIdFromExcel); // Map Student Name to the Excel-provided Student ID
+            validStudentIdsFromDetailsSheet.add(studentIdFromExcel);
 
             studentInserts.push({
-              student_id: studentIdFromExcel, // Use Excel Student ID as DB student_id
-              roll_no: studentIdFromExcel,    // Use Excel Student ID as DB roll_no
+              student_id: studentIdFromExcel,
+              roll_no: studentIdFromExcel,
               name: studentName,
               father_name: fatherName,
               mother_name: motherName,
@@ -219,7 +219,6 @@ export default function ImportDataPage() {
               academic_year: academicSession, 
             });
             currentFeedback.status = 'added'; 
-            currentFeedback.studentId = studentIdFromExcel;
             currentFeedback.message = 'Pending database insertion.';
             results.studentFeedback.push(currentFeedback);
           }
@@ -233,10 +232,18 @@ export default function ImportDataPage() {
             if (studentInsertError) {
               results.summaryMessages.push({ type: 'error', message: `Error inserting student details: ${studentInsertError.message}` });
               studentInserts.forEach(si => {
-                const feedback = results.studentFeedback.find(f => f.studentId === si.student_id);
+                const feedback = results.studentFeedback.find(f => f.studentId === si.student_id && f.status === 'added');
                 if (feedback) {
                   feedback.status = 'error';
                   feedback.message = `Database insert failed: ${studentInsertError.message}`;
+                } else { // If somehow feedback was not 'added' but still in inserts (should not happen)
+                    results.studentFeedback.push({
+                        rowNumber: -1, // Indicate unknown row
+                        name: si.name,
+                        studentId: si.student_id,
+                        status: 'error',
+                        message: `Database insert failed: ${studentInsertError.message}`
+                    });
                 }
               });
               results.totalStudentsAdded = 0; 
@@ -253,6 +260,9 @@ export default function ImportDataPage() {
              results.totalStudentsSkipped = results.totalStudentsProcessed - results.totalStudentsAdded;
           } else {
              results.totalStudentsSkipped = results.totalStudentsProcessed; 
+             if (results.totalStudentsProcessed > 0) {
+                 results.summaryMessages.push({ type: 'info', message: `No student details were prepared for insertion. All ${results.totalStudentsProcessed} rows had issues.` });
+             }
           }
         }
 
@@ -270,7 +280,8 @@ export default function ImportDataPage() {
             const row = studentMarksJson[i];
             const rowNum = i + 2;
 
-            const studentNameForMarks = String(row['Name'] || '').trim(); // Still linking by "Name" from marks sheet
+            const studentIdForMarks = String(row['Student ID'] || '').trim();
+            const studentNameForFeedback = String(row['Name'] || '').trim(); // Keep for feedback
             const subjectName = String(row['Subject Name'] || '').trim(); 
             const subjectCategory = String(row['Subject Category'] || '').trim();
             const maxMarksRaw = row['Max Marks'];
@@ -278,7 +289,7 @@ export default function ImportDataPage() {
             const theoryMarksRaw = row['Theory Marks Obtained'];
             const practicalMarksRaw = row['Practical Marks Obtained'];
 
-            const currentFeedback: MarksImportFeedbackItem = { rowNumber: rowNum, studentName: studentNameForMarks, subjectName: subjectName, status: 'skipped', message: '' };
+            const currentFeedback: MarksImportFeedbackItem = { rowNumber: rowNum, studentName: studentNameForFeedback, studentId: studentIdForMarks, subjectName: subjectName, status: 'skipped', message: '' };
 
             const maxMarks = parseFloat(String(maxMarksRaw));
             const passMarks = parseFloat(String(passMarksRaw));
@@ -286,16 +297,15 @@ export default function ImportDataPage() {
             const practicalMarks = parseFloat(String(practicalMarksRaw));
 
 
-            if (!studentNameForMarks || !subjectName || !subjectCategory || isNaN(maxMarks) || isNaN(passMarks)) {
-              currentFeedback.message = "Missing required fields (Name, Subject Name, Subject Category) or invalid Max/Pass Marks.";
+            if (!studentIdForMarks || !subjectName || !subjectCategory || isNaN(maxMarks) || isNaN(passMarks)) {
+              currentFeedback.message = "Missing required fields (Student ID, Subject Name, Subject Category) or invalid Max/Pass Marks.";
               results.marksFeedback.push(currentFeedback);
               results.totalMarksSkipped++;
               continue;
             }
             
-            const dbStudentId = studentNameToDbIdMap.get(studentNameForMarks); // Get the actual DB student_id (which was Student ID from Excel)
-            if (!dbStudentId) {
-              currentFeedback.message = `Student "${studentNameForMarks}" not found in 'Student Details' sheet (based on 'Student Name' to 'Student ID' mapping) or not added. Marks for this subject skipped.`;
+            if (!validStudentIdsFromDetailsSheet.has(studentIdForMarks)) {
+              currentFeedback.message = `Student ID "${studentIdForMarks}" not found in 'Student Details' sheet (from current file). Marks for this subject skipped.`;
               results.marksFeedback.push(currentFeedback);
               results.totalMarksSkipped++;
               continue;
@@ -317,7 +327,7 @@ export default function ImportDataPage() {
             }
 
             marksInserts.push({
-              student_id: dbStudentId, // Use the mapped DB student_id
+              student_id: studentIdForMarks,
               subject_name: subjectName,
               category: subjectCategory,
               max_marks: maxMarks,
@@ -340,15 +350,23 @@ export default function ImportDataPage() {
             if (marksInsertError) {
               results.summaryMessages.push({ type: 'error', message: `Error inserting marks details: ${marksInsertError.message}` });
               marksInserts.forEach(mi => {
-                 // Find feedback based on the original student name used for linking from the marks sheet
                 const feedback = results.marksFeedback.find(f => 
-                    f.studentName === Array.from(studentNameToDbIdMap.entries()).find(([,id]) => id === mi.student_id)?.[0] && 
+                    f.studentId === mi.student_id && 
                     f.subjectName === mi.subject_name && 
                     f.status === 'added'
                 );
                 if(feedback) {
                     feedback.status = 'error';
                     feedback.message = `Database insert failed: ${marksInsertError.message}`;
+                } else {
+                     results.marksFeedback.push({
+                        rowNumber: -1, 
+                        studentName: `For ID ${mi.student_id}`, 
+                        studentId: mi.student_id,
+                        subjectName: mi.subject_name,
+                        status: 'error',
+                        message: `Database insert failed: ${marksInsertError.message}`
+                    });
                 }
               });
               results.totalMarksAdded = 0; 
@@ -356,9 +374,8 @@ export default function ImportDataPage() {
               results.totalMarksAdded = insertedMarks?.length || 0;
               results.summaryMessages.push({ type: 'success', message: `${results.totalMarksAdded} marks records successfully inserted.` });
               insertedMarks?.forEach(im => {
-                 const studentNameFromMap = Array.from(studentNameToDbIdMap.entries()).find(([,id]) => id === im.student_id)?.[0] || "Unknown Student";
                  const feedback = results.marksFeedback.find(f => 
-                    f.studentName === studentNameFromMap && 
+                    f.studentId === im.student_id && 
                     f.subjectName === im.subject_name && 
                     f.status === 'added'
                  );
@@ -370,6 +387,9 @@ export default function ImportDataPage() {
              results.totalMarksSkipped = results.totalMarksProcessed - results.totalMarksAdded;
           } else {
              results.totalMarksSkipped = results.totalMarksProcessed; 
+             if (results.totalMarksProcessed > 0) {
+                results.summaryMessages.push({ type: 'info', message: `No marks details were prepared for insertion. All ${results.totalMarksProcessed} rows had issues.` });
+             }
           }
         }
         toast({ title: "Import Processed", description: "Review the details below." });
@@ -426,7 +446,7 @@ export default function ImportDataPage() {
                 Required columns for "Student Details": Student ID, Student Name, Father Name, Mother Name, Date of Birth, Gender, Faculty, Class, Section, Academic Session. Student ID will be used as the Roll Number.
               </p>
               <p>
-                Required columns for "Student Marks Details": Name (must match a "Student Name" in Student Details sheet), Subject Name, Subject Category, Max Marks, Pass Marks. Optional: Theory Marks Obtained, Practical Marks Obtained.
+                Required columns for "Student Marks Details": Student ID (must match a "Student ID" in Student Details sheet), Name (for reference), Subject Name, Subject Category, Max Marks, Pass Marks. Optional: Theory Marks Obtained, Practical Marks Obtained.
               </p>
             </CardDescription>
              <Button variant="link" onClick={handleDownloadSampleFile} className="p-0 h-auto self-start text-sm mt-2">
@@ -480,7 +500,7 @@ export default function ImportDataPage() {
 
                 <div>
                   <h4 className="text-lg font-medium">Student Details Feedback ({importResults.totalStudentsProcessed} rows processed)</h4>
-                  <p className="text-sm text-muted-foreground">Added: {importResults.totalStudentsAdded}, Skipped/Errors: {importResults.totalStudentsSkipped + importResults.studentFeedback.filter(f=>f.status === 'error' && !(f.message.startsWith('Database insert failed'))).length}</p>
+                  <p className="text-sm text-muted-foreground">Added: {importResults.totalStudentsAdded}, Skipped/Errors: {importResults.totalStudentsSkipped}</p>
                   {importResults.studentFeedback.length > 0 && (
                     <ScrollArea className="h-60 mt-2 border rounded-md p-2">
                       {importResults.studentFeedback.map((item, idx) => (
@@ -508,7 +528,7 @@ export default function ImportDataPage() {
 
                 <div>
                   <h4 className="text-lg font-medium">Marks Details Feedback ({importResults.totalMarksProcessed} rows processed)</h4>
-                   <p className="text-sm text-muted-foreground">Added: {importResults.totalMarksAdded}, Skipped/Errors: {importResults.totalMarksSkipped + importResults.marksFeedback.filter(f=>f.status === 'error' && !(f.message.startsWith('Database insert failed'))).length}</p>
+                   <p className="text-sm text-muted-foreground">Added: {importResults.totalMarksAdded}, Skipped/Errors: {importResults.totalMarksSkipped}</p>
                   {importResults.marksFeedback.length > 0 && (
                     <ScrollArea className="h-60 mt-2 border rounded-md p-2">
                       {importResults.marksFeedback.map((item, idx) => (
@@ -517,7 +537,7 @@ export default function ImportDataPage() {
                            {item.status === 'skipped' && <AlertTriangle className="h-3.5 w-3.5 text-yellow-700 mr-1.5 flex-shrink-0" />}
                            {item.status === 'error' && <XCircle className="h-3.5 w-3.5 text-red-600 mr-1.5 flex-shrink-0" />}
                           <span className="font-semibold">Row {item.rowNumber}:</span>&nbsp;
-                          Student <span className="font-medium">{item.studentName}</span>, Subject <span className="font-medium">{item.subjectName}</span>&nbsp;-&nbsp;
+                          Student ID: <span className="font-medium">{item.studentId || 'N/A'}</span>, Name: <span className="font-medium">{item.studentName}</span>, Subject: <span className="font-medium">{item.subjectName}</span>&nbsp;-&nbsp;
                            <span className={`font-medium ${
                             item.status === 'added' ? 'text-green-600' :
                             item.status === 'skipped' ? 'text-yellow-700' :
@@ -544,3 +564,4 @@ export default function ImportDataPage() {
     </div>
   );
 }
+
