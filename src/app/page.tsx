@@ -52,11 +52,6 @@ import { format, parseISO } from 'date-fns';
 import type { StudentRowData } from '@/types';
 
 
-const ACADEMIC_YEARS = ['All Academic Years', '2025-2027', '2024-2028', '2024-2026', '2023-2025', '2022-2024', '2022-2023', '2021-2023', '2021-2022', '2018-2019'];
-const START_YEARS = ['All Start Years', ...Array.from({ length: new Date().getFullYear() + 1 - 2018 + 1 }, (_, i) => (2018 + i).toString()).reverse()];
-const END_YEARS = ['All End Years', ...Array.from({ length: new Date().getFullYear() + 2 - 2019 + 1 }, (_, i) => (2019 + i).toString()).reverse()];
-const CLASSES = ['All Classes', '1st Year', '2nd Year', '3rd Year', '10th', '11th', '12th', 'B.A.', 'B.Com', 'B.Tech'];
-
 const dashboardPageTitle = "SARYUG COLLEGE";
 const dashboardPageSubtitle = `(Affiliated By Bihar School Examination Board, Patna)
 [Estd. - 1983] College Code: 53010
@@ -73,6 +68,11 @@ export default function AdminDashboardPage() {
   const [allStudents, setAllStudents] = useState<StudentRowData[]>([]);
   const [displayedStudents, setDisplayedStudents] = useState<StudentRowData[]>([]);
 
+  // State for dynamic filter options
+  const [dynamicAcademicYearOptions, setDynamicAcademicYearOptions] = useState<string[]>(['All Academic Years']);
+  const [dynamicStartYearOptions, setDynamicStartYearOptions] = useState<string[]>(['All Start Years']);
+  const [dynamicEndYearOptions, setDynamicEndYearOptions] = useState<string[]>(['All End Years']);
+  const [dynamicClassOptions, setDynamicClassOptions] = useState<string[]>(['All Classes']);
 
   const [academicYearFilter, setAcademicYearFilter] = useState('All Academic Years');
   const [startYearFilter, setStartYearFilter] = useState('All Start Years');
@@ -97,7 +97,7 @@ export default function AdminDashboardPage() {
         }
       } catch (e) {
         console.error("Auth check error:", e);
-        router.push('/login'); // Fallback on any error during auth check
+        router.push('/login'); 
       }
     };
     checkAuthAndRedirect();
@@ -112,6 +112,28 @@ export default function AdminDashboardPage() {
       authListener.subscription.unsubscribe();
     };
   }, [router]);
+
+  const populateDynamicFilterOptions = (students: StudentRowData[]) => {
+    if (!students || students.length === 0) {
+      setDynamicAcademicYearOptions(['All Academic Years']);
+      setDynamicStartYearOptions(['All Start Years']);
+      setDynamicEndYearOptions(['All End Years']);
+      setDynamicClassOptions(['All Classes']);
+      return;
+    }
+
+    const academicYears = [...new Set(students.map(s => s.academicYear).filter(Boolean))].sort();
+    setDynamicAcademicYearOptions(['All Academic Years', ...academicYears]);
+
+    const startYears = [...new Set(students.map(s => s.academicYear?.split('-')[0]).filter(Boolean) as string[])].sort((a, b) => parseInt(b) - parseInt(a)); // Descending
+    setDynamicStartYearOptions(['All Start Years', ...startYears]);
+    
+    const endYears = [...new Set(students.map(s => s.academicYear?.split('-')[1]).filter(Boolean) as string[])].sort((a, b) => parseInt(b) - parseInt(a)); // Descending
+    setDynamicEndYearOptions(['All End Years', ...endYears]);
+
+    const classes = [...new Set(students.map(s => s.studentClass).filter(Boolean))].sort();
+    setDynamicClassOptions(['All Classes', ...classes]);
+  };
 
   const handleLoadStudentData = async () => {
     setIsLoadingData(true);
@@ -134,14 +156,17 @@ export default function AdminDashboardPage() {
           faculty: s.faculty,
         }));
         setAllStudents(formattedStudents);
+        populateDynamicFilterOptions(formattedStudents); // Populate filters after loading
         toast({ title: "Student Data Loaded", description: `${formattedStudents.length} records fetched.` });
       } else {
         setAllStudents([]);
+        populateDynamicFilterOptions([]); // Reset filters if no data
         toast({ title: "No Students Found", description: "No student records were returned from the database." });
       }
     } catch (error: any) {
       toast({ title: "Error Loading Students", description: error.message || "Could not fetch student data.", variant: "destructive" });
       setAllStudents([]);
+      populateDynamicFilterOptions([]); // Reset filters on error
     } finally {
       setIsLoadingData(false);
     }
@@ -160,10 +185,10 @@ export default function AdminDashboardPage() {
       filtered = filtered.filter(student => student.academicYear?.endsWith(endYearFilter));
     }
     if (studentIdFilter) { 
-      filtered = filtered.filter(student => student.roll_no.toLowerCase().includes(studentIdFilter.toLowerCase()));
+      filtered = filtered.filter(student => student.roll_no && student.roll_no.toLowerCase().includes(studentIdFilter.toLowerCase()));
     }
     if (studentNameFilter) {
-      filtered = filtered.filter(student => student.name.toLowerCase().includes(studentNameFilter.toLowerCase()));
+      filtered = filtered.filter(student => student.name && student.name.toLowerCase().includes(studentNameFilter.toLowerCase()));
     }
     if (classFilter !== 'All Classes') {
       filtered = filtered.filter(student => student.studentClass === classFilter);
@@ -217,8 +242,8 @@ export default function AdminDashboardPage() {
         title: 'Student Deleted',
         description: `${student.name} (Roll No: ${student.roll_no}) and their marks have been deleted.`,
       });
-      setAllStudents(prev => prev.filter(s => s.system_id !== student.system_id));
-      // displayedStudents will update automatically via useEffect
+      // Refetch data to update the list and filter options
+      await handleLoadStudentData();
     } catch (error: any) {
       toast({
         title: 'Deletion Failed',
@@ -244,7 +269,6 @@ export default function AdminDashboardPage() {
     const studentDetailsDataSheet: any[] = [];
     const studentMarksDataSheet: any[] = [];
 
-    // Define headers (important for consistency if some students have no marks)
     const studentDetailHeaders = ["Student System ID", "Roll No", "Name", "Father Name", "Mother Name", "Date of Birth", "Gender", "Faculty", "Class", "Section", "Academic Session"];
     const studentMarkHeaders = ["Student System ID", "Roll No", "Name", "Subject Name", "Subject Category", "Max Marks", "Pass Marks", "Theory Marks Obtained", "Practical Marks Obtained", "Obtained Total Marks"];
 
@@ -259,13 +283,11 @@ export default function AdminDashboardPage() {
 
         if (studentError || !studentDetails) {
           console.error(`Error fetching details for student ${displayedStudent.system_id}:`, studentError);
-          // Optionally add a row to studentDetailsDataSheet indicating missing data
           studentDetailsDataSheet.push({
             "Student System ID": displayedStudent.system_id,
             "Roll No": displayedStudent.roll_no,
             "Name": displayedStudent.name,
             "Father Name": "Error fetching", 
-            // ... fill other known fields or error placeholders
           });
           continue; 
         }
@@ -298,7 +320,7 @@ export default function AdminDashboardPage() {
             studentMarksDataSheet.push({
               "Student System ID": studentDetails.id,
               "Roll No": studentDetails.roll_no,
-              "Name": studentDetails.name, // Repeat student name for easy reference in marks sheet
+              "Name": studentDetails.name, 
               "Subject Name": mark.subject_name,
               "Subject Category": mark.category,
               "Max Marks": mark.max_marks,
@@ -309,7 +331,6 @@ export default function AdminDashboardPage() {
             });
           }
         } else {
-          // Add a placeholder row if a student has no marks, to maintain consistency or indicate this fact
           studentMarksDataSheet.push({
             "Student System ID": studentDetails.id,
             "Roll No": studentDetails.roll_no,
@@ -329,38 +350,36 @@ export default function AdminDashboardPage() {
       const workbook = XLSX.utils.book_new();
 
       if (studentDetailsDataSheet.length > 0) {
-        const wsStudentDetails = XLSX.utils.json_to_sheet(studentDetailsDataSheet, {header: studentDetailHeaders});
+        const wsStudentDetails = XLSX.utils.json_to_sheet(studentDetailsDataSheet, {header: studentDetailHeaders, skipHeader: false });
         XLSX.utils.book_append_sheet(workbook, wsStudentDetails, "Student Details");
       }
 
       if (studentMarksDataSheet.length > 0) {
-        const wsStudentMarks = XLSX.utils.json_to_sheet(studentMarksDataSheet, {header: studentMarkHeaders});
+        const wsStudentMarks = XLSX.utils.json_to_sheet(studentMarksDataSheet, {header: studentMarkHeaders, skipHeader: false });
         XLSX.utils.book_append_sheet(workbook, wsStudentMarks, "Student Marks Details");
       }
       
-      // Auto-size columns for all sheets
       Object.keys(workbook.Sheets).forEach(sheetName => {
         const sheet = workbook.Sheets[sheetName];
-        const cols = XLSX.utils.sheet_to_json<any>(sheet, { header: 1 })[0];
-        if (cols) {
-            const colWidths = cols.map((col:any, i:number) => {
-                let maxLen = 0;
-                XLSX.utils.sheet_to_json<any>(sheet).forEach(row => {
-                    const cellValue = row[cols[i]];
-                    if (cellValue != null) { // Check for null or undefined
-                        const len = String(cellValue).length;
-                        if (len > maxLen) maxLen = len;
-                    }
+        const jsonSheet = XLSX.utils.sheet_to_json<any>(sheet, { header: 1 });
+        if (jsonSheet.length > 0) {
+            const cols = jsonSheet[0];
+             if (cols) {
+                const colWidths = cols.map((col:any, i:number) => {
+                    let maxLen = String(cols[i] || '').length; // Header length
+                    jsonSheet.forEach((row: any) => {
+                        const cellValue = row[i];
+                        if (cellValue != null) {
+                            const len = String(cellValue).length;
+                            if (len > maxLen) maxLen = len;
+                        }
+                    });
+                    return { wch: maxLen + 2 }; 
                 });
-                // Ensure header length is also considered
-                const headerLen = String(cols[i]).length;
-                if (headerLen > maxLen) maxLen = headerLen;
-                return { wch: maxLen + 2 }; // +2 for a little padding
-            });
-            sheet['!cols'] = colWidths;
+                sheet['!cols'] = colWidths;
+            }
         }
       });
-
 
       XLSX.writeFile(workbook, "students_and_marks_export.xlsx");
       toast({
@@ -435,7 +454,7 @@ export default function AdminDashboardPage() {
                 <Select value={academicYearFilter} onValueChange={setAcademicYearFilter}>
                   <SelectTrigger id="academicYear"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {ACADEMIC_YEARS.map(year => <SelectItem key={year} value={year}>{year}</SelectItem>)}
+                    {dynamicAcademicYearOptions.map(year => <SelectItem key={year} value={year} disabled={year === 'All Academic Years' && dynamicAcademicYearOptions.length === 1}>{year}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
@@ -444,7 +463,7 @@ export default function AdminDashboardPage() {
                 <Select value={startYearFilter} onValueChange={setStartYearFilter}>
                   <SelectTrigger id="startYear"><SelectValue placeholder="Start Year" /></SelectTrigger>
                   <SelectContent>
-                    {START_YEARS.map(year => <SelectItem key={year} value={year}>{year}</SelectItem>)}
+                    {dynamicStartYearOptions.map(year => <SelectItem key={year} value={year} disabled={year === 'All Start Years' && dynamicStartYearOptions.length === 1}>{year}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
@@ -453,7 +472,7 @@ export default function AdminDashboardPage() {
                 <Select value={endYearFilter} onValueChange={setEndYearFilter}>
                   <SelectTrigger id="endYear"><SelectValue placeholder="End Year" /></SelectTrigger>
                   <SelectContent>
-                    {END_YEARS.map(year => <SelectItem key={year} value={year}>{year}</SelectItem>)}
+                    {dynamicEndYearOptions.map(year => <SelectItem key={year} value={year} disabled={year === 'All End Years' && dynamicEndYearOptions.length === 1}>{year}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
@@ -470,7 +489,7 @@ export default function AdminDashboardPage() {
                 <Select value={classFilter} onValueChange={setClassFilter}>
                   <SelectTrigger id="class"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {CLASSES.map(cls => <SelectItem key={cls} value={cls}>{cls}</SelectItem>)}
+                    {dynamicClassOptions.map(cls => <SelectItem key={cls} value={cls} disabled={cls === 'All Classes' && dynamicClassOptions.length === 1}>{cls}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
