@@ -12,7 +12,7 @@ import React, { useState } from 'react';
 interface AppHeaderProps {
   pageTitle?: string;
   pageSubtitle?: string | React.ReactNode; // Allow ReactNode for more complex subtitles
-  customRightContent?: React.ReactNode; 
+  customRightContent?: React.ReactNode;
 }
 
 export function AppHeader({
@@ -50,10 +50,10 @@ export function AppHeader({
         if (line.trim().toLowerCase() === 'www.saryugcollege.com') {
           return (
             <p key={index} className="text-xs text-muted-foreground">
-              <a 
-                href="http://www.saryugcollege.com" 
-                target="_blank" 
-                rel="noopener noreferrer" 
+              <a
+                href="http://www.saryugcollege.com"
+                target="_blank"
+                rel="noopener noreferrer"
                 className="text-blue-600 hover:underline"
               >
                 {line}
@@ -75,14 +75,14 @@ export function AppHeader({
 
   return (
     <header className="bg-secondary text-secondary-foreground py-3 shadow-sm print:hidden">
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between max-w-screen-xl">
         {/* Left: Logo */}
         <div className="flex items-center gap-3 flex-shrink-0">
           <Image
-            src="/college-logo.png" 
+            src="/college-logo.png"
             alt="College Logo"
-            width={60} // Increased from 50
-            height={60} // Increased from 50
+            width={70} // Increased from 60
+            height={70} // Increased from 60
             className="rounded-full"
             data-ai-hint="college logo"
           />

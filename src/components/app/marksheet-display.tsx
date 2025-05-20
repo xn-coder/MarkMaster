@@ -2,14 +2,15 @@
 'use client';
 
 import * as React from 'react';
-import type { MarksheetDisplayData } from '@/types';
+import type { MarksheetDisplayData } from '@/types'; // Keep MarksheetDisplayData import
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Download, Printer, FilePlus2, ArrowLeft } from 'lucide-react';
+import { Download, Printer, FilePlus2, ArrowLeft, Image as ImageIcon } from 'lucide-react';
 import Image from 'next/image';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { toPng } from 'html-to-image'; // Import html-to-image
 
 interface MarksheetDisplayProps {
   data: MarksheetDisplayData;
@@ -24,22 +25,93 @@ export function MarksheetDisplay({ data, onCreateNew, onEditBack }: MarksheetDis
     window.print();
   };
 
-  const handleDownloadPDF = () => {
+  const handleDownloadImage = async () => { // Made async to use await with toPng
     if (typeof window !== 'undefined' && marksheetRef.current) {
-      import('html2pdf.js').then((html2pdf) => {
-        const element = marksheetRef.current;
-        const opt = {
-          margin: [10, 12, 10, 12], // top, left, bottom, right (in mm) - matches @page margin
-          filename: `${data.studentName.replace(/\s+/g, '-')}-Marksheet.pdf`,
-          image: { type: 'jpeg', quality: 0.98 },
-          html2canvas: { scale: 2 },
-          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-        };
+      const element = marksheetRef.current;
+      if (!element) return;
 
-        html2pdf.default().from(element).set(opt).save();
-      });
-    } else console.log("Error: Cannot run html2pdf outside of browser environment.")
+      toPng(element, {
+        cacheBust: true, // To prevent caching issues
+      })
+        .then((dataUrl) => {
+          const link = document.createElement('a'); // Create download link
+          link.download = `${data.studentName.replace(/\s+/g, '-')}-Marksheet.png`; // Set download filename
+          link.href = dataUrl; // Set href to data URL
+          link.click(); // Trigger click to download
+        }).catch(err => {
+          console.error('Error generating image:', err);
+        });
+      // .catch(err => {
+      //   console.error('Error loading html2canvas:', err);
+      // });
+    } else {
+      console.log("Error: Cannot run html2canvas outside of browser environment.");
+    }
   };
+
+  // const handleDownloadPDF = () => {
+  //   if (typeof window !== 'undefined' && marksheetRef.current) {
+  //     import('html2pdf.js').then((html2pdf) => {
+  //       const element = marksheetRef.current;
+  //       const opt = {
+  //         margin: [10, 12, 10, 12], // top, left, bottom, right (in mm)
+  //         filename: `${data.studentName.replace(/\s+/g, '-')}-Marksheet.pdf`,
+  //         image: { type: 'jpeg', quality: 0.98 },
+  //         html2canvas: {
+  //           scale: 2,
+  //           useCORS: true,
+  //           allowTaint: true,
+  //           logging: true,
+  //           letterRendering: true,
+  //           backgroundColor: '#FFFFFF'
+  //         },
+  //         jsPDF: {
+  //           unit: 'mm',
+  //           format: 'a4',
+  //           orientation: 'portrait',
+  //           compress: true
+  //         },
+  //         pagebreak: {
+  //           mode: ['avoid-all', 'css', 'legacy']
+  //         },
+  //         // Custom processing to ensure proper styling
+  //         onclone: (clonedDoc) => {
+  //           // Force print styles to be applied
+  //           clonedDoc.documentElement.classList.add('printing-pdf');
+  //           // Ensure all elements are visible
+  //           const elements = clonedDoc.querySelectorAll('*');
+  //           elements.forEach(el => {
+  //             if (el instanceof HTMLElement) {
+  //               el.style.boxSizing = 'border-box';
+  //               el.style.overflow = 'visible !important';
+  //             }
+  //           });
+  //         }
+  //       };
+
+  //       // Create worker
+  //       const worker = html2pdf.default()
+  //         .set(opt)
+  //         .from(element)
+  //         .toPdf()
+  //         .get('pdf')
+  //         .then((pdf) => {
+  //           // Additional PDF formatting if needed
+  //           const totalPages = pdf.internal.getNumberOfPages();
+  //           for (let i = 1; i <= totalPages; i++) {
+  //             pdf.setPage(i);
+  //             pdf.setFontSize(10);
+  //           }
+  //         });
+
+  //       worker.save();
+  //     }).catch(err => {
+  //       console.error('Error generating PDF:', err);
+  //     });
+  //   } else {
+  //     console.log("Error: Cannot run html2pdf outside of browser environment.");
+  //   }
+  // };
 
   const compulsorySubjects = data.subjects.filter(s => s.category === 'Compulsory');
   const electiveSubjects = data.subjects.filter(s => s.category === 'Elective');
@@ -52,7 +124,7 @@ export function MarksheetDisplay({ data, onCreateNew, onEditBack }: MarksheetDis
         {/* Watermark */}
         <div className="absolute inset-0 flex items-center justify-center z-0 pointer-events-none">
           <Image
-            src="/college-logo.png"
+ src="/college-logo.png"
             alt="College Watermark"
             width={350}
             height={350}
@@ -64,7 +136,7 @@ export function MarksheetDisplay({ data, onCreateNew, onEditBack }: MarksheetDis
         <div className="border border-black print:border-black p-4 print:p-[0.8cm] flex flex-col h-full relative z-10 print:border print:border-black">
           
           <header className="relative mb-1 print:mb-0.5">
-            <div className="absolute top-0 right-0 text-[10px] print:text-[8pt] text-blue-600 hover:underline">
+ <div className="absolute top-0 right-0 text-[10px] print:text-[8pt] text-blue-600 hover:underline">
  <a
  href="http://www.saryugcollege.com"
  target="_blank"
@@ -77,7 +149,7 @@ export function MarksheetDisplay({ data, onCreateNew, onEditBack }: MarksheetDis
             <div className="flex flex-col items-center w-full mb-1 print:mb-0.5">
               <div className="relative w-full text-center">
                 <div className="absolute left-0 top-[65%] transform -translate-y-1/2 ml-4 print:ml-2"> {/* Adjusted top */}
-                  <Image
+ <Image
  src="/college-logo.png"
             alt="College Logo" // Keep the alt text
  width={100} // Increased width from 70 to 100
@@ -101,7 +173,7 @@ export function MarksheetDisplay({ data, onCreateNew, onEditBack }: MarksheetDis
             <div className="text-center mt-6 print:mt-4 mb-3 print:mb-[0.6cm]">
               <div
                 className="rounded-md inline-block mx-auto"
-                style={{ backgroundColor: '#DB2A2A' }} 
+                style={{ backgroundColor: '#032781' }} 
               >
                 <h2
                   className="text-white text-base print:text-sm font-bold uppercase px-4 py-1"
@@ -150,7 +222,7 @@ export function MarksheetDisplay({ data, onCreateNew, onEditBack }: MarksheetDis
 
           <div className="flex-grow flex flex-col -mt-1 print:-mt-0.5">
             <section className="my-3 print:my-[0.5cm]">
-                <div className="overflow-x-auto">
+ <div className="overflow-x-hidden print:overflow-x-hidden">
                 <Table className="border-collapse w-full text-black print:text-black text-xs print:text-[9px] bg-transparent print:bg-transparent">
                     <TableHeader className="bg-gray-100 print:bg-transparent hover:bg-gray-100 print:hover:bg-transparent">
                         <TableRow className="border-b border-black bg-transparent print:bg-transparent hover:bg-transparent print:hover:bg-transparent dark:hover:bg-inherit print:h-[20px]"> {/* Added print height */}
@@ -279,8 +351,8 @@ export function MarksheetDisplay({ data, onCreateNew, onEditBack }: MarksheetDis
             <FilePlus2 className="mr-2 h-4 w-4" /> Create New
           </Button>
         )}
-        <Button variant="outline" onClick={handleDownloadPDF}>
-          <Download className="mr-2 h-4 w-4" /> Download PDF
+        <Button variant="outline" onClick={handleDownloadImage}>
+ <ImageIcon className="mr-2 h-4 w-4" /> Download Image
         </Button>
         <Button onClick={handlePrint}>
           <Printer className="mr-2 h-4 w-4" /> Print Marksheet
@@ -336,7 +408,10 @@ export function MarksheetDisplay({ data, onCreateNew, onEditBack }: MarksheetDis
           /* General print helper classes */
           .print\\:p-\\[0\\.8cm\\] { padding: 0.8cm !important; } 
           .print\\:mb-\\[0\\.6cm\\] { margin-bottom: 0.6cm !important; }
-          .print\\:my-\\[0\\.5cm\\] { margin-top: 0.5cm !important; margin-bottom: 0.5cm !important; }
+ .print\\:my-\\[0\\.5cm\\] {
+ margin-top: 0.5cm !important;
+ margin-bottom: 0.5cm !important;
+ }
           .print\\:pt-\\[1cm\\] { padding-top: 1cm !important; } 
 
 
@@ -385,6 +460,10 @@ export function MarksheetDisplay({ data, onCreateNew, onEditBack }: MarksheetDis
           .print\\:shadow-none { box-shadow: none !important; }
           
           table, th, td {
+ overflow: visible !important; /* Prevent scrollbars */
+ white-space: normal !important; /* Allow text wrapping */
+ word-break: break-word !important; /* Break long words */
+ max-width: none !important; /* Remove max width constraints */
             border: 1px solid black !important; 
             border-collapse: collapse !important;
             page-break-inside: auto !important;
@@ -404,6 +483,10 @@ export function MarksheetDisplay({ data, onCreateNew, onEditBack }: MarksheetDis
           .print\\:h-\\[20px\\] { height: 20px !important; }
           .print\\:h-\\[18px\\] { height: 18px !important; }
 
+ .overflow-x-hidden {
+ overflow-x: hidden !important; /* Hide overflow in preview */
+ }
+ .overflow-x-visible { overflow-x: visible; }
 
           @page {
             size: A4 portrait;
