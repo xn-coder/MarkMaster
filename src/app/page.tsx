@@ -122,7 +122,7 @@ export default function AdminDashboardPage() {
       return;
     }
 
-    const academicYears = [...new Set(students.map(s => s.academicYear).filter(Boolean))].sort();
+    const academicYears = [...new Set(students.map(s => s.academicYear).filter(Boolean) as string[])].sort();
     setDynamicAcademicYearOptions(['All Academic Years', ...academicYears]);
 
     const startYears = [...new Set(students.map(s => s.academicYear?.split('-')[0]).filter(Boolean) as string[])].sort((a, b) => parseInt(b) - parseInt(a)); // Descending
@@ -131,7 +131,7 @@ export default function AdminDashboardPage() {
     const endYears = [...new Set(students.map(s => s.academicYear?.split('-')[1]).filter(Boolean) as string[])].sort((a, b) => parseInt(b) - parseInt(a)); // Descending
     setDynamicEndYearOptions(['All End Years', ...endYears]);
 
-    const classes = [...new Set(students.map(s => s.studentClass).filter(Boolean))].sort();
+    const classes = [...new Set(students.map(s => s.studentClass).filter(Boolean) as string[])].sort();
     setDynamicClassOptions(['All Classes', ...classes]);
   };
 
@@ -140,7 +140,7 @@ export default function AdminDashboardPage() {
     try {
       const { data: studentsData, error } = await supabase
         .from('student_details')
-        .select('id, roll_no, name, faculty, class, academic_year');
+        .select('id, roll_no, name, faculty, class, academic_year'); // 'id' is system_id, 'class' is studentClass
 
       if (error) {
         throw error;
@@ -148,25 +148,25 @@ export default function AdminDashboardPage() {
       
       if (studentsData) {
         const formattedStudents: StudentRowData[] = studentsData.map(s => ({
-          system_id: s.id,
+          system_id: s.id, // map 'id' from DB to 'system_id'
           roll_no: s.roll_no,
           name: s.name,
-          academicYear: s.academic_year,
-          studentClass: s.class,
+          academicYear: s.academic_year, // this is the session string like "2023-2024"
+          studentClass: s.class, // map 'class' from DB to 'studentClass'
           faculty: s.faculty,
         }));
         setAllStudents(formattedStudents);
-        populateDynamicFilterOptions(formattedStudents); // Populate filters after loading
+        populateDynamicFilterOptions(formattedStudents); 
         toast({ title: "Student Data Loaded", description: `${formattedStudents.length} records fetched.` });
       } else {
         setAllStudents([]);
-        populateDynamicFilterOptions([]); // Reset filters if no data
+        populateDynamicFilterOptions([]); 
         toast({ title: "No Students Found", description: "No student records were returned from the database." });
       }
     } catch (error: any) {
       toast({ title: "Error Loading Students", description: error.message || "Could not fetch student data.", variant: "destructive" });
       setAllStudents([]);
-      populateDynamicFilterOptions([]); // Reset filters on error
+      populateDynamicFilterOptions([]); 
     } finally {
       setIsLoadingData(false);
     }
@@ -178,12 +178,41 @@ export default function AdminDashboardPage() {
     if (academicYearFilter !== 'All Academic Years') {
       filtered = filtered.filter(student => student.academicYear === academicYearFilter);
     }
-     if (startYearFilter !== 'All Start Years') {
-      filtered = filtered.filter(student => student.academicYear?.startsWith(startYearFilter));
+
+    const filterStartYearNum = startYearFilter !== 'All Start Years' ? parseInt(startYearFilter, 10) : null;
+    const filterEndYearNum = endYearFilter !== 'All End Years' ? parseInt(endYearFilter, 10) : null;
+
+    if (filterStartYearNum !== null || filterEndYearNum !== null) {
+      filtered = filtered.filter(student => {
+        if (!student.academicYear || !student.academicYear.includes('-')) {
+          return false; // Skip if academicYear is malformed or missing
+        }
+        const [studentSessionStartStr, studentSessionEndStr] = student.academicYear.split('-');
+        const studentSessionStartYear = parseInt(studentSessionStartStr, 10);
+        const studentSessionEndYear = parseInt(studentSessionEndStr, 10);
+
+        if (isNaN(studentSessionStartYear) || isNaN(studentSessionEndYear)) {
+            return false; // Skip if parsing fails
+        }
+
+        let include = true;
+        if (filterStartYearNum !== null) {
+          // Student's session must end on or after the filter's start year
+          if (studentSessionEndYear < filterStartYearNum) {
+            include = false;
+          }
+        }
+        if (filterEndYearNum !== null) {
+          // Student's session must start on or before the filter's end year
+          if (studentSessionStartYear > filterEndYearNum) {
+            include = false;
+          }
+        }
+        return include;
+      });
     }
-    if (endYearFilter !== 'All End Years') {
-      filtered = filtered.filter(student => student.academicYear?.endsWith(endYearFilter));
-    }
+
+
     if (studentIdFilter) { 
       filtered = filtered.filter(student => student.roll_no && student.roll_no.toLowerCase().includes(studentIdFilter.toLowerCase()));
     }
@@ -220,21 +249,26 @@ export default function AdminDashboardPage() {
     }
 
     try {
+      // First, delete associated marks
       const { error: marksError } = await supabase
         .from('student_marks_details')
         .delete()
-        .eq('student_detail_id', student.system_id); 
+        .eq('student_detail_id', student.system_id); // Use system_id which maps to 'id' in student_details
 
       if (marksError) {
         throw new Error(`Could not delete marks for ${student.name}: ${marksError.message}`);
       }
 
+      // Then, delete the student
       const { error: studentError } = await supabase
         .from('student_details')
         .delete()
-        .eq('id', student.system_id); 
+        .eq('id', student.system_id); // Use system_id which maps to 'id' in student_details
 
       if (studentError) {
+        // This part might be tricky: if student delete fails, marks are already gone.
+        // For simplicity, we'll report the student deletion error.
+        // A more robust solution might involve transactions if your DB supports them easily with Supabase.
         throw new Error(`Could not delete student ${student.name}: ${studentError.message}. Their marks might have been deleted.`);
       }
 
@@ -266,32 +300,38 @@ export default function AdminDashboardPage() {
     setIsExporting(true);
     toast({ title: "Exporting Data", description: "Fetching student details and marks, please wait..." });
 
-    const studentDetailsDataSheet: any[] = [];
+    const studentDetailsSheetData: any[] = [];
     const studentMarksDataSheet: any[] = [];
 
+    // Headers for Student Details Sheet
     const studentDetailHeaders = ["Student System ID", "Roll No", "Name", "Father Name", "Mother Name", "Date of Birth", "Gender", "Faculty", "Class", "Section", "Academic Session"];
+    // Headers for Student Marks Details Sheet
     const studentMarkHeaders = ["Student System ID", "Roll No", "Name", "Subject Name", "Subject Category", "Max Marks", "Pass Marks", "Theory Marks Obtained", "Practical Marks Obtained", "Obtained Total Marks"];
 
 
     try {
       for (const displayedStudent of displayedStudents) {
+        // Fetch full student details from the database
         const { data: studentDetails, error: studentError } = await supabase
           .from('student_details')
           .select('*')
-          .eq('id', displayedStudent.system_id) 
+          .eq('id', displayedStudent.system_id) // Use system_id for fetching
           .single();
 
         if (studentError || !studentDetails) {
           console.error(`Error fetching details for student ${displayedStudent.system_id}:`, studentError);
+          // Optionally add a row with an error message to the sheet, or skip
           studentDetailsDataSheet.push({
             "Student System ID": displayedStudent.system_id,
             "Roll No": displayedStudent.roll_no,
             "Name": displayedStudent.name,
-            "Father Name": "Error fetching", 
+            "Father Name": "Error fetching", // Indicate data fetching issue
+            // ... other fields as N/A or error indicators
           });
-          continue; 
+          continue; // Skip to next student if details can't be fetched
         }
 
+        // Add to Student Details Sheet
         studentDetailsDataSheet.push({
           "Student System ID": studentDetails.id,
           "Roll No": studentDetails.roll_no,
@@ -306,21 +346,23 @@ export default function AdminDashboardPage() {
           "Academic Session": studentDetails.academic_year,
         });
 
+        // Fetch marks for this student
         const { data: marksDetails, error: marksError } = await supabase
           .from('student_marks_details')
           .select('*')
-          .eq('student_detail_id', studentDetails.id); 
+          .eq('student_detail_id', studentDetails.id); // Link via the student's system ID
 
         if (marksError) {
           console.error(`Error fetching marks for student ${studentDetails.id}:`, marksError);
+          // Optionally, handle this - e.g., add a placeholder row in marks sheet or log
         }
 
         if (marksDetails && marksDetails.length > 0) {
           for (const mark of marksDetails) {
             studentMarksDataSheet.push({
-              "Student System ID": studentDetails.id,
-              "Roll No": studentDetails.roll_no,
-              "Name": studentDetails.name, 
+              "Student System ID": studentDetails.id, // For linking/reference
+              "Roll No": studentDetails.roll_no,     // For easier human reading
+              "Name": studentDetails.name,           // For easier human reading
               "Subject Name": mark.subject_name,
               "Subject Category": mark.category,
               "Max Marks": mark.max_marks,
@@ -331,6 +373,7 @@ export default function AdminDashboardPage() {
             });
           }
         } else {
+          // If no marks, add a row indicating this for the student in marks sheet
           studentMarksDataSheet.push({
             "Student System ID": studentDetails.id,
             "Roll No": studentDetails.roll_no,
@@ -349,32 +392,38 @@ export default function AdminDashboardPage() {
 
       const workbook = XLSX.utils.book_new();
 
+      // Create Student Details Sheet if data exists
       if (studentDetailsDataSheet.length > 0) {
         const wsStudentDetails = XLSX.utils.json_to_sheet(studentDetailsDataSheet, {header: studentDetailHeaders, skipHeader: false });
         XLSX.utils.book_append_sheet(workbook, wsStudentDetails, "Student Details");
       }
 
+      // Create Student Marks Details Sheet if data exists
       if (studentMarksDataSheet.length > 0) {
         const wsStudentMarks = XLSX.utils.json_to_sheet(studentMarksDataSheet, {header: studentMarkHeaders, skipHeader: false });
         XLSX.utils.book_append_sheet(workbook, wsStudentMarks, "Student Marks Details");
       }
       
+      // Auto-size columns for all sheets
       Object.keys(workbook.Sheets).forEach(sheetName => {
         const sheet = workbook.Sheets[sheetName];
+        // Ensure sheet['!cols'] is initialized
+        if (!sheet['!cols']) sheet['!cols'] = [];
+        
         const jsonSheet = XLSX.utils.sheet_to_json<any>(sheet, { header: 1 });
         if (jsonSheet.length > 0) {
-            const cols = jsonSheet[0];
+            const cols = jsonSheet[0] as any[]; // First row (headers)
              if (cols) {
-                const colWidths = cols.map((col:any, i:number) => {
+                const colWidths = cols.map((_, i) => { // Iterate based on number of columns in header
                     let maxLen = String(cols[i] || '').length; // Header length
-                    jsonSheet.forEach((row: any) => {
+                    jsonSheet.forEach((row: any) => { // Iterate through all rows
                         const cellValue = row[i];
-                        if (cellValue != null) {
+                        if (cellValue != null) { // Check if cell has value
                             const len = String(cellValue).length;
                             if (len > maxLen) maxLen = len;
                         }
                     });
-                    return { wch: maxLen + 2 }; 
+                    return { wch: maxLen + 2 }; // Add a little padding
                 });
                 sheet['!cols'] = colWidths;
             }
@@ -411,12 +460,12 @@ export default function AdminDashboardPage() {
 
       <main className="flex-grow container mx-auto px-4 py-6 sm:px-6 lg:px-8">
         <div className="bg-primary text-primary-foreground p-3 rounded-md shadow-md mb-6">
-          <div className="container mx-auto px-0 sm:px-0 lg:px-0">
+          <div className="container mx-auto px-0 sm:px-0 lg:px-0"> {/* Inner container removed for bar */}
             <div className="flex flex-col sm:flex-row justify-between items-center gap-2">
               <h2 className="text-xl font-semibold">STUDENT DETAILS</h2>
               <div className="flex flex-wrap gap-2">
                 <Button
-                  variant="ghost"
+                  variant="ghost" 
                   size="sm"
                   className="text-primary-foreground hover:bg-accent hover:text-accent-foreground"
                   onClick={handleLoadStudentData}
