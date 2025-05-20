@@ -29,7 +29,7 @@ export interface MarksheetDisplayData {
   subjects: MarksheetSubjectDisplayEntry[];
 
   // Auto-filled or derived for display
-  collegeCode: string; // New field
+  collegeCode: string; 
   marksheetNo: string; 
   sessionDisplay: string; // e.g., "2018-2019"
   classDisplay: string; // e.g., "11th (A)" (derived from academicYear and section)
@@ -50,5 +50,41 @@ export interface SubjectTemplateItem {
   category: typeof SUBJECT_CATEGORIES_OPTIONS[number];
   totalMarks: number;
   passMarks: number;
+}
+
+// For Import Page Feedback
+export interface StudentImportFeedbackItem {
+  rowNumber: number;
+  name: string;
+  studentId?: string; // Generated ID
+  status: 'added' | 'skipped' | 'error';
+  message: string;
+  details?: string; // e.g., specific missing fields
+}
+
+export interface MarksImportFeedbackItem {
+  rowNumber: number;
+  studentName: string; // As it appeared in Excel
+  subjectName: string;
+  status: 'added' | 'skipped' | 'error';
+  message: string;
+  details?: string;
+}
+
+export interface GeneralImportMessage {
+  type: 'info' | 'warning' | 'error' | 'success';
+  message: string;
+}
+
+export interface ImportProcessingResults {
+  summaryMessages: GeneralImportMessage[];
+  studentFeedback: StudentImportFeedbackItem[];
+  marksFeedback: MarksImportFeedbackItem[];
+  totalStudentsProcessed: number;
+  totalStudentsAdded: number;
+  totalStudentsSkipped: number;
+  totalMarksProcessed: number;
+  totalMarksAdded: number;
+  totalMarksSkipped: number;
 }
     

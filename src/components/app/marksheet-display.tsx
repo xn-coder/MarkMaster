@@ -1,7 +1,7 @@
 
 'use client';
 
-import type * as React from 'react';
+import * as React from 'react';
 import type { MarksheetDisplayData } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';

@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase/client';
@@ -48,13 +48,13 @@ import {
   Loader2
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
-import { format, parse, isValid, parseISO } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 
 interface StudentRowData {
-  id: string;
+  id: string; // student_id
   name: string;
   academicYear: string; // Session like "2025-2027"
-  studentClass: string; // Class like "11th", "1st Year"
+  studentClass: string; // Class like "11th", "1st Year" (maps to 'class' column in DB)
   faculty: string;
 }
 
@@ -75,12 +75,9 @@ export default function AdminDashboardPage() {
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [isLoadingData, setIsLoadingData] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
-  const [isImporting, setIsImporting] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
 
   const [allStudents, setAllStudents] = useState<StudentRowData[]>([]);
-  const [displayedStudents, setDisplayedStudents] = useState<StudentRowData[]>([]);
+  const [filteredStudents, setFilteredStudents] = useState<StudentRowData[]>([]);
 
   const [academicYearFilter, setAcademicYearFilter] = useState('All Academic Years');
   const [startYearFilter, setStartYearFilter] = useState('All Start Years');
@@ -118,22 +115,23 @@ export default function AdminDashboardPage() {
 
   const handleLoadStudentData = async () => {
     setIsLoadingData(true);
-    const { data: students, error } = await supabase
+    const { data: studentsData, error } = await supabase
       .from('student_details')
       .select('student_id, name, faculty, class, academic_year');
 
     if (error) {
       toast({ title: "Error Loading Students", description: error.message, variant: "destructive" });
       setAllStudents([]);
-    } else if (students) {
-      const formattedStudents: StudentRowData[] = students.map(s => ({
+    } else if (studentsData) {
+      const formattedStudents: StudentRowData[] = studentsData.map(s => ({
         id: s.student_id,
         name: s.name,
-        academicYear: s.academic_year,
-        studentClass: s.class,
+        academicYear: s.academic_year, // This is the session like "2023-2024"
+        studentClass: s.class,        // This is the class like "11th"
         faculty: s.faculty,
       }));
       setAllStudents(formattedStudents);
+      toast({ title: "Student Data Loaded", description: `${formattedStudents.length} records fetched.` });
     } else {
       setAllStudents([]);
       toast({ title: "No Students Found", description: "No student records were returned from the database." });
@@ -163,17 +161,17 @@ export default function AdminDashboardPage() {
       filtered = filtered.filter(student => student.studentClass === classFilter);
     }
 
-    setDisplayedStudents(filtered);
+    setFilteredStudents(filtered);
     setCurrentPage(1);
   }, [allStudents, academicYearFilter, startYearFilter, endYearFilter, studentIdFilter, studentNameFilter, classFilter]);
 
 
   const paginatedStudents = useMemo(() => {
     const startIndex = (currentPage - 1) * entriesPerPage;
-    return displayedStudents.slice(startIndex, startIndex + entriesPerPage);
-  }, [displayedStudents, currentPage, entriesPerPage]);
+    return filteredStudents.slice(startIndex, startIndex + entriesPerPage);
+  }, [filteredStudents, currentPage, entriesPerPage]);
 
-  const totalPages = Math.ceil(displayedStudents.length / entriesPerPage);
+  const totalPages = Math.ceil(filteredStudents.length / entriesPerPage);
 
   const handleViewMarksheet = (student: StudentRowData) => {
     router.push(`/marksheet/view/${student.id}`);
@@ -184,16 +182,45 @@ export default function AdminDashboardPage() {
   };
 
   const handleDeleteStudent = async (student: StudentRowData) => {
-    toast({
-      title: 'Confirm Deletion',
-      description: `Are you sure you want to delete ${student.name} (ID: ${student.id})? This action cannot be undone. (Deletion not implemented yet)`,
-      variant: 'destructive'
-    });
-    console.log("Attempting to delete student (not implemented):", student);
+     // First, attempt to delete related marks
+    const { error: marksError } = await supabase
+        .from('student_marks_details')
+        .delete()
+        .eq('student_id', student.id);
+
+    if (marksError) {
+        toast({
+            title: 'Error Deleting Marks',
+            description: `Could not delete marks for ${student.name}: ${marksError.message}`,
+            variant: 'destructive',
+        });
+        return; // Stop if marks deletion fails
+    }
+
+    // Then, attempt to delete the student
+    const { error: studentError } = await supabase
+        .from('student_details')
+        .delete()
+        .eq('student_id', student.id);
+
+    if (studentError) {
+        toast({
+            title: 'Error Deleting Student',
+            description: `Could not delete ${student.name}: ${studentError.message}. Their marks might have been deleted. Please check.`,
+            variant: 'destructive',
+        });
+    } else {
+        toast({
+            title: 'Student Deleted',
+            description: `${student.name} (ID: ${student.id}) and their marks have been deleted.`,
+        });
+        // Refresh data
+        setAllStudents(prev => prev.filter(s => s.id !== student.id));
+    }
   };
 
   const handleExportToExcel = async () => {
-    if (displayedStudents.length === 0) {
+    if (filteredStudents.length === 0) {
       toast({
         title: "No Data to Export",
         description: "There are no students currently displayed to export.",
@@ -209,7 +236,7 @@ export default function AdminDashboardPage() {
     const studentMarksData = [];
 
     try {
-      for (const student of displayedStudents) {
+      for (const student of filteredStudents) {
         const { data: studentDetails, error: studentError } = await supabase
           .from('student_details')
           .select('*')
@@ -247,7 +274,7 @@ export default function AdminDashboardPage() {
           for (const mark of marksDetails) {
             studentMarksData.push({
               "Student ID": studentDetails.student_id,
-              "Name": studentDetails.name, // Student Name for reference in marks sheet
+              "Name": studentDetails.name, 
               "Subject Name": mark.subject_name,
               "Subject Category": mark.category,
               "Max Marks": mark.max_marks,
@@ -313,225 +340,7 @@ export default function AdminDashboardPage() {
     }
   };
 
-  const triggerFileInput = () => {
-    fileInputRef.current?.click();
-  };
-
-  const parseExcelDate = (excelDate: any): string | null => {
-    if (typeof excelDate === 'number') {
-      const date = XLSX.SSF.parse_date_code(excelDate);
-      if (date) {
-        const month = String(date.m).padStart(2, '0');
-        const day = String(date.d).padStart(2, '0');
-        return `${date.y}-${month}-${day}`; 
-      }
-    } else if (typeof excelDate === 'string') {
-      const formatsToTry = ["yyyy-MM-dd", "dd-MM-yyyy", "MM/dd/yyyy", "dd/MM/yyyy"];
-      for (const fmt of formatsToTry) {
-        try {
-          const parsedDate = parse(excelDate, fmt, new Date());
-          if (isValid(parsedDate)) {
-            return format(parsedDate, 'yyyy-MM-dd');
-          }
-        } catch (e) {/* ignore parse error and try next format */}
-      }
-      if (isValid(parseISO(excelDate))) {
-        return format(parseISO(excelDate), 'yyyy-MM-dd');
-      }
-    }
-    return null; 
-  };
-
-
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) {
-      toast({ title: "No file selected", variant: "destructive" });
-      return;
-    }
-
-    setIsImporting(true);
-    toast({ title: "Importing Data", description: "Processing Excel file, please wait..." });
-
-    const studentNameToGeneratedIdMap = new Map<string, string>();
-    let importedStudentsCount = 0;
-    let importedMarksCount = 0;
-    let skippedMarksCount = 0;
-
-    try {
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        const data = e.target?.result;
-        if (!data) {
-          toast({ title: "File Read Error", description: "Could not read the file content.", variant: "destructive" });
-          setIsImporting(false);
-          return;
-        }
-
-        const workbook = XLSX.read(data, { type: 'array', cellDates: false });
-
-        // --- Process Student Details ---
-        const studentDetailsSheetName = 'Student Details';
-        const studentDetailsSheet = workbook.Sheets[studentDetailsSheetName];
-        if (!studentDetailsSheet) {
-          toast({ title: "Import Error", description: `Sheet "${studentDetailsSheetName}" not found. Please ensure your Excel file has this sheet.`, variant: "destructive" });
-          setIsImporting(false);
-          return;
-        }
-        const studentDetailsJson = XLSX.utils.sheet_to_json<any>(studentDetailsSheet, { raw: false, defval: null });
-
-        const studentInserts = [];
-
-        for (const row of studentDetailsJson) {
-          const studentName = String(row['Name'] || '').trim();
-          const fatherName = String(row['Father Name'] || '').trim();
-          const motherName = String(row['Mother Name'] || '').trim();
-          const dobRaw = row['Date of Birth'];
-          const gender = String(row['Gender'] || '').trim();
-          const faculty = String(row['Faculty'] || '').trim();
-          const studentClass = String(row['Class'] || '').trim();
-          const section = String(row['Section'] || '').trim();
-          const academicSession = String(row['Academic Session'] || '').trim();
-
-          if (!studentName || !fatherName || !motherName || !dobRaw || !gender || !faculty || !studentClass || !section || !academicSession) {
-            console.warn("Skipping student row due to missing required details:", row);
-            continue;
-          }
-          
-          const dobFormatted = parseExcelDate(dobRaw);
-          if (!dobFormatted) {
-            console.warn(`Skipping student "${studentName}" due to invalid date of birth: ${dobRaw}`);
-            continue;
-          }
-
-          const academicYearParts = academicSession.split('-');
-          if (academicYearParts.length !== 2 || !/^\d{4}$/.test(academicYearParts[0]) || !/^\d{4}$/.test(academicYearParts[1])) {
-             console.warn(`Skipping student "${studentName}" due to invalid academic session format: ${academicSession}. Expected YYYY-YYYY.`);
-             continue;
-          }
-          
-          const generatedStudentId = crypto.randomUUID();
-          studentNameToGeneratedIdMap.set(studentName, generatedStudentId);
-
-          studentInserts.push({
-            student_id: generatedStudentId,
-            roll_no: generatedStudentId, // Using generated ID as roll_no
-            name: studentName,
-            father_name: fatherName,
-            mother_name: motherName,
-            dob: dobFormatted,
-            gender: gender,
-            faculty: faculty,
-            class: studentClass,
-            section: section,
-            academic_year: academicSession,
-          });
-        }
-        
-        if (studentInserts.length > 0) {
-          const { error: studentInsertError, data: insertedStudentData } = await supabase
-            .from('student_details')
-            .insert(studentInserts)
-            .select(); 
-
-          if (studentInsertError) {
-            toast({ title: "Student Import Error", description: `Failed to import some student details: ${studentInsertError.message}.`, variant: "destructive" });
-          }
-          importedStudentsCount = insertedStudentData?.length || 0;
-        }
-
-
-        // --- Process Student Marks Details ---
-        const studentMarksSheetName = 'Student Marks Details';
-        const studentMarksSheet = workbook.Sheets[studentMarksSheetName];
-        if (!studentMarksSheet) {
-          toast({ title: "Import Warning", description: `Sheet "${studentMarksSheetName}" not found. Student details might have been imported, but marks were not.`, variant: "default" });
-        } else {
-            const studentMarksJson = XLSX.utils.sheet_to_json<any>(studentMarksSheet, { raw: false, defval: null });
-            const marksInserts = [];
-
-            for (const row of studentMarksJson) {
-              const studentNameForMarks = String(row['Name'] || '').trim();
-              const subjectName = String(row['Subject Name'] || '').trim(); 
-              const subjectCategory = String(row['Subject Category'] || '').trim();
-              const maxMarks = parseFloat(String(row['Max Marks'] || '0'));
-              const passMarks = parseFloat(String(row['Pass Marks'] || '0'));
-              const theoryMarks = parseFloat(String(row['Theory Marks Obtained'] || '0'));
-              const practicalMarks = parseFloat(String(row['Practical Marks Obtained'] || '0'));
-
-              if (!studentNameForMarks || !subjectName || !subjectCategory || isNaN(maxMarks) || isNaN(passMarks) ) {
-                console.warn("Skipping marks row due to missing required details or invalid numbers:", row);
-                skippedMarksCount++;
-                continue;
-              }
-              
-              const studentId = studentNameToGeneratedIdMap.get(studentNameForMarks);
-              if (!studentId) {
-                console.warn(`Skipping marks for student "${studentNameForMarks}" as they were not found in the 'Student Details' sheet of this Excel file, or their details were skipped due to errors.`);
-                skippedMarksCount++;
-                continue;
-              }
-              
-              const obtainedTotalMarks = (isNaN(theoryMarks) ? 0 : theoryMarks) + (isNaN(practicalMarks) ? 0 : practicalMarks);
-
-              marksInserts.push({
-                student_id: studentId,
-                subject_name: subjectName,
-                category: subjectCategory,
-                max_marks: maxMarks,
-                pass_marks: passMarks,
-                theory_marks_obtained: isNaN(theoryMarks) ? null : theoryMarks, 
-                practical_marks_obtained: isNaN(practicalMarks) ? null : practicalMarks, 
-                obtained_total_marks: obtainedTotalMarks,
-              });
-            }
-
-            if (marksInserts.length > 0) {
-              const { error: marksInsertError, data: insertedMarksData } = await supabase
-                .from('student_marks_details')
-                .insert(marksInserts)
-                .select();
-
-              if (marksInsertError) {
-                toast({ title: "Marks Import Error", description: `Failed to import some marks: ${marksInsertError.message}.`, variant: "destructive" });
-              }
-              importedMarksCount = insertedMarksData?.length || 0;
-            }
-        }
-        
-        let summaryMessage = `Imported ${importedStudentsCount} student(s) and ${importedMarksCount} marks record(s).`;
-        if (skippedMarksCount > 0) {
-            summaryMessage += ` Skipped ${skippedMarksCount} marks record(s) due to missing student name link or data issues. Check console for details.`;
-        }
-
-        toast({
-          title: "Import Complete",
-          description: summaryMessage,
-        });
-        if (importedStudentsCount > 0 || importedMarksCount > 0) {
-            await handleLoadStudentData(); 
-        }
-
-      };
-      reader.onerror = () => {
-        toast({ title: "File Read Error", description: "Could not read the file.", variant: "destructive" });
-        setIsImporting(false);
-      };
-      reader.readAsArrayBuffer(file);
-
-    } catch (error: any) {
-      console.error("Error during Excel import:", error);
-      toast({ title: "Import Failed", description: error.message || "An unknown error occurred.", variant: "destructive" });
-    } finally {
-      setIsImporting(false);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = ''; 
-      }
-    }
-  };
-
-
-  if (isAuthLoading) { // Corrected: Show loader if isAuthLoading is true
+  if (isAuthLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -557,32 +366,25 @@ export default function AdminDashboardPage() {
                   size="sm"
                   className="text-primary-foreground hover:bg-accent hover:text-accent-foreground"
                   onClick={handleLoadStudentData}
-                  disabled={isLoadingData || isImporting}
+                  disabled={isLoadingData}
                 >
                   {isLoadingData ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />} Load Student Data
                 </Button>
                 <Link href="/marksheet/new" passHref>
-                  <Button variant="ghost" size="sm" className="text-primary-foreground hover:bg-accent hover:text-accent-foreground"  disabled={isImporting}>
+                  <Button variant="ghost" size="sm" className="text-primary-foreground hover:bg-accent hover:text-accent-foreground">
                     <FilePlus2 className="mr-2 h-4 w-4" /> Create New
                   </Button>
                 </Link>
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  onChange={handleFileUpload}
-                  className="hidden"
-                  accept=".xlsx, .xls"
-                />
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  className="text-primary-foreground hover:bg-accent hover:text-accent-foreground" 
-                  onClick={triggerFileInput}
-                  disabled={isImporting}
-                >
-                  {isImporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />} Import Data
-                </Button>
-                <Button variant="ghost" size="sm" className="text-primary-foreground hover:bg-accent hover:text-accent-foreground" onClick={handleExportToExcel} disabled={isExporting || isImporting}>
+                <Link href="/import" passHref>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="text-primary-foreground hover:bg-accent hover:text-accent-foreground" 
+                  >
+                    <Upload className="mr-2 h-4 w-4" /> Import Data
+                  </Button>
+                </Link>
+                <Button variant="ghost" size="sm" className="text-primary-foreground hover:bg-accent hover:text-accent-foreground" onClick={handleExportToExcel} disabled={isExporting}>
                   {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />} Export to Excel
                 </Button>
               </div>
@@ -595,7 +397,7 @@ export default function AdminDashboardPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4 items-end">
               <div>
                 <Label htmlFor="academicYear">Academic Session</Label>
-                <Select value={academicYearFilter} onValueChange={setAcademicYearFilter} disabled={isImporting}>
+                <Select value={academicYearFilter} onValueChange={setAcademicYearFilter}>
                   <SelectTrigger id="academicYear"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {ACADEMIC_YEARS.map(year => <SelectItem key={year} value={year}>{year}</SelectItem>)}
@@ -604,7 +406,7 @@ export default function AdminDashboardPage() {
               </div>
               <div>
                 <Label htmlFor="startYear">Start Year</Label>
-                <Select value={startYearFilter} onValueChange={setStartYearFilter} disabled={isImporting}>
+                <Select value={startYearFilter} onValueChange={setStartYearFilter}>
                   <SelectTrigger id="startYear"><SelectValue placeholder="Start Year" /></SelectTrigger>
                   <SelectContent>
                     {START_YEARS.map(year => <SelectItem key={year} value={year}>{year}</SelectItem>)}
@@ -613,7 +415,7 @@ export default function AdminDashboardPage() {
               </div>
               <div>
                 <Label htmlFor="endYear">End Year</Label>
-                <Select value={endYearFilter} onValueChange={setEndYearFilter} disabled={isImporting}>
+                <Select value={endYearFilter} onValueChange={setEndYearFilter}>
                   <SelectTrigger id="endYear"><SelectValue placeholder="End Year" /></SelectTrigger>
                   <SelectContent>
                     {END_YEARS.map(year => <SelectItem key={year} value={year}>{year}</SelectItem>)}
@@ -622,15 +424,15 @@ export default function AdminDashboardPage() {
               </div>
               <div>
                 <Label htmlFor="studentCollegeId">Student College Id</Label>
-                <Input id="studentCollegeId" placeholder="Student Id" value={studentIdFilter} onChange={e => setStudentIdFilter(e.target.value)} disabled={isImporting} />
+                <Input id="studentCollegeId" placeholder="Student Id" value={studentIdFilter} onChange={e => setStudentIdFilter(e.target.value)} />
               </div>
               <div>
                 <Label htmlFor="studentName">Student Name</Label>
-                <Input id="studentName" placeholder="Student Name" value={studentNameFilter} onChange={e => setStudentNameFilter(e.target.value)} disabled={isImporting}/>
+                <Input id="studentName" placeholder="Student Name" value={studentNameFilter} onChange={e => setStudentNameFilter(e.target.value)} />
               </div>
               <div>
                 <Label htmlFor="class">Class</Label>
-                <Select value={classFilter} onValueChange={setClassFilter} disabled={isImporting}>
+                <Select value={classFilter} onValueChange={setClassFilter}>
                   <SelectTrigger id="class"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {CLASSES.map(cls => <SelectItem key={cls} value={cls}>{cls}</SelectItem>)}
@@ -644,7 +446,7 @@ export default function AdminDashboardPage() {
         <Card className="shadow-md">
           <CardHeader className="flex flex-row items-center gap-2">
             <Label htmlFor="showEntries" className="text-sm whitespace-nowrap">Show</Label>
-            <Select value={String(entriesPerPage)} onValueChange={(value) => { setEntriesPerPage(Number(value)); setCurrentPage(1); }} disabled={isImporting}>
+            <Select value={String(entriesPerPage)} onValueChange={(value) => { setEntriesPerPage(Number(value)); setCurrentPage(1); }}>
               <SelectTrigger id="showEntries" className="w-20 h-8 text-sm">
                 <SelectValue />
               </SelectTrigger>
@@ -685,14 +487,14 @@ export default function AdminDashboardPage() {
                       <TableCell className="text-center">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8"  disabled={isImporting}>
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
                               <MoreHorizontal className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => handleViewMarksheet(student)} disabled={isImporting}>View Marksheet</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleEditStudent(student)} disabled={isImporting}>Edit Student</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleDeleteStudent(student)} className="text-destructive focus:bg-destructive/10 focus:text-destructive" disabled={isImporting}>Delete Student</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleViewMarksheet(student)}>View Marksheet</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleEditStudent(student)}>Edit Student</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleDeleteStudent(student)} className="text-destructive focus:bg-destructive/10 focus:text-destructive">Delete Student</DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>
@@ -700,9 +502,8 @@ export default function AdminDashboardPage() {
                   )) : (
                     <TableRow>
                       <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
-                        {allStudents.length === 0 && !isLoadingData && !isAuthLoading && !isImporting ? 'Click "Load Student Data" above to view student records, or "Import Data".' :
-                          isImporting ? 'Importing data, please wait...' :
-                            (allStudents.length > 0 && displayedStudents.length === 0) ? 'No students found matching your filters.' :
+                        {allStudents.length === 0 && !isLoadingData ? 'Click "Load Student Data" above to view student records, or "Import Data".' :
+                         (allStudents.length > 0 && filteredStudents.length === 0) ? 'No students found matching your filters.' :
                               'No student data available. Try loading or adding students.'}
                       </TableCell>
                     </TableRow>
@@ -713,13 +514,13 @@ export default function AdminDashboardPage() {
           </CardContent>
           <CardFooter className="flex flex-col sm:flex-row items-center justify-between pt-4 gap-2">
             <p className="text-sm text-muted-foreground text-center sm:text-left">
-              Showing {paginatedStudents.length > 0 ? (currentPage - 1) * entriesPerPage + 1 : 0} to {Math.min(currentPage * entriesPerPage, displayedStudents.length)} of {displayedStudents.length} entries
+              Showing {paginatedStudents.length > 0 ? (currentPage - 1) * entriesPerPage + 1 : 0} to {Math.min(currentPage * entriesPerPage, filteredStudents.length)} of {filteredStudents.length} entries
             </p>
             <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1 || isImporting}>
+              <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>
                 <ChevronLeft className="h-4 w-4 mr-1" /> Previous
               </Button>
-              <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages || totalPages === 0 || isImporting}>
+              <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages || totalPages === 0}>
                 Next <ChevronRight className="h-4 w-4 ml-1" />
               </Button>
             </div>
@@ -736,6 +537,3 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
-
-
-    
