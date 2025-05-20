@@ -13,13 +13,25 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Upload, FileText, CheckCircle, XCircle, AlertTriangle, ArrowLeft, Download, Info } from 'lucide-react';
+import { Loader2, Upload, FileText, CheckCircle, XCircle, AlertTriangle, ArrowLeft, Download, Info, CalendarDays } from 'lucide-react';
 import type { ImportProcessingResults, StudentImportFeedbackItem, MarksImportFeedbackItem, GeneralImportMessage } from '@/types';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Label } from '@/components/ui/label';
+
 
 const pageSubtitle = `(Affiliated By Bihar School Examination Board, Patna)
 [Estd. - 1983] College Code: 53010
 Chitragupta Nagar, Mohanpur, Samastipur, Bihar - 848101
 www.saryugcollege.com`;
+
+const ACADEMIC_SESSION_OPTIONS = ['Select Session', '2026-2028', '2025-2027', '2024-2026', '2023-2025', '2022-2024', '2021-2023'];
+
 
 // Helper to parse various date formats from Excel
 const parseExcelDate = (excelDate: any): string | null => {
@@ -58,6 +70,8 @@ export default function ImportDataPage() {
   const [importResults, setImportResults] = useState<ImportProcessingResults | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [authStatus, setAuthStatus] = useState<'loading' | 'authenticated' | 'unauthenticated'>('loading');
+  const [selectedAcademicSession, setSelectedAcademicSession] = useState<string>('');
+
 
  useEffect(() => {
     const checkAuth = async () => {
@@ -97,8 +111,8 @@ export default function ImportDataPage() {
   };
 
   const handleDownloadSampleFile = () => {
-    const studentDetailsHeaders = ["Student ID", "Student Name", "Father Name", "Mother Name", "Date of Birth", "Gender", "Faculty", "Class", "Section", "Academic Session"];
-    const sampleStudentRow = ["S001", "John Doe", "Robert Doe", "Jane Doe", "15-07-2003", "Male", "SCIENCE", "12th", "B", "2024-2026"];
+    const studentDetailsHeaders = ["Student ID", "Student Name", "Father Name", "Mother Name", "Date of Birth", "Gender", "Faculty", "Class", "Section"];
+    const sampleStudentRow = ["S001", "John Doe", "Robert Doe", "Jane Doe", "15-07-2003", "Male", "SCIENCE", "12th", "B"];
     
     const studentMarksHeaders = ["Student ID", "Name", "Subject Name", "Subject Category", "Max Marks", "Pass Marks", "Theory Marks Obtained", "Practical Marks Obtained"];
     const sampleMarkRow = ["S001", "John Doe", "Physics", "Elective", 100, 33, 65, 25];
@@ -122,6 +136,18 @@ export default function ImportDataPage() {
       toast({ title: "No File Selected", description: "Please select an Excel file to import.", variant: "destructive" });
       return;
     }
+    if (!selectedAcademicSession || selectedAcademicSession === 'Select Session') {
+      toast({ title: "No Session Selected", description: "Please select an Academic Session from the dropdown.", variant: "destructive" });
+      return;
+    }
+    
+    // Validate selectedAcademicSession format (YYYY-YYYY)
+    const academicYearParts = selectedAcademicSession.split('-');
+    if (academicYearParts.length !== 2 || !/^\d{4}$/.test(academicYearParts[0].trim()) || !/^\d{4}$/.test(academicYearParts[1].trim())) {
+        toast({ title: "Invalid Session Format", description: `The selected Academic Session "${selectedAcademicSession}" is not valid. Expected YYYY-YYYY.`, variant: "destructive" });
+        return;
+    }
+
 
     setIsLoading(true);
     setImportResults(null);
@@ -176,12 +202,12 @@ export default function ImportDataPage() {
             const faculty = String(row['Faculty'] || '').trim();
             const studentClass = String(row['Class'] || '').trim();
             const section = String(row['Section'] || '').trim();
-            const academicSession = String(row['Academic Session'] || '').trim();
+            // Academic Session is now from the dropdown
 
             const currentFeedback: StudentImportFeedbackItem = { rowNumber: rowNum, name: studentName, studentId: studentIdFromExcel, status: 'skipped', message: ''};
 
-            if (!studentIdFromExcel || !studentName || !fatherName || !motherName || !dobRaw || !gender || !faculty || !studentClass || !section || !academicSession) {
-              currentFeedback.message = "Missing one or more required fields (Student ID, Student Name, Father Name, Mother Name, DOB, Gender, Faculty, Class, Section, Academic Session).";
+            if (!studentIdFromExcel || !studentName || !fatherName || !motherName || !dobRaw || !gender || !faculty || !studentClass || !section ) {
+              currentFeedback.message = "Missing one or more required fields (Student ID, Student Name, Father Name, Mother Name, DOB, Gender, Faculty, Class, Section). Academic Session is selected from the dropdown.";
               results.studentFeedback.push(currentFeedback);
               results.totalStudentsSkipped++;
               continue;
@@ -190,14 +216,6 @@ export default function ImportDataPage() {
             const dobFormatted = parseExcelDate(dobRaw);
             if (!dobFormatted) {
               currentFeedback.message = `Invalid Date of Birth format: ${dobRaw}.`;
-              results.studentFeedback.push(currentFeedback);
-              results.totalStudentsSkipped++;
-              continue;
-            }
-
-            const academicYearParts = academicSession.split('-');
-             if (academicYearParts.length !== 2 || !/^\d{4}$/.test(academicYearParts[0].trim()) || !/^\d{4}$/.test(academicYearParts[1].trim())) {
-              currentFeedback.message = `Invalid Academic Session format: ${academicSession}. Expected YYYY-YYYY.`;
               results.studentFeedback.push(currentFeedback);
               results.totalStudentsSkipped++;
               continue;
@@ -216,7 +234,7 @@ export default function ImportDataPage() {
               faculty: faculty,
               class: studentClass, 
               section: section,
-              academic_year: academicSession, 
+              academic_year: selectedAcademicSession, // Use session from dropdown
             });
             currentFeedback.status = 'added'; 
             currentFeedback.message = 'Pending database insertion.';
@@ -236,9 +254,9 @@ export default function ImportDataPage() {
                 if (feedback) {
                   feedback.status = 'error';
                   feedback.message = `Database insert failed: ${studentInsertError.message}`;
-                } else { // If somehow feedback was not 'added' but still in inserts (should not happen)
+                } else { 
                     results.studentFeedback.push({
-                        rowNumber: -1, // Indicate unknown row
+                        rowNumber: -1, 
                         name: si.name,
                         studentId: si.student_id,
                         status: 'error',
@@ -281,7 +299,7 @@ export default function ImportDataPage() {
             const rowNum = i + 2;
 
             const studentIdForMarks = String(row['Student ID'] || '').trim();
-            const studentNameForFeedback = String(row['Name'] || '').trim(); // Keep for feedback
+            const studentNameForFeedback = String(row['Name'] || '').trim(); 
             const subjectName = String(row['Subject Name'] || '').trim(); 
             const subjectCategory = String(row['Subject Category'] || '').trim();
             const maxMarksRaw = row['Max Marks'];
@@ -443,7 +461,10 @@ export default function ImportDataPage() {
                 Ensure your file has two sheets: "Student Details" and "Student Marks Details".
               </p>
               <p>
-                Required columns for "Student Details": Student ID, Student Name, Father Name, Mother Name, Date of Birth, Gender, Faculty, Class, Section, Academic Session. Student ID will be used as the Roll Number.
+                Select the <strong>Academic Session</strong> from the dropdown below. This session will be applied to all students in the imported file.
+              </p>
+              <p>
+                Required columns for "Student Details": Student ID, Student Name, Father Name, Mother Name, Date of Birth, Gender, Faculty, Class, Section. Student ID will be used as the Roll Number.
               </p>
               <p>
                 Required columns for "Student Marks Details": Student ID (must match a "Student ID" in Student Details sheet), Name (for reference), Subject Name, Subject Category, Max Marks, Pass Marks. Optional: Theory Marks Obtained, Practical Marks Obtained.
@@ -454,6 +475,25 @@ export default function ImportDataPage() {
             </Button>
           </CardHeader>
           <CardContent className="space-y-6">
+            <div className="space-y-2">
+                <Label htmlFor="academic-session-select">Academic Session</Label>
+                <Select
+                    value={selectedAcademicSession}
+                    onValueChange={setSelectedAcademicSession}
+                >
+                    <SelectTrigger id="academic-session-select" className="w-full">
+                    <SelectValue placeholder="Select Academic Session" />
+                    </SelectTrigger>
+                    <SelectContent>
+                    {ACADEMIC_SESSION_OPTIONS.map(session => (
+                        <SelectItem key={session} value={session} disabled={session === 'Select Session'}>
+                        {session}
+                        </SelectItem>
+                    ))}
+                    </SelectContent>
+                </Select>
+            </div>
+
             <div className="space-y-2">
               <input
                 type="file"
@@ -472,7 +512,11 @@ export default function ImportDataPage() {
                 </p>
               )}
             </div>
-            <Button onClick={handleImport} className="w-full" disabled={!file || isLoading}>
+            <Button 
+                onClick={handleImport} 
+                className="w-full" 
+                disabled={!file || isLoading || !selectedAcademicSession || selectedAcademicSession === 'Select Session'}
+            >
               {isLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Upload className="mr-2 h-5 w-5" />}
               Import File
             </Button>
@@ -564,4 +608,3 @@ export default function ImportDataPage() {
     </div>
   );
 }
-
