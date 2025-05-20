@@ -429,14 +429,15 @@ export default function AdminDashboardPage() {
         }
         
         if (studentInserts.length > 0) {
-          const { error: studentInsertError, count: insertedStudentCount } = await supabase
+          const { error: studentInsertError, data: insertedStudentData } = await supabase
             .from('student_details')
-            .insert(studentInserts); 
+            .insert(studentInserts)
+            .select(); 
 
           if (studentInsertError) {
             toast({ title: "Student Import Error", description: `Failed to import some student details: ${studentInsertError.message}.`, variant: "destructive" });
           }
-          importedStudentsCount = insertedStudentCount || 0;
+          importedStudentsCount = insertedStudentData?.length || 0;
         }
 
 
@@ -451,7 +452,7 @@ export default function AdminDashboardPage() {
 
             for (const row of studentMarksJson) {
               const studentNameForMarks = String(row['Name'] || '').trim();
-              const subjectName = String(row['Subject Name'] || '').trim(); // Assuming this column exists
+              const subjectName = String(row['Subject Name'] || '').trim(); 
               const subjectCategory = String(row['Subject Category'] || '').trim();
               const maxMarks = parseFloat(String(row['Max Marks'] || '0'));
               const passMarks = parseFloat(String(row['Pass Marks'] || '0'));
@@ -466,7 +467,7 @@ export default function AdminDashboardPage() {
               
               const studentId = studentNameToGeneratedIdMap.get(studentNameForMarks);
               if (!studentId) {
-                console.warn(`Skipping marks for student "${studentNameForMarks}" as they were not found in the 'Student Details' sheet of this Excel file.`);
+                console.warn(`Skipping marks for student "${studentNameForMarks}" as they were not found in the 'Student Details' sheet of this Excel file, or their details were skipped due to errors.`);
                 skippedMarksCount++;
                 continue;
               }
@@ -479,21 +480,22 @@ export default function AdminDashboardPage() {
                 category: subjectCategory,
                 max_marks: maxMarks,
                 pass_marks: passMarks,
-                theory_marks_obtained: isNaN(theoryMarks) ? null : theoryMarks, // Store null if NaN
-                practical_marks_obtained: isNaN(practicalMarks) ? null : practicalMarks, // Store null if NaN
+                theory_marks_obtained: isNaN(theoryMarks) ? null : theoryMarks, 
+                practical_marks_obtained: isNaN(practicalMarks) ? null : practicalMarks, 
                 obtained_total_marks: obtainedTotalMarks,
               });
             }
 
             if (marksInserts.length > 0) {
-              const { error: marksInsertError, count: insertedMarks } = await supabase
+              const { error: marksInsertError, data: insertedMarksData } = await supabase
                 .from('student_marks_details')
-                .insert(marksInserts);
+                .insert(marksInserts)
+                .select();
 
               if (marksInsertError) {
                 toast({ title: "Marks Import Error", description: `Failed to import some marks: ${marksInsertError.message}.`, variant: "destructive" });
               }
-              importedMarksCount = insertedMarks || 0;
+              importedMarksCount = insertedMarksData?.length || 0;
             }
         }
         
@@ -529,7 +531,7 @@ export default function AdminDashboardPage() {
   };
 
 
-  if (!isAuthLoading) { // Render null or a minimal loader if auth is still loading on client
+  if (isAuthLoading) { // Corrected: Show loader if isAuthLoading is true
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -735,3 +737,5 @@ export default function AdminDashboardPage() {
   );
 }
 
+
+    
