@@ -98,7 +98,7 @@ export default function NewMarksheetPage() {
     return {
       ...data,
       subjects: subjectsDisplay,
-      collegeCode: "53010", // Added placeholder college code
+      collegeCode: "53010", 
       marksheetNo: generateMarksheetNo(data.faculty, data.rollNumber, data.sessionEndYear),
       sessionDisplay: `${data.sessionStartYear}-${data.sessionEndYear}`,
       classDisplay: `${data.academicYear} (${data.section})`, 
@@ -230,7 +230,7 @@ export default function NewMarksheetPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col">
+    <div className="min-h-screen bg-background text-foreground flex flex-col print:h-full">
       <div className="print:hidden">
         <AppHeader 
           pageTitle="SARYUG COLLEGE"
@@ -243,7 +243,7 @@ export default function NewMarksheetPage() {
         />
       </div>
       
-      <main className="flex-grow container mx-auto px-4 py-8 sm:px-6 lg:px-8">
+      <main className="flex-grow container mx-auto px-4 py-8 sm:px-6 lg:px-8 print:p-0 print:m-0 print:h-full print:container-none print:max-w-none">
         <div className="mb-6 text-center">
           <h1 className="text-2xl font-bold text-primary">
             {marksheetData ? 'Marksheet Preview' : 'Create New Marksheet'}
@@ -269,3 +269,5 @@ export default function NewMarksheetPage() {
     </div>
   );
 }
+
+    

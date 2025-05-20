@@ -23,7 +23,7 @@ www.saryugcollege.com`;
 export default function EditMarksheetPage() {
   const router = useRouter();
   const params = useParams();
-  const studentId = params.studentId as string; // This is the primary key for student_details
+  const studentId = params.studentId as string; 
   const { toast } = useToast();
 
   const [authStatus, setAuthStatus] = useState<'loading' | 'authenticated' | 'unauthenticated'>('loading');
@@ -39,13 +39,12 @@ export default function EditMarksheetPage() {
       const { data: { session }, error } = await supabase.auth.getSession();
       if (error || !session) {
         setAuthStatus('unauthenticated');
-        // router.push('/login'); // Redirect will be handled by the next useEffect
       } else {
         setAuthStatus('authenticated');
       }
     };
     checkAuthentication();
-  }, [router]); 
+  }, []); 
 
   useEffect(() => {
     if (authStatus === 'unauthenticated') {
@@ -59,7 +58,7 @@ export default function EditMarksheetPage() {
           const { data: studentDetails, error: studentError } = await supabase
             .from('student_details')
             .select('*')
-            .eq('student_id', studentId) // Use the URL param studentId as the PK
+            .eq('student_id', studentId) 
             .single();
 
           if (studentError || !studentDetails) {
@@ -72,7 +71,7 @@ export default function EditMarksheetPage() {
           const { data: subjectMarks, error: marksError } = await supabase
             .from('student_marks_details')
             .select('*')
-            .eq('student_id', studentId); // Use the URL param studentId
+            .eq('student_id', studentId); 
 
           if (marksError) {
             toast({ title: 'Error Fetching Subjects', description: marksError.message, variant: 'destructive' });
@@ -90,7 +89,7 @@ export default function EditMarksheetPage() {
             studentName: studentDetails.name,
             fatherName: studentDetails.father_name,
             motherName: studentDetails.mother_name,
-            rollNumber: studentDetails.roll_no, // This is the roll_no column from DB
+            rollNumber: studentDetails.roll_no, 
             dateOfBirth: studentDetails.dob ? parseISO(studentDetails.dob) : new Date(), 
             gender: studentDetails.gender as MarksheetFormData['gender'],
             faculty: studentDetails.faculty as MarksheetFormData['faculty'],
@@ -98,7 +97,7 @@ export default function EditMarksheetPage() {
             section: studentDetails.section,
             sessionStartYear: sessionStartYear,
             sessionEndYear: sessionEndYear,
-            overallPassingThresholdPercentage: 33, // Default, as not stored in DB currently
+            overallPassingThresholdPercentage: 33, 
             subjects: subjectMarks?.map(mark => ({
               id: mark.id?.toString() || crypto.randomUUID(), 
               subjectName: mark.subject_name,
@@ -129,7 +128,7 @@ export default function EditMarksheetPage() {
     const facultyCode = faculty.substring(0, 2).toUpperCase();
     const month = format(new Date(), 'MMM').toUpperCase();
     const sequence = String(Math.floor(Math.random() * 900) + 100); 
- return `${facultyCode}/${month}/${sessionEndYearNumber}/${rollNumber.slice(-3) || sequence}`;
+    return `${facultyCode}/${month}/${sessionEndYearNumber}/${rollNumber.slice(-3) || sequence}`;
   }, []);
   
   const processFormData = (data: MarksheetFormData): MarksheetDisplayData => {
@@ -186,16 +185,13 @@ export default function EditMarksheetPage() {
     setIsLoadingFormSubmission(true);
 
     try {
-      // 1. Update student_details table
-      // studentId (from URL param) is the primary key and should not be updated.
-      // data.rollNumber from the form updates the roll_no column.
       const { error: studentUpdateError } = await supabase
         .from('student_details')
         .update({
           name: data.studentName,
           father_name: data.fatherName,
           mother_name: data.motherName,
-          roll_no: data.rollNumber, // Update roll_no column
+          roll_no: data.rollNumber, 
           dob: format(data.dateOfBirth, 'yyyy-MM-dd'),
           gender: data.gender,
           faculty: data.faculty,
@@ -203,22 +199,20 @@ export default function EditMarksheetPage() {
           section: data.section,
           academic_year: `${data.sessionStartYear}-${data.sessionEndYear}`,
         })
-        .eq('student_id', studentId); // Use studentId from URL param for targeting record
+        .eq('student_id', studentId); 
 
       if (studentUpdateError) throw studentUpdateError;
 
-      // 2. Delete existing student_marks_details for this student
       const { error: deleteMarksError } = await supabase
         .from('student_marks_details')
         .delete()
-        .eq('student_id', studentId); // Use studentId from URL param
+        .eq('student_id', studentId); 
 
       if (deleteMarksError) throw deleteMarksError;
 
-      // 3. Insert new student_marks_details
       if (data.subjects && data.subjects.length > 0) {
         const marksToInsert = data.subjects.map(subject => ({
-          student_id: studentId, // Link to the student being edited
+          student_id: studentId, 
           subject_name: subject.subjectName,
           category: subject.category,
           max_marks: subject.totalMarks,
@@ -249,10 +243,6 @@ export default function EditMarksheetPage() {
       setIsLoadingFormSubmission(false);
     }
   };
-
-  const handleCreateNewFromPreview = () => {
-    router.push('/marksheet/new'); 
-  };
   
   const handleBackToForm = () => {
     setMarksheetData(null); 
@@ -270,7 +260,7 @@ export default function EditMarksheetPage() {
   
   if (authStatus === 'authenticated' && !isLoadingData && !initialData) {
      return (
-      <div className="min-h-screen bg-background text-foreground flex flex-col print:hidden">
+      <div className="min-h-screen bg-background text-foreground flex flex-col print:hidden print:h-full">
         <AppHeader 
             pageTitle="SARYUG COLLEGE"
             pageSubtitle={defaultPageSubtitle}
@@ -298,7 +288,7 @@ export default function EditMarksheetPage() {
 
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col print:bg-white print:h-full">
+    <div className="min-h-screen bg-background text-foreground flex flex-col print:h-full">
       <div className="print:hidden">
         <AppHeader 
             pageTitle="SARYUG COLLEGE"
@@ -325,7 +315,7 @@ export default function EditMarksheetPage() {
         {!marksheetData ? (
           initialData && <MarksheetForm onSubmit={handleFormSubmit} isLoading={isLoadingFormSubmission} initialData={initialData} isEditMode={true} />
         ) : (
-          <MarksheetDisplay data={marksheetData} onCreateNew={handleCreateNewFromPreview} />
+          <MarksheetDisplay data={marksheetData} onEditBack={handleBackToForm} />
         )}
       </main>
 

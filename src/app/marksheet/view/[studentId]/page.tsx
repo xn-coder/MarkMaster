@@ -34,16 +34,17 @@ export default function ViewMarksheetPage() {
       const { data: { session }, error } = await supabase.auth.getSession();
       if (error || !session) {
         setAuthStatus('unauthenticated');
-        router.push('/login');
       } else {
         setAuthStatus('authenticated');
       }
     };
     checkAuthentication();
-  }, [router]);
+  }, []);
 
   useEffect(() => {
-    if (authStatus === 'authenticated' && studentId) {
+    if (authStatus === 'unauthenticated') {
+      router.push('/login');
+    } else if (authStatus === 'authenticated' && studentId) {
       setFooterYear(new Date().getFullYear());
       setIsLoadingData(true);
 
@@ -169,8 +170,6 @@ export default function ViewMarksheetPage() {
       };
 
       fetchMarksheetData();
-    } else if (authStatus === 'unauthenticated') {
-      router.push('/login');
     }
   }, [authStatus, studentId, toast, router]);
 
@@ -215,7 +214,7 @@ export default function ViewMarksheetPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col print:bg-white print:h-full">
+    <div className="min-h-screen bg-background text-foreground flex flex-col print:h-full">
       <div className="print:hidden"> 
         <AppHeader 
             pageTitle="SARYUG COLLEGE"
@@ -230,7 +229,7 @@ export default function ViewMarksheetPage() {
       
       <main className="flex-grow container mx-auto px-4 py-8 sm:px-6 lg:px-8 print:p-0 print:m-0 print:h-full print:container-none print:max-w-none">
         {marksheetData ? (
-          <MarksheetDisplay data={marksheetData} isViewMode={true} />
+          <MarksheetDisplay data={marksheetData} />
         ) : (
            <div className="flex items-center justify-center min-h-[calc(100vh-200px)] print:hidden"> 
              <p className="text-muted-foreground">No marksheet data to display.</p>
@@ -248,3 +247,4 @@ export default function ViewMarksheetPage() {
   );
 }
 
+    
