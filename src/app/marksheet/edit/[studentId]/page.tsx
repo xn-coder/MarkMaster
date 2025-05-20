@@ -1,12 +1,12 @@
 
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase/client';
 import { MarksheetForm } from '@/components/app/marksheet-form';
 import { MarksheetDisplay } from '@/components/app/marksheet-display';
-import type { MarksheetFormData, MarksheetDisplayData, MarksheetSubjectDisplayEntry, SubjectEntryFormData } from '@/types';
+import type { MarksheetFormData, MarksheetDisplayData, MarksheetSubjectDisplayEntry } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Loader2, ArrowLeft } from 'lucide-react';
@@ -23,7 +23,7 @@ www.saryugcollege.com`;
 export default function EditMarksheetPage() {
   const router = useRouter();
   const params = useParams();
-  const studentId = params.studentId as string;
+  const studentId = params.studentId as string; // This is the primary key for student_details
   const { toast } = useToast();
 
   const [authStatus, setAuthStatus] = useState<'loading' | 'authenticated' | 'unauthenticated'>('loading');
@@ -39,7 +39,7 @@ export default function EditMarksheetPage() {
       const { data: { session }, error } = await supabase.auth.getSession();
       if (error || !session) {
         setAuthStatus('unauthenticated');
-        router.push('/login');
+        // router.push('/login'); // Redirect will be handled by the next useEffect
       } else {
         setAuthStatus('authenticated');
       }
@@ -48,7 +48,9 @@ export default function EditMarksheetPage() {
   }, [router]); 
 
   useEffect(() => {
-    if (authStatus === 'authenticated' && studentId) {
+    if (authStatus === 'unauthenticated') {
+      router.push('/login');
+    } else if (authStatus === 'authenticated' && studentId) {
       setFooterYear(new Date().getFullYear());
       setIsLoadingData(true);
 
@@ -57,11 +59,11 @@ export default function EditMarksheetPage() {
           const { data: studentDetails, error: studentError } = await supabase
             .from('student_details')
             .select('*')
-            .eq('student_id', studentId)
+            .eq('student_id', studentId) // Use the URL param studentId as the PK
             .single();
 
           if (studentError || !studentDetails) {
-            toast({ title: 'Error', description: `Student data not found for ID: ${studentId}. ${studentError?.message || ''}`, variant: 'destructive' });
+            toast({ title: 'Error Fetching Student', description: `Student data not found for ID: ${studentId}. ${studentError?.message || ''}`, variant: 'destructive' });
             setInitialData(null);
             setIsLoadingData(false);
             return;
@@ -70,13 +72,13 @@ export default function EditMarksheetPage() {
           const { data: subjectMarks, error: marksError } = await supabase
             .from('student_marks_details')
             .select('*')
-            .eq('student_id', studentId);
+            .eq('student_id', studentId); // Use the URL param studentId
 
           if (marksError) {
             toast({ title: 'Error Fetching Subjects', description: marksError.message, variant: 'destructive' });
           }
           
-          let sessionStartYear = new Date().getFullYear() -1;
+          let sessionStartYear = new Date().getFullYear() - 1;
           let sessionEndYear = new Date().getFullYear();
           if (studentDetails.academic_year && studentDetails.academic_year.includes('-')) {
             const years = studentDetails.academic_year.split('-');
@@ -88,7 +90,7 @@ export default function EditMarksheetPage() {
             studentName: studentDetails.name,
             fatherName: studentDetails.father_name,
             motherName: studentDetails.mother_name,
-            rollNumber: studentDetails.roll_no, 
+            rollNumber: studentDetails.roll_no, // This is the roll_no column from DB
             dateOfBirth: studentDetails.dob ? parseISO(studentDetails.dob) : new Date(), 
             gender: studentDetails.gender as MarksheetFormData['gender'],
             faculty: studentDetails.faculty as MarksheetFormData['faculty'],
@@ -96,7 +98,7 @@ export default function EditMarksheetPage() {
             section: studentDetails.section,
             sessionStartYear: sessionStartYear,
             sessionEndYear: sessionEndYear,
-            overallPassingThresholdPercentage: 33, 
+            overallPassingThresholdPercentage: 33, // Default, as not stored in DB currently
             subjects: subjectMarks?.map(mark => ({
               id: mark.id?.toString() || crypto.randomUUID(), 
               subjectName: mark.subject_name,
@@ -120,17 +122,15 @@ export default function EditMarksheetPage() {
       };
 
       fetchStudentData();
-    } else if (authStatus === 'unauthenticated') {
-         router.push('/login');
     }
   }, [authStatus, studentId, toast, router]);
 
-  const generateMarksheetNo = (faculty: string, rollNumber: string, sessionEndYearNumber: number): string => {
+  const generateMarksheetNo = useCallback((faculty: string, rollNumber: string, sessionEndYearNumber: number): string => {
     const facultyCode = faculty.substring(0, 2).toUpperCase();
     const month = format(new Date(), 'MMM').toUpperCase();
     const sequence = String(Math.floor(Math.random() * 900) + 100); 
-    return `${facultyCode}/${month}/${sessionEndYearNumber}/${rollNumber.slice(-3) || sequence}`;
-  };
+ return `${facultyCode}/${month}/${sessionEndYearNumber}/${rollNumber.slice(-3) || sequence}`;
+  }, []);
   
   const processFormData = (data: MarksheetFormData): MarksheetDisplayData => {
     const subjectsDisplay: MarksheetSubjectDisplayEntry[] = data.subjects.map(s => ({
@@ -184,22 +184,65 @@ export default function EditMarksheetPage() {
 
   const handleFormSubmit = async (data: MarksheetFormData) => {
     setIsLoadingFormSubmission(true);
-    // TODO: Implement Supabase update logic here
-    // 1. Update student_details table
-    // 2. Delete existing student_marks_details for this student
-    // 3. Insert new student_marks_details
+
     try {
+      // 1. Update student_details table
+      // studentId (from URL param) is the primary key and should not be updated.
+      // data.rollNumber from the form updates the roll_no column.
+      const { error: studentUpdateError } = await supabase
+        .from('student_details')
+        .update({
+          name: data.studentName,
+          father_name: data.fatherName,
+          mother_name: data.motherName,
+          roll_no: data.rollNumber, // Update roll_no column
+          dob: format(data.dateOfBirth, 'yyyy-MM-dd'),
+          gender: data.gender,
+          faculty: data.faculty,
+          class: data.academicYear,
+          section: data.section,
+          academic_year: `${data.sessionStartYear}-${data.sessionEndYear}`,
+        })
+        .eq('student_id', studentId); // Use studentId from URL param for targeting record
+
+      if (studentUpdateError) throw studentUpdateError;
+
+      // 2. Delete existing student_marks_details for this student
+      const { error: deleteMarksError } = await supabase
+        .from('student_marks_details')
+        .delete()
+        .eq('student_id', studentId); // Use studentId from URL param
+
+      if (deleteMarksError) throw deleteMarksError;
+
+      // 3. Insert new student_marks_details
+      if (data.subjects && data.subjects.length > 0) {
+        const marksToInsert = data.subjects.map(subject => ({
+          student_id: studentId, // Link to the student being edited
+          subject_name: subject.subjectName,
+          category: subject.category,
+          max_marks: subject.totalMarks,
+          pass_marks: subject.passMarks,
+          theory_marks_obtained: subject.theoryMarksObtained,
+          practical_marks_obtained: subject.practicalMarksObtained,
+          obtained_total_marks: (subject.theoryMarksObtained || 0) + (subject.practicalMarksObtained || 0),
+        }));
+        const { error: insertMarksError } = await supabase.from('student_marks_details').insert(marksToInsert);
+        if (insertMarksError) throw insertMarksError;
+      }
+
       const processedData = processFormData(data);
       setMarksheetData(processedData);
+
       toast({
-        title: 'Marksheet Data Processed',
-        description: 'Previewing the updated marksheet. Saving to database is not yet implemented for edits.',
+        title: 'Marksheet Updated Successfully',
+        description: 'Student and marks data have been saved to the database. Previewing updated marksheet.',
       });
-    } catch (error) {
-      console.error("Error processing marksheet:", error);
+    } catch (error: any) {
+      console.error("Error updating marksheet:", error);
       toast({
-        title: 'Error',
-        description: 'Could not process marksheet data for preview.',
+        title: 'Update Failed',
+        description: `Could not update marksheet data: ${error.message || 'Unknown error'}`,
         variant: 'destructive',
       });
     } finally {
@@ -218,7 +261,7 @@ export default function EditMarksheetPage() {
 
   if (authStatus === 'loading' || (authStatus === 'authenticated' && isLoadingData)) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-background">
+      <div className="flex items-center justify-center min-h-screen bg-background print:hidden">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
         <p className="ml-2 text-muted-foreground">{authStatus === 'loading' ? 'Verifying session...' : 'Loading student data...'}</p>
       </div>
@@ -227,9 +270,8 @@ export default function EditMarksheetPage() {
   
   if (authStatus === 'authenticated' && !isLoadingData && !initialData) {
      return (
-      <div className="min-h-screen bg-background text-foreground flex flex-col print:h-full">
-        <div className="print:hidden">
-            <AppHeader 
+      <div className="min-h-screen bg-background text-foreground flex flex-col print:hidden">
+        <AppHeader 
             pageTitle="SARYUG COLLEGE"
             pageSubtitle={defaultPageSubtitle}
             customRightContent={
@@ -237,9 +279,8 @@ export default function EditMarksheetPage() {
                 <ArrowLeft className="mr-2 h-4 w-4" /> Back to Dashboard
                 </Button>
             }
-            />
-        </div>
-        <main className="flex-grow container mx-auto px-4 py-8 sm:px-6 lg:px-8 flex flex-col items-center justify-center print:p-0 print:m-0 print:h-full print:container-none print:max-w-none">
+        />
+        <main className="flex-grow container mx-auto px-4 py-8 sm:px-6 lg:px-8 flex flex-col items-center justify-center">
             <h1 className="text-2xl font-bold text-destructive mb-4">Student Not Found</h1>
             <p className="text-muted-foreground mb-6 text-center">The student data for ID '{studentId}' could not be loaded from the database. <br/> Please check the ID or ensure the student record exists.</p>
             <Button onClick={() => router.push('/')}>
@@ -277,7 +318,7 @@ export default function EditMarksheetPage() {
                 {marksheetData ? 'Updated Marksheet Preview' : `Edit Marksheet for ${initialData?.studentName || 'Student'}`}
             </h1>
             <p className="text-muted-foreground">
-                {marksheetData ? 'Review the updated marksheet below.' : 'Modify the student and subject details.'}
+                {marksheetData ? 'Review the updated marksheet below. Data has been saved.' : 'Modify the student and subject details.'}
             </p>
         </div>
 
@@ -297,4 +338,6 @@ export default function EditMarksheetPage() {
     </div>
   );
 }
+    
+
     

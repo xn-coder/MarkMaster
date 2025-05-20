@@ -24,7 +24,7 @@ export function MarksheetDisplay({ data, onCreateNew, isViewMode = false }: Mark
 
   const compulsorySubjects = data.subjects.filter(s => s.category === 'Compulsory');
   const electiveSubjects = data.subjects.filter(s => s.category === 'Elective');
-  const additionalSubjects = data.subjects.filter(s => s.category === 'Additional');
+
 
   return (
     <div className="marksheet-print-container bg-gray-100 print:bg-white py-8 print:py-0 flex justify-center">
@@ -41,7 +41,7 @@ export function MarksheetDisplay({ data, onCreateNew, isViewMode = false }: Mark
           />
         </div>
 
-        <div className="border border-black print:border-black p-4 print:p-[0.5cm] flex flex-col h-full relative z-10">
+        <div className="border border-black print:border-black p-4 print:p-[0.5cm] flex flex-col h-full relative z-10 print:border print:border-black print:p-[1cm]">
           
           <header className="relative mb-1 print:mb-0.5">
             <div className="absolute top-0 right-0 text-[10px] print:text-[8pt] text-blue-600 hover:underline">
@@ -93,50 +93,68 @@ export function MarksheetDisplay({ data, onCreateNew, isViewMode = false }: Mark
             </div>
           </header>
 
-          <h3 className="text-center font-bold text-lg print:text-base underline decoration-1 underline-offset-2 mb-3 print:mb-[0.6cm] text-black">Student Details</h3>
-          
-          <div className="mb-3 print:mb-2 grid grid-cols-2 gap-x-6 gap-y-1 text-sm print:text-xs font-sans text-black">
-            <div>Student Name: <strong className="font-semibold">{data.studentName}</strong></div>
-            <div className="text-right">Marksheet No: <strong className="font-semibold">{data.marksheetNo}</strong></div>
-            <div>Father Name: <strong className="font-semibold">{data.fatherName}</strong></div>
-            <div className="text-right">Mother Name: <strong className="font-semibold">{data.motherName}</strong></div>
-            <div>Session: <strong className="font-semibold">{data.sessionDisplay}</strong></div>
-            <div className="text-right">Roll No: <strong className="font-semibold">{data.rollNumber}</strong></div>
-            <div>Date of Birth: <strong className="font-semibold">{format(new Date(data.dateOfBirth), "dd-MM-yyyy")}</strong></div>
-            <div className="text-right">Gender: <strong className="font-semibold">{data.gender}</strong></div>
-            <div>Faculty: <strong className="font-semibold">{data.faculty}</strong></div>
-            <div className="text-right">Class: <strong className="font-semibold">{data.classDisplay}</strong></div>
+ <h3 className="text-center font-bold text-lg print:text-base decoration-1 underline-offset-2 mb-3 print:mb-[0.6cm] text-black">Student Details</h3>
+
+          <div className="mb-3 print:mb-2 grid grid-cols-2 gap-x-12 print:gap-x-16 gap-y-1 text-sm print:text-xs font-sans text-black">
+ <div className="flex items-baseline justify-start text-left">
+              <span className="min-w-[100px] print:min-w-[80px]">Student Name:</span> <strong className="font-semibold flex-grow text-left">{data.studentName}</strong>
+            </div>
+ <div className="flex items-baseline justify-end text-right w-full">
+              <span className="min-w-[100px] print:min-w-[80px] text-left">Marksheet No:</span> <strong className="font-semibold flex-grow text-left">{data.marksheetNo}</strong>
+            </div>
+ <div className="flex items-baseline">
+              <span className="min-w-[100px] print:min-w-[80px]">Father Name:</span> <strong className="font-semibold flex-grow text-left">{data.fatherName}</strong>
+            </div>
+ <div className="flex items-baseline justify-end text-right w-full ">
+              <span className="min-w-[100px] print:min-w-[80px] text-left">Mother Name:</span> <strong className="font-semibold flex-grow text-left">{data.motherName}</strong>
+            </div>
+ <div className="flex items-baseline justify-start text-left">
+              <span className="min-w-[100px] print:min-w-[80px]">Session:</span> <strong className="font-semibold flex-grow text-left">{data.sessionDisplay}</strong>
+            </div>
+ <div className="flex items-baseline justify-end text-right w-full ">
+              <span className="min-w-[100px] print:min-w-[80px] text-left">Roll No:</span> <strong className="font-semibold flex-grow text-left">{data.rollNumber}</strong>
+            </div>
+ <div className="flex items-baseline justify-start text-left">
+              <span className="min-w-[100px] print:min-w-[80px]">Date of Birth:</span> <strong className="font-semibold flex-grow text-left">{format(new Date(data.dateOfBirth), "dd-MM-yyyy")}</strong>
+            </div>
+ <div className="flex items-baseline justify-end text-right w-full ">
+              <span className="min-w-[100px] print:min-w-[80px] text-left">Faculty:</span> <strong className="font-semibold flex-grow text-left">{data.faculty}</strong>
+            </div>
+ <div className="flex items-baseline justify-start text-left">
+              <span className="min-w-[100px] print:min-w-[80px]">Class:</span> <strong className="font-semibold flex-grow text-left">{data.classDisplay}</strong>
+            </div>
+ <div className="flex items-baseline justify-end text-right w-full ">
+              <span className="min-w-[100px] print:min-w-[80px] text-left">Gender:</span> <strong className="font-semibold flex-grow text-left">{data.gender}</strong>
+            </div>
           </div>
-          
-          <div className="flex-grow flex flex-col">
-            <section className="my-2 print:my-[0.5cm]">
+
+ <div className="flex-grow flex flex-col -mt-1 print:-mt-0.5">
+            <section className="my-3 print:my-[0.5cm]">
                 <div className="overflow-x-auto">
-                <Table className="border-collapse w-full">
-                    <TableHeader className="bg-gray-100 print:bg-gray-100">
-                        <TableRow className="border-b border-black bg-gray-100 print:bg-gray-100 hover:bg-transparent print:hover:bg-transparent dark:hover:bg-inherit">
-                            <TableHead className="w-[8%] border border-black font-bold text-black text-center align-middle p-1 print:p-1 text-xs print:text-[9px]">Sr. no.</TableHead>
-                            <TableHead className="min-w-[25%] border border-black font-bold text-black text-center align-middle p-1 print:p-1 text-xs print:text-[9px]">Subject</TableHead>
-                            <TableHead className="w-[12%] text-center border border-black font-bold text-black align-middle p-1 print:p-1 text-xs print:text-[9px]">Total Marks</TableHead>
-                            <TableHead className="w-[12%] text-center border border-black font-bold text-black align-middle p-1 print:p-1 text-xs print:text-[9px]">Passing Marks</TableHead>
-                            <TableHead colSpan={2} className="w-[24%] text-center border border-black font-bold text-black align-middle p-1 print:p-1 text-xs print:text-[9px]">Marks Obtained</TableHead>
-                            <TableHead className="w-[14%] text-center border border-black font-bold text-black align-middle p-1 print:p-1 text-xs print:text-[9px]">Total</TableHead>
+                <Table className="border-collapse w-full text-black print:text-black text-xs print:text-[9px]">
+                    <TableHeader className="bg-transparent print:bg-transparent">
+                        <TableRow className="border-b border-black bg-transparent print:bg-transparent hover:bg-transparent print:hover:bg-transparent dark:hover:bg-inherit">
+                            <TableHead rowSpan={2} className="w-[8%] text-center border border-black font-bold text-black align-middle p-0.5 print:p-0.5 text-sm print:text-[10px]">
+ Sr. no.</TableHead>
+ <TableHead rowSpan={2} className="min-w-[25%] border border-black font-bold text-black text-center align-middle p-0.5 print:p-0.5 text-sm print:text-[10px]">Subject</TableHead>
+ <TableHead rowSpan={2} className="w-[12%] text-center border border-black font-bold text-black align-middle p-0.5 print:p-0.5 text-sm print:text-[10px]">Total Marks</TableHead>
+ <TableHead rowSpan={2} className="w-[12%] text-center border border-black font-bold text-black align-middle p-0.5 print:p-0.5 text-sm print:text-[10px]">Passing Marks</TableHead>
+ <TableHead colSpan={2} className="text-center border border-black font-bold text-black align-middle p-0.5 print:p-0.5 text-sm print:text-[10px]">Marks Obtained</TableHead>
+ <TableHead rowSpan={2} className="w-[12%] text-center border border-black font-bold text-black align-middle p-0.5 print:p-0.5 text-sm print:text-[10px]">Total</TableHead>
                         </TableRow>
-                        <TableRow className="border-b border-black bg-gray-100 print:bg-gray-100 hover:bg-transparent print:hover:bg-transparent dark:hover:bg-inherit">
-                            <TableHead className="border border-black p-1 print:p-1"></TableHead>
-                            <TableHead className="border border-black p-1 print:p-1"></TableHead>
-                            <TableHead className="border border-black p-1 print:p-1"></TableHead>
-                            <TableHead className="border border-black p-1 print:p-1"></TableHead>
-                            <TableHead className="text-center border border-black font-bold text-black align-middle p-1 print:p-1 text-xs print:text-[9px]">Theory</TableHead>
-                            <TableHead className="text-center border border-black font-bold text-black align-middle p-1 print:p-1 text-xs print:text-[9px]">Practical</TableHead>
-                            <TableHead className="border border-black p-1 print:p-1"></TableHead>
+                        {/* Second row of header */}
+                        <TableRow className="border-b border-black bg-transparent print:bg-transparent hover:bg-transparent print:hover:bg-transparent dark:hover:bg-inherit">
+ <TableHead className="text-center border border-black font-bold text-black align-middle p-0.5 print:p-0.5 text-xs print:text-[9px]">Theory</TableHead>
+ <TableHead className="text-center border border-black font-bold text-black align-middle p-0.5 print:p-0.5 text-xs print:text-[9px]">Practical</TableHead>
                         </TableRow>
                     </TableHeader>
+
                     <TableBody>
                         {compulsorySubjects.length > 0 && (
                             <TableRow className="font-bold bg-transparent hover:bg-transparent print:hover:bg-transparent dark:hover:bg-inherit">
                                 <TableCell
                                     colSpan={7}
-                                    className="border border-black bg-gray-50 print:bg-gray-50 py-0.5 px-1 print:py-0.25 print:px-0.5 text-left text-xs print:text-[10px] text-black"
+                                    className="border border-black bg-transparent print:bg-transparent py-0.5 px-1 print:py-0.25 print:px-0.5 text-left text-xs print:text-[10px] text-black"
                                 >
                                     COMPULSORY SUBJECTS
                                 </TableCell>
@@ -144,65 +162,64 @@ export function MarksheetDisplay({ data, onCreateNew, isViewMode = false }: Mark
                         )}
                         {compulsorySubjects.map((subject, index) => (
                             <TableRow key={`comp-${index}`} className="border-b border-black h-[24px] print:h-[22px] hover:bg-transparent print:hover:bg-transparent dark:hover:bg-inherit text-xs print:text-[9px]">
-                                <TableCell className="text-center border border-black p-1 print:p-1 text-black">{index + 1}</TableCell>
-                                <TableCell className="border border-black p-1 print:p-1 text-left text-black">{subject.subjectName}</TableCell>
-                                <TableCell className="text-right border border-black p-1 print:p-1 text-black">{subject.totalMarks}</TableCell>
-                                <TableCell className="text-right border border-black p-1 print:p-1 text-black">{subject.passMarks}</TableCell>
-                                <TableCell className="text-right border border-black p-1 print:p-1 text-black">{subject.theoryMarksObtained}</TableCell>
-                                <TableCell className="text-right border border-black p-1 print:p-1 text-black">{subject.practicalMarksObtained}</TableCell>
-                                <TableCell className="text-right border border-black p-1 print:p-1 font-bold text-black">{subject.obtainedTotal}</TableCell>
-                            </TableRow>
+                                <TableCell className="text-center border border-black p-1 print:p-1">{index + 1}</TableCell>
+                                <TableCell className="border border-black p-1 print:p-1 text-left bg-transparent print:bg-transparent">{subject.subjectName}</TableCell>
+                                <TableCell className="text-center border border-black p-1 print:p-1">{subject.totalMarks}</TableCell>
+                                <TableCell className="text-center border border-black p-1 print:p-1">{subject.passMarks}</TableCell>
+ <TableCell className="text-center border border-black p-1 print:p-1 bg-transparent print:bg-transparent">{subject.theoryMarksObtained}</TableCell>
+ <TableCell className="text-center border border-black p-1 print:p-1 bg-transparent print:bg-transparent">{subject.practicalMarksObtained}</TableCell>
+                                <TableCell className="text-center border border-black p-1 print:p-1 font-bold">{subject.obtainedTotal}</TableCell>
+ </TableRow>
                         ))}
 
                         {electiveSubjects.length > 0 && (
                             <TableRow className="font-bold bg-transparent hover:bg-transparent print:hover:bg-transparent dark:hover:bg-inherit">
                                  <TableCell
                                     colSpan={7}
-                                    className="border border-black bg-gray-50 print:bg-gray-50 py-0.5 px-1 print:py-0.25 print:px-0.5 text-left text-xs print:text-[10px] text-black"
+                                    className="border border-black bg-transparent print:bg-transparent py-0.5 px-1 print:py-0.25 print:px-0.5 text-left text-xs print:text-[10px] text-black"
                                 >
                                     ELECTIVE SUBJECTS
                                 </TableCell>
                             </TableRow>
-                        )}
-                        {electiveSubjects.map((subject, index) => (
+                        )} 
+                       {electiveSubjects.map((subject, index) => (
                             <TableRow key={`elec-${index}`} className="border-b border-black h-[24px] print:h-[22px] hover:bg-transparent print:hover:bg-transparent dark:hover:bg-inherit text-xs print:text-[9px]">
-                                <TableCell className="text-center border border-black p-1 print:p-1 text-black">{compulsorySubjects.length + index + 1}</TableCell>
-                                <TableCell className="border border-black p-1 print:p-1 text-left text-black">{subject.subjectName}</TableCell>
-                                <TableCell className="text-right border border-black p-1 print:p-1 text-black">{subject.totalMarks}</TableCell>
-                                <TableCell className="text-right border border-black p-1 print:p-1 text-black">{subject.passMarks}</TableCell>
-                                <TableCell className="text-right border border-black p-1 print:p-1 text-black">{subject.theoryMarksObtained}</TableCell>
-                                <TableCell className="text-right border border-black p-1 print:p-1 text-black">{subject.practicalMarksObtained}</TableCell>
-                                <TableCell className="text-right border border-black p-1 print:p-1 font-bold text-black">{subject.obtainedTotal}</TableCell>
+                                <TableCell className="text-center border border-black p-1 print:p-1">{compulsorySubjects.length + index + 1}</TableCell> 
+                                <TableCell className="border border-black p-1 print:p-1 text-left bg-transparent print:bg-transparent">{subject.subjectName}{subject.category === 'Additional' && ' (Addl.)'}</TableCell>
+                                <TableCell className="text-center border border-black p-1 print:p-1">{subject.totalMarks}</TableCell>
+                                <TableCell className="text-center border border-black p-1 print:p-1">{subject.passMarks}</TableCell>
+ <TableCell className="text-center border border-black p-1 print:p-1 bg-transparent print:bg-transparent">{subject.theoryMarksObtained}</TableCell>
+ <TableCell className="text-center border border-black p-1 print:p-1 bg-transparent print:bg-transparent">{subject.practicalMarksObtained}</TableCell>
+                                <TableCell className="text-center border border-black p-1 print:p-1 font-bold">{subject.obtainedTotal}</TableCell>
                             </TableRow>
                         ))}
 
-                        {additionalSubjects.length > 0 && (
+                        {data.subjects.filter(s => s.category === 'Additional').length > 0 && (
                             <TableRow className="font-bold bg-transparent hover:bg-transparent print:hover:bg-transparent dark:hover:bg-inherit">
-                                <TableCell
+                                 <TableCell
                                     colSpan={7}
-                                    className="border border-black bg-gray-50 print:bg-gray-50 py-0.5 px-1 print:py-0.25 print:px-0.5 text-left text-xs print:text-[10px] text-black"
+                                    className="border border-black bg-transparent print:bg-transparent py-0.5 px-1 print:py-0.25 print:px-0.5 text-left text-xs print:text-[10px] text-black"
                                 >
                                     ADDITIONAL SUBJECTS
                                 </TableCell>
                             </TableRow>
                         )}
-                        {additionalSubjects.map((subject, index) => (
-                            <TableRow key={`add-${index}`} className="border-b border-black h-[24px] print:h-[22px] hover:bg-transparent print:hover:bg-transparent dark:hover:bg-inherit text-xs print:text-[9px]">
-                                <TableCell className="text-center border border-black p-1 print:p-1 text-black">{compulsorySubjects.length + electiveSubjects.length + index + 1}</TableCell>
-                                <TableCell className="border border-black p-1 print:p-1 text-left text-black">{subject.subjectName} (Addl.)</TableCell>
-                                <TableCell className="text-right border border-black p-1 print:p-1 text-black">{subject.totalMarks}</TableCell>
-                                <TableCell className="text-right border border-black p-1 print:p-1 text-black">{subject.passMarks}</TableCell>
-                                <TableCell className="text-right border border-black p-1 print:p-1 text-black">{subject.theoryMarksObtained}</TableCell>
-                                <TableCell className="text-right border border-black p-1 print:p-1 text-black">{subject.practicalMarksObtained}</TableCell>
-                                <TableCell className="text-right border border-black p-1 print:p-1 font-bold text-black">{subject.obtainedTotal}</TableCell>
+                        {data.subjects.filter(s => s.category === 'Additional').map((subject, index) => (
+                            <TableRow key={`addl-${index}`} className="border-b border-black h-[24px] print:h-[22px] hover:bg-transparent print:hover:bg-transparent dark:hover:bg-inherit text-xs print:text-[9px]">
+                                <TableCell className="text-center border border-black p-1 print:p-1">{compulsorySubjects.length + electiveSubjects.length + index + 1}</TableCell>
+                                <TableCell className="border border-black p-1 print:p-1 text-left bg-transparent print:bg-transparent">{subject.subjectName}</TableCell>
+                                <TableCell className="text-center border border-black p-1 print:p-1">{subject.totalMarks}</TableCell>
+                                <TableCell className="text-center border border-black p-1 print:p-1">{subject.passMarks}</TableCell>
+                                <TableCell className="text-center border border-black p-1 print:p-1 bg-transparent print:bg-transparent">{subject.theoryMarksObtained}</TableCell>
+                                <TableCell className="text-center border border-black p-1 print:p-1 bg-transparent print:bg-transparent">{subject.practicalMarksObtained}</TableCell>
+                                <TableCell className="text-center border border-black p-1 print:p-1 font-bold">{subject.obtainedTotal}</TableCell>
                             </TableRow>
                         ))}
-
                         <TableRow className="border-t-2 border-black h-[26px] print:h-[24px] hover:bg-transparent print:hover:bg-transparent dark:hover:bg-inherit">
                             <TableCell colSpan={6} className="text-right border-l border-r border-b border-black p-1 print:p-1 pr-2 print:pr-1.5 font-bold text-sm print:text-xs text-black">AGGREGATE (Compulsory + Elective)</TableCell>
-                            <TableCell className="text-right border border-black p-1 print:p-1 font-bold text-sm print:text-xs text-black">{data.aggregateMarksCompulsoryElective}</TableCell>
+                            <TableCell className="text-center border border-black p-1 print:p-1 font-bold text-sm print:text-xs text-black bg-transparent hover:bg-transparent print:hover:bg-transparent dark:hover:bg-inherit">{data.aggregateMarksCompulsoryElective}</TableCell>
                         </TableRow>
-                    </TableBody>
+                    </TableBody> 
                 </Table>
                 </div>
             </section>
@@ -215,7 +232,7 @@ export function MarksheetDisplay({ data, onCreateNew, isViewMode = false }: Mark
                 </div>
             </div>
           </div> 
-          
+
           <div className="mt-auto pt-10 print:pt-[1cm] text-xs print:text-[10px] text-black">
                 <div className="flex justify-between">
                     <div className="text-center">
@@ -255,6 +272,10 @@ export function MarksheetDisplay({ data, onCreateNew, isViewMode = false }: Mark
             background-color: white !important;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
+             padding: 0 !important; 
+             margin: 0 !important;
+             box-sizing: border-box;
+
           }
           .marksheet-print-container {
              width: 100%;
@@ -276,7 +297,7 @@ export function MarksheetDisplay({ data, onCreateNew, isViewMode = false }: Mark
             page-break-inside: avoid !important;
             border-width: 4px !important; 
             border-color: black !important;
-            padding: 2pt !important; 
+            padding: 1cm !important; /* Add padding for the border effect */
             margin: 0 !important; 
             background-color: white !important;
           }
@@ -290,7 +311,7 @@ export function MarksheetDisplay({ data, onCreateNew, isViewMode = false }: Mark
              flex-direction: column !important;
              box-sizing: border-box !important;
           }
-          
+
           /* General print helper classes */
           .print\\:p-\\[0\\.5cm\\] { padding: 0.5cm !important; } 
           .print\\:mb-\\[0\\.6cm\\] { margin-bottom: 0.6cm !important; }
@@ -339,16 +360,15 @@ export function MarksheetDisplay({ data, onCreateNew, isViewMode = false }: Mark
           .print\\:shadow-none { box-shadow: none !important; }
           
           table, th, td {
-             border: 1px solid black !important;
+             border: 1px solid black !important; 
              border-collapse: collapse !important;
-             page-break-inside: avoid !important;
+ page-break-inside: auto !important;
+             background-color: white !important; /* Ensure cell backgrounds are white */
           }
-          thead.print\\:bg-gray-100 tr th {
-            background-color: #F3F4F6 !important;
-          }
-          tr.font-bold.bg-transparent td,
+ tr.font-bold td, /* Ensure category rows are transparent */
           tr.font-bold.hover\\:bg-transparent td { /* Ensure specificity for hover removal on category rows */
-             background-color: transparent !important;
+             /* Removed background-color: transparent !important; to allow styling on category rows */
+             /* Instead, ensure only the specific category title cell has the gray background */
           }
           td.bg-gray-50 { /* For category title cells */
             background-color: #F9FAFB !important;
@@ -365,7 +385,7 @@ export function MarksheetDisplay({ data, onCreateNew, isViewMode = false }: Mark
 
           @page {
             size: A4 portrait;
-            margin: 1.5cm 1.2cm 1.5cm 1.2cm; /* top right bottom left */
+            margin: 0 !important; /* Remove default print margins */
           }
         }
       `}</style>
