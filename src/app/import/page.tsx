@@ -30,7 +30,18 @@ const pageSubtitle = `(Affiliated By Bihar School Examination Board, Patna)
 Chitragupta Nagar, Mohanpur, Samastipur, Bihar - 848101
 www.saryugcollege.com`;
 
-const ACADEMIC_SESSION_OPTIONS = ['Select Session', '2026-2028', '2025-2027', '2024-2026', '2023-2025', '2022-2024', '2021-2023'];
+const generateAcademicSessionOptions = () => {
+  const currentYear = new Date().getFullYear();
+  const startYear = 1970;
+  const endYear = currentYear + 2; // Sessions up to current year + 2 (e.g., 2024-2025 if current is 2023)
+  const options = ['Select Session'];
+  for (let i = startYear; i <= endYear; i++) {
+    options.push(`${i}-${i + 1}`);
+  }
+  return options.reverse(); // Show most recent first, but keep "Select Session" at the top
+};
+
+const ACADEMIC_SESSION_OPTIONS = generateAcademicSessionOptions();
 
 
 // Helper to parse various date formats from Excel
@@ -608,3 +619,5 @@ export default function ImportDataPage() {
     </div>
   );
 }
+
+    
