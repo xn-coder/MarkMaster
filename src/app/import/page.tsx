@@ -33,12 +33,12 @@ www.saryugcollege.com`;
 const generateAcademicSessionOptions = () => {
   const currentYear = new Date().getFullYear();
   const startYear = 1970;
-  const endYear = currentYear + 2; // Sessions up to current year + 2 (e.g., 2024-2025 if current is 2023)
+  const endYear = currentYear + 2; 
   const options = ['Select Session'];
   for (let i = startYear; i <= endYear; i++) {
     options.push(`${i}-${i + 1}`);
   }
-  return options.reverse(); // Show most recent first, but keep "Select Session" at the top
+  return options.reverse(); 
 };
 
 const ACADEMIC_SESSION_OPTIONS = generateAcademicSessionOptions();
@@ -96,7 +96,7 @@ export default function ImportDataPage() {
         }
       } catch (error) {
         console.error("Error checking auth status:", error);
-        setAuthStatus('unauthenticated'); // Fallback to unauthenticated on error
+        setAuthStatus('unauthenticated'); 
         router.push('/login');
       }
     };
@@ -109,7 +109,7 @@ export default function ImportDataPage() {
     if (selectedFile) {
       if (selectedFile.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' || selectedFile.type === 'application/vnd.ms-excel') {
         setFile(selectedFile);
-        setImportResults(null); // Clear previous results
+        setImportResults(null); 
       } else {
         toast({ title: "Invalid File Type", description: "Please select an Excel file (.xlsx or .xls).", variant: "destructive" });
         setFile(null);
@@ -152,7 +152,6 @@ export default function ImportDataPage() {
       return;
     }
     
-    // Validate selectedAcademicSession format (YYYY-YYYY)
     const academicYearParts = selectedAcademicSession.split('-');
     if (academicYearParts.length !== 2 || !/^\d{4}$/.test(academicYearParts[0].trim()) || !/^\d{4}$/.test(academicYearParts[1].trim())) {
         toast({ title: "Invalid Session Format", description: `The selected Academic Session "${selectedAcademicSession}" is not valid. Expected YYYY-YYYY.`, variant: "destructive" });
@@ -186,6 +185,7 @@ export default function ImportDataPage() {
       };
       
       const validStudentIdsFromDetailsSheet = new Set<string>();
+      const processedSubjectKeysForImport = new Set<string>(); // To track studentId_subjectName for duplicates in current file
 
       try {
         const workbook = XLSX.read(data, { type: 'array', cellDates: false });
@@ -202,7 +202,7 @@ export default function ImportDataPage() {
 
           for (let i = 0; i < studentDetailsJson.length; i++) {
             const row = studentDetailsJson[i];
-            const rowNum = i + 2; // Excel row number (assuming header is row 1)
+            const rowNum = i + 2; 
             
             const studentIdFromExcel = String(row['Student ID'] || '').trim();
             const studentName = String(row['Student Name'] || '').trim();
@@ -213,12 +213,11 @@ export default function ImportDataPage() {
             const faculty = String(row['Faculty'] || '').trim();
             const studentClass = String(row['Class'] || '').trim();
             const section = String(row['Section'] || '').trim();
-            // Academic Session is now from the dropdown
-
+            
             const currentFeedback: StudentImportFeedbackItem = { rowNumber: rowNum, name: studentName, studentId: studentIdFromExcel, status: 'skipped', message: ''};
 
             if (!studentIdFromExcel || !studentName || !fatherName || !motherName || !dobRaw || !gender || !faculty || !studentClass || !section ) {
-              currentFeedback.message = "Missing one or more required fields (Student ID, Student Name, Father Name, Mother Name, DOB, Gender, Faculty, Class, Section). Academic Session is selected from the dropdown.";
+              currentFeedback.message = "Missing one or more required fields (Student ID, Student Name, Father Name, Mother Name, DOB, Gender, Faculty, Class, Section).";
               results.studentFeedback.push(currentFeedback);
               results.totalStudentsSkipped++;
               continue;
@@ -245,7 +244,7 @@ export default function ImportDataPage() {
               faculty: faculty,
               class: studentClass, 
               section: section,
-              academic_year: selectedAcademicSession, // Use session from dropdown
+              academic_year: selectedAcademicSession,
             });
             currentFeedback.status = 'added'; 
             currentFeedback.message = 'Pending database insertion.';
@@ -319,6 +318,22 @@ export default function ImportDataPage() {
             const practicalMarksRaw = row['Practical Marks Obtained'];
 
             const currentFeedback: MarksImportFeedbackItem = { rowNumber: rowNum, studentName: studentNameForFeedback, studentId: studentIdForMarks, subjectName: subjectName, status: 'skipped', message: '' };
+            
+            if (!studentIdForMarks || !subjectName || !subjectCategory) {
+              currentFeedback.message = "Missing required fields (Student ID, Subject Name, Subject Category).";
+              results.marksFeedback.push(currentFeedback);
+              results.totalMarksSkipped++;
+              continue;
+            }
+            
+            const subjectKey = `${studentIdForMarks}_${subjectName.trim().toLowerCase()}`;
+            if (processedSubjectKeysForImport.has(subjectKey)) {
+              currentFeedback.message = `Duplicate subject "${subjectName}" for Student ID "${studentIdForMarks}" in this file. Skipped.`;
+              results.marksFeedback.push(currentFeedback);
+              results.totalMarksSkipped++;
+              continue; 
+            }
+
 
             const maxMarks = parseFloat(String(maxMarksRaw));
             const passMarks = parseFloat(String(passMarksRaw));
@@ -326,12 +341,13 @@ export default function ImportDataPage() {
             const practicalMarks = parseFloat(String(practicalMarksRaw));
 
 
-            if (!studentIdForMarks || !subjectName || !subjectCategory || isNaN(maxMarks) || isNaN(passMarks)) {
-              currentFeedback.message = "Missing required fields (Student ID, Subject Name, Subject Category) or invalid Max/Pass Marks.";
+            if (isNaN(maxMarks) || isNaN(passMarks)) { // Check after subjectKey logic
+              currentFeedback.message = "Invalid Max Marks or Pass Marks.";
               results.marksFeedback.push(currentFeedback);
               results.totalMarksSkipped++;
               continue;
             }
+            processedSubjectKeysForImport.add(subjectKey); // Add to set only after passing basic checks
             
             if (!validStudentIdsFromDetailsSheet.has(studentIdForMarks)) {
               currentFeedback.message = `Student ID "${studentIdForMarks}" not found in 'Student Details' sheet (from current file). Marks for this subject skipped.`;
@@ -561,13 +577,13 @@ export default function ImportDataPage() {
                       {importResults.studentFeedback.map((item, idx) => (
                         <div key={`student-${idx}`} className="text-xs p-1.5 border-b last:border-b-0 flex items-start">
                            {item.status === 'added' && <CheckCircle className="h-3.5 w-3.5 text-green-600 mr-1.5 flex-shrink-0" />}
-                           {item.status === 'skipped' && <AlertTriangle className="h-3.5 w-3.5 text-yellow-700 mr-1.5 flex-shrink-0" />}
+                           {item.status === 'skipped' && <AlertTriangle className="h-3.5 w-3.5 text-yellow-600 mr-1.5 flex-shrink-0" />}
                            {item.status === 'error' && <XCircle className="h-3.5 w-3.5 text-red-600 mr-1.5 flex-shrink-0" />}
                           <span className="font-semibold">Row {item.rowNumber}:</span>&nbsp;
                           <span className="font-medium">ID: {item.studentId || 'N/A'}, Name: {item.name}</span>&nbsp;-&nbsp; 
                           <span className={`font-medium ${
                             item.status === 'added' ? 'text-green-600' :
-                            item.status === 'skipped' ? 'text-yellow-700' :
+                            item.status === 'skipped' ? 'text-yellow-600' :
                             'text-red-600'
                           }`}>
                             {item.status.toUpperCase()}
@@ -589,13 +605,13 @@ export default function ImportDataPage() {
                       {importResults.marksFeedback.map((item, idx) => (
                         <div key={`mark-${idx}`} className="text-xs p-1.5 border-b last:border-b-0 flex items-start">
                            {item.status === 'added' && <CheckCircle className="h-3.5 w-3.5 text-green-600 mr-1.5 flex-shrink-0" />}
-                           {item.status === 'skipped' && <AlertTriangle className="h-3.5 w-3.5 text-yellow-700 mr-1.5 flex-shrink-0" />}
+                           {item.status === 'skipped' && <AlertTriangle className="h-3.5 w-3.5 text-yellow-600 mr-1.5 flex-shrink-0" />}
                            {item.status === 'error' && <XCircle className="h-3.5 w-3.5 text-red-600 mr-1.5 flex-shrink-0" />}
                           <span className="font-semibold">Row {item.rowNumber}:</span>&nbsp;
                           Student ID: <span className="font-medium">{item.studentId || 'N/A'}</span>, Name: <span className="font-medium">{item.studentName}</span>, Subject: <span className="font-medium">{item.subjectName}</span>&nbsp;-&nbsp;
                            <span className={`font-medium ${
                             item.status === 'added' ? 'text-green-600' :
-                            item.status === 'skipped' ? 'text-yellow-700' :
+                            item.status === 'skipped' ? 'text-yellow-600' :
                             'text-red-600'
                           }`}>
                             {item.status.toUpperCase()}
@@ -619,5 +635,3 @@ export default function ImportDataPage() {
     </div>
   );
 }
-
-    

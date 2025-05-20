@@ -7,7 +7,7 @@ export const SUBJECT_CATEGORIES_OPTIONS = ['Compulsory', 'Elective', 'Additional
 
 
 export const subjectEntrySchema = z.object({
-  id: z.string().optional(), // For useFieldArray key
+  id: z.string().optional(), 
   subjectName: z.string().min(1, 'Subject name is required').max(100, 'Subject name too long'),
   category: z.enum(SUBJECT_CATEGORIES_OPTIONS, {
     required_error: 'Subject category is required.',
@@ -18,7 +18,7 @@ export const subjectEntrySchema = z.object({
   practicalMarksObtained: z.coerce.number().min(0, 'Practical marks cannot be negative').optional().default(0),
 }).refine(data => (data.theoryMarksObtained || 0) + (data.practicalMarksObtained || 0) <= data.totalMarks, {
   message: 'Obtained marks (Theory + Practical) cannot exceed Total Marks',
-  path: ['practicalMarksObtained'], // Changed path to practicalMarksObtained
+  path: ['practicalMarksObtained'], 
 }).refine(data => data.passMarks <= data.totalMarks, {
   message: 'Pass Marks cannot exceed Total Marks',
   path: ['passMarks'],
@@ -37,10 +37,26 @@ export const marksheetFormSchema = z.object({
   sessionStartYear: z.coerce.number().min(1990, 'Year too old').max(currentYear + 1, `Year too far in future`),
   sessionEndYear: z.coerce.number(), 
   overallPassingThresholdPercentage: z.coerce.number().min(0, 'Percentage cannot be negative').max(100, 'Percentage cannot exceed 100'),
-  subjects: z.array(subjectEntrySchema).min(1, 'At least one subject is required.'),
+  subjects: z.array(subjectEntrySchema)
+    .min(1, 'At least one subject is required.')
+    .refine(
+      (subjects) => {
+        if (subjects.length <= 1) return true;
+        // Only check for duplicates among subjects that have a name
+        const filledSubjectNames = subjects
+          .map((s) => (s.subjectName || '').trim().toLowerCase())
+          .filter(name => name !== '');
+        
+        if (filledSubjectNames.length <= 1) return true; // No duplicates if 0 or 1 filled subject name
+        
+        const uniqueSubjectNames = new Set(filledSubjectNames);
+        return uniqueSubjectNames.size === filledSubjectNames.length;
+      },
+      {
+        message: 'Duplicate subject names are not allowed. Each subject name must be unique.',
+      }
+    ),
 }).refine(data => data.sessionEndYear === data.sessionStartYear + 1, {
   message: 'Session end year must be one year after the start year.',
   path: ['sessionEndYear'],
 });
-
-    
