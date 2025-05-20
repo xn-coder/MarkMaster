@@ -59,7 +59,7 @@ export default function NewMarksheetPage() {
   const generateMarksheetNo = (faculty: string, rollNumber: string, sessionEndYear: number): string => {
     const facultyCode = faculty.substring(0, 2).toUpperCase();
     const month = format(new Date(), 'MMM').toUpperCase();
-    const sequence = String(Math.floor(Math.random() * 900) + 100);
+    const sequence = String(Math.floor(Math.random() * 900) + 100); // Random 3-digit sequence
     return `${facultyCode}/${month}/${sessionEndYear}/${rollNumber.slice(-3) || sequence}`;
   };
 
@@ -100,11 +100,11 @@ export default function NewMarksheetPage() {
     return {
       ...data,
       system_id: systemId, // Include the generated system ID
+      collegeCode: "53010", // Hardcoded as per example
       subjects: subjectsDisplay,
-      collegeCode: "53010",
       marksheetNo: generateMarksheetNo(data.faculty, data.rollNumber, data.sessionEndYear),
       sessionDisplay: `${data.sessionStartYear}-${data.sessionEndYear}`,
-      classDisplay: `${data.academicYear} (${data.section})`,
+      classDisplay: `${data.academicYear} (${data.section})`, // Using form's academicYear as Class
       aggregateMarksCompulsoryElective,
       totalPossibleMarksCompulsoryElective,
       overallResult,
@@ -117,6 +117,37 @@ export default function NewMarksheetPage() {
   const handleFormSubmit = async (data: MarksheetFormData) => {
     setIsLoadingFormSubmission(true);
     
+    // Uniqueness Check
+    const { data: existingStudent, error: checkError } = await supabase
+      .from('student_details')
+      .select('id')
+      .eq('roll_no', data.rollNumber)
+      .eq('academic_year', `${data.sessionStartYear}-${data.sessionEndYear}`)
+      .eq('class', data.academicYear) // Form's 'academicYear' field is used as 'class'
+      .eq('section', data.section)
+      .eq('faculty', data.faculty)
+      .maybeSingle();
+
+    if (checkError) {
+      toast({
+        title: 'Database Error',
+        description: `Failed to check for existing student: ${checkError.message}`,
+        variant: 'destructive',
+      });
+      setIsLoadingFormSubmission(false);
+      return;
+    }
+
+    if (existingStudent) {
+      toast({
+        title: 'Student Exists',
+        description: 'A student with the same Roll No, Session, Class, Section, and Faculty already exists.',
+        variant: 'destructive',
+      });
+      setIsLoadingFormSubmission(false);
+      return;
+    }
+
     const systemGeneratedId = crypto.randomUUID(); // Generate UUID for the new student
 
     try {
@@ -131,9 +162,9 @@ export default function NewMarksheetPage() {
         dob: dobFormatted,
         gender: data.gender,
         faculty: data.faculty,
-        class: data.academicYear,
+        class: data.academicYear, // Form's 'academicYear' (e.g., "11th") goes into DB 'class'
         section: data.section,
-        academic_year: `${data.sessionStartYear}-${data.sessionEndYear}`,
+        academic_year: `${data.sessionStartYear}-${data.sessionEndYear}`, // Session string
       };
 
       const { data: insertedStudentData, error: studentError } = await supabase
@@ -171,12 +202,15 @@ export default function NewMarksheetPage() {
 
         if (subjectMarksError) {
           console.error('Error inserting subject marks:', subjectMarksError);
+          // Attempt to delete the just-inserted student if marks fail, to avoid orphaned student record
+          await supabase.from('student_details').delete().eq('id', insertedStudentData.id);
           toast({
             title: 'Database Error',
-            description: `Failed to save subject marks: ${subjectMarksError.message}. Student data was saved, but subjects were not.`,
+            description: `Failed to save subject marks: ${subjectMarksError.message}. Student data was not saved.`,
             variant: 'destructive',
           });
-          // Decide if you want to proceed to show preview even if marks fail
+          setIsLoadingFormSubmission(false);
+          return; 
         } else {
           toast({
             title: 'Marksheet Data Saved',
@@ -185,7 +219,7 @@ export default function NewMarksheetPage() {
         }
       } else {
          toast({
-            title: 'No Subjects',
+            title: 'Student Data Saved (No Subjects)',
             description: 'Student data saved, but no subjects were provided to save.',
             variant: 'default'
         });
@@ -213,6 +247,7 @@ export default function NewMarksheetPage() {
   const handleCreateNew = () => {
     setMarksheetData(null);
      // Optionally reset the form to default state if MarksheetForm supports it
+     // Or, force a re-render with key prop if MarksheetForm's internal state needs full reset
   };
 
   if (authStatus === 'loading') {
@@ -223,17 +258,6 @@ export default function NewMarksheetPage() {
       </div>
     );
   }
-
-  // No explicit redirecting state needed here as useEffect handles it
-  // if (authStatus === 'unauthenticated') {
-  //   // Handled by useEffect redirect
-  //   return (
-  //     <div className="flex items-center justify-center min-h-screen bg-background">
-  //       <Loader2 className="h-12 w-12 animate-spin text-primary" />
-  //       <p className="ml-2 text-muted-foreground">Redirecting to login...</p>
-  //     </div>
-  //   );
-  // }
 
 
   return (
@@ -251,7 +275,7 @@ export default function NewMarksheetPage() {
       </div>
 
       <main className="flex-grow container mx-auto px-4 py-8 sm:px-6 lg:px-8 print:p-0 print:m-0 print:h-full print:container-none print:max-w-none">
-        <div className="mb-6 text-center">
+        <div className="mb-6 text-center print:hidden">
           <h1 className="text-2xl font-bold text-primary">
             {marksheetData ? 'Marksheet Preview' : 'Create New Marksheet'}
           </h1>
@@ -276,3 +300,4 @@ export default function NewMarksheetPage() {
     </div>
   );
 }
+

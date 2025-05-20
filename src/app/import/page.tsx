@@ -33,25 +33,27 @@ www.saryugcollege.com`;
 const generateAcademicSessionOptions = () => {
   const currentYear = new Date().getFullYear();
   const startYear = 1970;
-  const endYear = currentYear + 2;
+  const endYear = currentYear + 2; // Sessions up to e.g., 2025-2026 if currentYear is 2024
   const options = ['Select Session'];
   for (let i = startYear; i <= endYear; i++) {
     options.push(`${i}-${i + 1}`);
   }
-  return options.reverse();
+  return options.reverse(); // Puts most recent sessions at the top
 };
 
 const ACADEMIC_SESSION_OPTIONS = generateAcademicSessionOptions();
 
 const parseExcelDate = (excelDate: any): string | null => {
   if (typeof excelDate === 'number') {
+    // Try to parse Excel serial date number
     const date = XLSX.SSF.parse_date_code(excelDate);
     if (date) {
       const month = String(date.m).padStart(2, '0');
       const day = String(date.d).padStart(2, '0');
-      return `${date.y}-${month}-${day}`;
+      return `${date.y}-${month}-${day}`; // yyyy-MM-dd
     }
   } else if (typeof excelDate === 'string') {
+    // Try parsing common date string formats
     const formatsToTry = ["yyyy-MM-dd", "dd-MM-yyyy", "MM/dd/yyyy", "dd/MM/yyyy", "yyyy/MM/dd"];
     for (const fmt of formatsToTry) {
       try {
@@ -61,6 +63,7 @@ const parseExcelDate = (excelDate: any): string | null => {
         }
       } catch (e) { /* ignore parse error and try next format */ }
     }
+    // Fallback for ISO strings
     if (isValid(parseISO(excelDate))) {
       return format(parseISO(excelDate), 'yyyy-MM-dd');
     }
@@ -104,7 +107,7 @@ export default function ImportDataPage() {
     if (selectedFile) {
       if (selectedFile.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' || selectedFile.type === 'application/vnd.ms-excel') {
         setFile(selectedFile);
-        setImportResults(null);
+        setImportResults(null); // Reset previous results when a new file is selected
       } else {
         toast({ title: "Invalid File Type", description: "Please select an Excel file (.xlsx or .xls).", variant: "destructive" });
         setFile(null);
@@ -147,11 +150,13 @@ export default function ImportDataPage() {
       return;
     }
 
+    // Validate academic session format (YYYY-YYYY)
     const academicYearParts = selectedAcademicSession.split('-');
     if (academicYearParts.length !== 2 || !/^\d{4}$/.test(academicYearParts[0].trim()) || !/^\d{4}$/.test(academicYearParts[1].trim())) {
       toast({ title: "Invalid Session Format", description: `The selected Academic Session "${selectedAcademicSession}" is not valid. Expected YYYY-YYYY.`, variant: "destructive" });
       return;
     }
+
 
     setIsLoading(true);
     setImportResults(null);
@@ -183,7 +188,7 @@ export default function ImportDataPage() {
       const processedSubjectKeysForImport = new Set<string>(); // To track systemUUID_subjectName for duplicates in current file
 
       try {
-        const workbook = XLSX.read(data, { type: 'array', cellDates: false });
+        const workbook = XLSX.read(data, { type: 'array', cellDates: false }); // cellDates: false to read dates as raw values
 
         // --- Process Student Details Sheet ---
         const studentDetailsSheetName = 'Student Details';
@@ -197,16 +202,17 @@ export default function ImportDataPage() {
 
           for (let i = 0; i < studentDetailsJson.length; i++) {
             const row = studentDetailsJson[i];
-            const rowNum = i + 2;
+            const rowNum = i + 2; // Excel row number (1-based, +1 for header)
 
+            // Extract data, trim strings and handle potential null/undefined
             const excelStudentId = String(row['Student ID'] || '').trim();
             const studentName = String(row['Student Name'] || '').trim();
             const fatherName = String(row['Father Name'] || '').trim();
             const motherName = String(row['Mother Name'] || '').trim();
-            const dobRaw = row['Date of Birth'];
+            const dobRaw = row['Date of Birth']; // Keep raw for parsing
             const gender = String(row['Gender'] || '').trim();
             const faculty = String(row['Faculty'] || '').trim();
-            const studentClass = String(row['Class'] || '').trim();
+            const studentClass = String(row['Class'] || '').trim(); // 'Class' from Excel
             const section = String(row['Section'] || '').trim();
 
             const currentFeedback: StudentImportFeedbackItem = { rowNumber: rowNum, excelStudentId: excelStudentId, name: studentName, status: 'skipped', message: '' };
@@ -220,21 +226,48 @@ export default function ImportDataPage() {
 
             const dobFormatted = parseExcelDate(dobRaw);
             if (!dobFormatted) {
-              currentFeedback.message = `Invalid Date of Birth format: ${dobRaw}.`;
+              currentFeedback.message = `Invalid Date of Birth format: ${dobRaw}. Ensure it is a valid date.`;
               results.studentFeedback.push(currentFeedback);
               results.totalStudentsSkipped++;
               continue;
             }
 
+            // Uniqueness check
+            const { data: existingStudent, error: checkError } = await supabase
+              .from('student_details')
+              .select('id')
+              .eq('roll_no', excelStudentId)
+              .eq('academic_year', selectedAcademicSession)
+              .eq('class', studentClass)
+              .eq('section', section)
+              .eq('faculty', faculty)
+              .maybeSingle();
+
+            if (checkError) {
+              currentFeedback.status = 'error';
+              currentFeedback.message = `Database error checking for existing student: ${checkError.message}`;
+              results.studentFeedback.push(currentFeedback);
+              results.totalStudentsSkipped++;
+              continue;
+            }
+
+            if (existingStudent) {
+              currentFeedback.message = `Student with Roll No ${excelStudentId} in Session ${selectedAcademicSession}, Class ${studentClass} (${section}), Faculty ${faculty} already exists. Skipped.`;
+              results.studentFeedback.push(currentFeedback);
+              results.totalStudentsSkipped++;
+              continue;
+            }
+            
+            // Check for duplicate Student ID within the current Excel file processing (for mapping purposes)
             if (excelStudentIdToSystemIdMap.has(excelStudentId)) {
-                currentFeedback.message = `Duplicate Student ID "${excelStudentId}" found within the 'Student Details' sheet. Only the first instance will be processed.`;
+                currentFeedback.message = `Duplicate Student ID "${excelStudentId}" found within the 'Student Details' sheet. Only the first instance will be processed for mapping marks.`;
                 results.studentFeedback.push(currentFeedback);
-                results.totalStudentsSkipped++;
+                results.totalStudentsSkipped++; // This student won't be added, previous one was already processed or skipped.
                 continue;
             }
 
             const systemGeneratedId = crypto.randomUUID();
-            excelStudentIdToSystemIdMap.set(excelStudentId, systemGeneratedId);
+            excelStudentIdToSystemIdMap.set(excelStudentId, systemGeneratedId); // Map Excel ID to system ID for marks linkage
             currentFeedback.generatedSystemId = systemGeneratedId;
 
             studentInserts.push({
@@ -246,11 +279,11 @@ export default function ImportDataPage() {
               dob: dobFormatted,
               gender: gender,
               faculty: faculty,
-              class: studentClass,
+              class: studentClass, // Storing the value from 'Class' column in Excel
               section: section,
-              academic_year: selectedAcademicSession,
+              academic_year: selectedAcademicSession, // Session from dropdown
             });
-            currentFeedback.status = 'added';
+            currentFeedback.status = 'added'; // Tentatively added, actual status on DB result
             currentFeedback.message = 'Pending database insertion.';
             results.studentFeedback.push(currentFeedback);
           }
@@ -263,12 +296,14 @@ export default function ImportDataPage() {
 
             if (studentInsertError) {
               results.summaryMessages.push({ type: 'error', message: `Error inserting student details: ${studentInsertError.message}` });
+              // Update feedback for students that failed to insert
               studentInserts.forEach(si => {
                 const feedback = results.studentFeedback.find(f => f.generatedSystemId === si.id && f.status === 'added');
                 if (feedback) {
                   feedback.status = 'error';
                   feedback.message = `Database insert failed: ${studentInsertError.message}`;
                 } else {
+                  // This case should ideally not happen if feedback items are pushed correctly
                   results.studentFeedback.push({
                     rowNumber: -1, // Indicates it wasn't tied to a specific row error initially
                     excelStudentId: si.roll_no,
@@ -279,10 +314,11 @@ export default function ImportDataPage() {
                   });
                 }
               });
-              results.totalStudentsAdded = 0;
+              results.totalStudentsAdded = 0; // None were actually added if the batch insert fails
             } else {
               results.totalStudentsAdded = insertedStudents?.length || 0;
               results.summaryMessages.push({ type: 'success', message: `${results.totalStudentsAdded} student(s) details successfully prepared for insertion or inserted.` });
+              // Update feedback for successfully inserted students
               insertedStudents?.forEach(is => {
                 const feedback = results.studentFeedback.find(f => f.generatedSystemId === is.id && f.status === 'added');
                 if (feedback) {
@@ -294,7 +330,7 @@ export default function ImportDataPage() {
           } else {
             results.totalStudentsSkipped = results.totalStudentsProcessed;
             if (results.totalStudentsProcessed > 0) {
-              results.summaryMessages.push({ type: 'info', message: `No student details were prepared for insertion. All ${results.totalStudentsProcessed} rows had issues.` });
+               results.summaryMessages.push({ type: 'info', message: `No student details were prepared for insertion. All ${results.totalStudentsProcessed} rows had issues or were duplicates.` });
             }
           }
         }
@@ -314,7 +350,7 @@ export default function ImportDataPage() {
             const rowNum = i + 2;
 
             const excelStudentIdForMarks = String(row['Student ID'] || '').trim();
-            const studentNameForFeedback = String(row['Name'] || '').trim();
+            const studentNameForFeedback = String(row['Name'] || '').trim(); // For feedback clarity
             const subjectName = String(row['Subject Name'] || '').trim();
             const subjectCategory = String(row['Subject Category'] || '').trim();
             const maxMarksRaw = row['Max Marks'];
@@ -333,12 +369,13 @@ export default function ImportDataPage() {
 
             const systemIdForMarks = excelStudentIdToSystemIdMap.get(excelStudentIdForMarks);
             if (!systemIdForMarks) {
-              currentFeedback.message = `Student ID "${excelStudentIdForMarks}" not found in 'Student Details' sheet (from current file) or was invalid. Marks for this subject skipped.`;
+              currentFeedback.message = `Student ID "${excelStudentIdForMarks}" not found in 'Student Details' sheet (from current file) or was invalid/skipped. Marks for this subject skipped.`;
               results.marksFeedback.push(currentFeedback);
               results.totalMarksSkipped++;
               continue;
             }
             
+            // Duplicate subject check for the *same student* in the *current import file*
             const subjectKey = `${systemIdForMarks}_${subjectName.trim().toLowerCase()}`;
             if (processedSubjectKeysForImport.has(subjectKey)) {
               currentFeedback.message = `Duplicate subject "${subjectName}" for Student ID "${excelStudentIdForMarks}" (System ID: ${systemIdForMarks}) in this file. Skipped.`;
@@ -353,15 +390,17 @@ export default function ImportDataPage() {
             const practicalMarks = parseFloat(String(practicalMarksRaw));
 
             if (isNaN(maxMarks) || isNaN(passMarks)) {
-              currentFeedback.message = "Invalid Max Marks or Pass Marks.";
+              currentFeedback.message = "Invalid Max Marks or Pass Marks. Must be numbers.";
               results.marksFeedback.push(currentFeedback);
               results.totalMarksSkipped++;
               continue;
             }
+            // Mark this subject as processed for this student in this import
             processedSubjectKeysForImport.add(subjectKey);
 
             const obtainedTotalMarks = (isNaN(theoryMarks) ? 0 : theoryMarks) + (isNaN(practicalMarks) ? 0 : practicalMarks);
 
+            // Validations for marks
             if (obtainedTotalMarks > maxMarks) {
               currentFeedback.message = `Obtained marks (${obtainedTotalMarks}) exceed Max Marks (${maxMarks}).`;
               results.marksFeedback.push(currentFeedback);
@@ -399,8 +438,10 @@ export default function ImportDataPage() {
             if (marksInsertError) {
               results.summaryMessages.push({ type: 'error', message: `Error inserting marks details: ${marksInsertError.message}` });
               marksInserts.forEach(mi => {
+                // Find the corresponding feedback item to update its status
+                // This is a bit complex due to mapping; for simplicity, we'll find by student_detail_id and subject_name
                 const feedback = results.marksFeedback.find(f =>
-                  f.excelStudentId === excelStudentIdToSystemIdMap.forEach((value, key) => { if (value === mi.student_detail_id) return key;}) && // This lookup is a bit convoluted, might need improvement if direct excelStudentId is needed for error feedback
+                  f.excelStudentId === Array.from(excelStudentIdToSystemIdMap.entries()).find(([, sysId]) => sysId === mi.student_detail_id)?.[0] &&
                   f.subjectName === mi.subject_name &&
                   f.status === 'added'
                 );
@@ -408,8 +449,9 @@ export default function ImportDataPage() {
                   feedback.status = 'error';
                   feedback.message = `Database insert failed: ${marksInsertError.message}`;
                 } else {
+                  // Fallback if feedback item not found, though it should be
                   results.marksFeedback.push({
-                    rowNumber: -1,
+                    rowNumber: -1, // Indicates not tied to a specific row's initial processing
                     excelStudentId: `For System ID ${mi.student_detail_id}`, // Fallback feedback
                     studentName: `N/A`,
                     subjectName: mi.subject_name,
@@ -418,22 +460,26 @@ export default function ImportDataPage() {
                   });
                 }
               });
-              results.totalMarksAdded = 0;
+              results.totalMarksAdded = 0; // None were actually added
             } else {
               results.totalMarksAdded = insertedMarks?.length || 0;
               results.summaryMessages.push({ type: 'success', message: `${results.totalMarksAdded} marks records successfully inserted.` });
+              // Update feedback for successfully inserted marks
               insertedMarks?.forEach(im => {
-                const feedback = results.marksFeedback.find(f =>
-                  // Find corresponding feedback item
-                  excelStudentIdToSystemIdMap.forEach((sysId, excelId) => {
-                     if (sysId === im.student_detail_id && f.excelStudentId === excelId && f.subjectName === im.subject_name && f.status === 'added') {
-                        f.message = 'Successfully added to database.';
-                     }
-                  })
+                 const feedback = results.marksFeedback.find(f =>
+                    Array.from(excelStudentIdToSystemIdMap.entries()).some(([excelId, sysId]) => 
+                        sysId === im.student_detail_id && 
+                        f.excelStudentId === excelId && 
+                        f.subjectName === im.subject_name && 
+                        f.status === 'added'
+                    )
                 );
+                if (feedback) {
+                  feedback.message = 'Successfully added to database.';
+                }
               });
             }
-            results.totalMarksSkipped = results.totalMarksProcessed - results.totalMarksAdded;
+             results.totalMarksSkipped = results.totalMarksProcessed - results.totalMarksAdded;
           } else {
             results.totalMarksSkipped = results.totalMarksProcessed;
             if (results.totalMarksProcessed > 0) {
@@ -450,9 +496,9 @@ export default function ImportDataPage() {
         setImportResults(results);
         setIsLoading(false);
         if (fileInputRef.current) {
-          fileInputRef.current.value = '';
+          fileInputRef.current.value = ''; // Clear file input
         }
-        setFile(null);
+        setFile(null); // Reset file state
       }
     };
     reader.onerror = () => {
@@ -494,12 +540,6 @@ export default function ImportDataPage() {
               </p>
                <p>
                 Select the <strong>Academic Session</strong> from the dropdown below. This session will be applied to all students in the imported file.
-              </p>
-              <p>
-                Required columns for "Student Details": Student ID, Student Name, Father Name, Mother Name, Date of Birth, Gender, Faculty, Class, Section.
-              </p>
-              <p>
-                Required columns for "Student Marks Details": Student ID (must match a "Student ID" in Student Details sheet), Name (for reference), Subject Name, Subject Category, Max Marks, Pass Marks. Optional: Theory Marks Obtained, Practical Marks Obtained.
               </p>
             </CardDescription>
             <Button variant="link" onClick={handleDownloadSampleFile} className="p-0 h-auto self-start text-sm mt-2">
@@ -561,7 +601,7 @@ export default function ImportDataPage() {
                   <div key={`summary-${idx}`} className={`p-3 rounded-md text-sm flex items-center gap-2 ${msg.type === 'success' ? 'bg-green-100 text-green-700 border border-green-300' :
                     msg.type === 'error' ? 'bg-red-100 text-red-700 border border-red-300' :
                       msg.type === 'warning' ? 'bg-yellow-100 text-yellow-700 border border-yellow-300' :
-                        'bg-blue-100 text-blue-700 border border-blue-300'
+                        'bg-blue-100 text-blue-700 border border-blue-300' // Info
                     }`}>
                     {msg.type === 'success' && <CheckCircle className="h-5 w-5" />}
                     {msg.type === 'error' && <XCircle className="h-5 w-5" />}
@@ -586,8 +626,8 @@ export default function ImportDataPage() {
                           <span className="font-semibold">Row {item.rowNumber}:</span>&nbsp;
                           <span className="font-medium">Excel ID: {item.excelStudentId || 'N/A'}, Name: {item.name}</span>&nbsp;-&nbsp;
                           <span className={`font-medium ${item.status === 'added' ? 'text-green-600' :
-                            item.status === 'skipped' ? 'text-yellow-600' :
-                              'text-red-600'
+                            item.status === 'skipped' ? 'text-yellow-600' : // Skipped is yellow/orange
+                              'text-red-600' // Error is red
                             }`}>
                             {item.status.toUpperCase()}
                           </span>
@@ -613,8 +653,8 @@ export default function ImportDataPage() {
                           <span className="font-semibold">Row {item.rowNumber}:</span>&nbsp;
                           Excel Student ID: <span className="font-medium">{item.excelStudentId || 'N/A'}</span>, Name: <span className="font-medium">{item.studentName}</span>, Subject: <span className="font-medium">{item.subjectName}</span>&nbsp;-&nbsp;
                           <span className={`font-medium ${item.status === 'added' ? 'text-green-600' :
-                            item.status === 'skipped' ? 'text-yellow-600' :
-                              'text-red-600'
+                            item.status === 'skipped' ? 'text-yellow-600' : // Skipped is yellow/orange
+                              'text-red-600' // Error is red
                             }`}>
                             {item.status.toUpperCase()}
                           </span>
@@ -637,3 +677,4 @@ export default function ImportDataPage() {
     </div>
   );
 }
+
