@@ -23,45 +23,47 @@ export default function NewMarksheetPage() {
   const { toast } = useToast();
 
   const [authStatus, setAuthStatus] = useState<'loading' | 'authenticated' | 'unauthenticated'>('loading');
-  
-  const [isLoadingFormSubmission, setIsLoadingFormSubmission] = useState(false); 
+
+  const [isLoadingFormSubmission, setIsLoadingFormSubmission] = useState(false);
   const [marksheetData, setMarksheetData] = useState<MarksheetDisplayData | null>(null);
   const [footerYear, setFooterYear] = useState<number | null>(null);
 
   useEffect(() => {
     const checkAuthentication = async () => {
-      const { data: { session }, error } = await supabase.auth.getSession();
-
-      if (error) {
-        console.error("Authentication error on new marksheet page:", error.message);
-        setAuthStatus('unauthenticated'); 
-      } else if (!session) {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (error) {
+          console.error("Authentication error on new marksheet page:", error.message);
+          setAuthStatus('unauthenticated');
+        } else if (!session) {
+          setAuthStatus('unauthenticated');
+        } else {
+          setAuthStatus('authenticated');
+        }
+      } catch (e) {
+        console.error("Exception during auth check:", e);
         setAuthStatus('unauthenticated');
-      } else {
-        setAuthStatus('authenticated');
       }
     };
-
     checkAuthentication();
-  }, []); 
+  }, []);
 
   useEffect(() => {
     if (authStatus === 'unauthenticated') {
       router.push('/login');
     } else if (authStatus === 'authenticated') {
-      setFooterYear(new Date().getFullYear()); 
+      setFooterYear(new Date().getFullYear());
     }
   }, [authStatus, router]);
-
 
   const generateMarksheetNo = (faculty: string, rollNumber: string, sessionEndYear: number): string => {
     const facultyCode = faculty.substring(0, 2).toUpperCase();
     const month = format(new Date(), 'MMM').toUpperCase();
-    const sequence = String(Math.floor(Math.random() * 900) + 100); 
+    const sequence = String(Math.floor(Math.random() * 900) + 100);
     return `${facultyCode}/${month}/${sessionEndYear}/${rollNumber.slice(-3) || sequence}`;
   };
-  
-  const processFormData = (data: MarksheetFormData): MarksheetDisplayData => {
+
+  const processFormData = (data: MarksheetFormData, systemId: string): MarksheetDisplayData => {
     const subjectsDisplay: MarksheetSubjectDisplayEntry[] = data.subjects.map(s => ({
       ...s,
       obtainedTotal: (s.theoryMarksObtained || 0) + (s.practicalMarksObtained || 0),
@@ -79,7 +81,7 @@ export default function NewMarksheetPage() {
       (sum, s) => sum + s.totalMarks,
       0
     );
-    
+
     const overallPercentageDisplay = totalPossibleMarksCompulsoryElective > 0
       ? (aggregateMarksCompulsoryElective / totalPossibleMarksCompulsoryElective) * 100
       : 0;
@@ -89,19 +91,20 @@ export default function NewMarksheetPage() {
       overallResult = 'Fail';
     }
     for (const subject of subjectsDisplay) {
-        if (subject.obtainedTotal < subject.passMarks) {
-            overallResult = 'Fail'; 
-            break;
-        }
+      if (subject.obtainedTotal < subject.passMarks) {
+        overallResult = 'Fail';
+        break;
+      }
     }
 
     return {
       ...data,
+      system_id: systemId, // Include the generated system ID
       subjects: subjectsDisplay,
-      collegeCode: "53010", 
+      collegeCode: "53010",
       marksheetNo: generateMarksheetNo(data.faculty, data.rollNumber, data.sessionEndYear),
       sessionDisplay: `${data.sessionStartYear}-${data.sessionEndYear}`,
-      classDisplay: `${data.academicYear} (${data.section})`, 
+      classDisplay: `${data.academicYear} (${data.section})`,
       aggregateMarksCompulsoryElective,
       totalPossibleMarksCompulsoryElective,
       overallResult,
@@ -113,55 +116,45 @@ export default function NewMarksheetPage() {
 
   const handleFormSubmit = async (data: MarksheetFormData) => {
     setIsLoadingFormSubmission(true);
-    const processedDataForDisplay = processFormData(data); 
+    
+    const systemGeneratedId = crypto.randomUUID(); // Generate UUID for the new student
 
     try {
       const dobFormatted = format(data.dateOfBirth, 'yyyy-MM-dd');
 
       const studentToInsert = {
-        student_id: data.rollNumber, 
+        id: systemGeneratedId, // Use generated UUID as PK
+        roll_no: data.rollNumber, // User-entered roll number
         name: data.studentName,
         father_name: data.fatherName,
         mother_name: data.motherName,
-        roll_no: data.rollNumber, 
         dob: dobFormatted,
         gender: data.gender,
         faculty: data.faculty,
-        class: data.academicYear, 
+        class: data.academicYear,
         section: data.section,
-        academic_year: `${data.sessionStartYear}-${data.sessionEndYear}`, 
+        academic_year: `${data.sessionStartYear}-${data.sessionEndYear}`,
       };
 
-      const { data: insertedStudent, error: studentError } = await supabase
+      const { data: insertedStudentData, error: studentError } = await supabase
         .from('student_details')
         .insert(studentToInsert)
         .select()
         .single();
 
-      if (studentError) {
+      if (studentError || !insertedStudentData) {
         console.error('Error inserting student:', studentError);
         toast({
           title: 'Database Error',
-          description: `Failed to save student data: ${studentError.message}`,
+          description: `Failed to save student data: ${studentError?.message || 'Unknown error.'}`,
           variant: 'destructive',
         });
         setIsLoadingFormSubmission(false);
         return;
       }
 
-      if (!insertedStudent) {
-         console.error('Student data was not returned after insert.');
-        toast({
-          title: 'Database Error',
-          description: 'Failed to save student data (no record returned). Please check database logs.',
-          variant: 'destructive',
-        });
-        setIsLoadingFormSubmission(false);
-        return;
-      }
-      
       const subjectMarksToInsert = data.subjects.map(subject => ({
-        student_id: insertedStudent.student_id, 
+        student_detail_id: insertedStudentData.id, // Link using the new system UUID
         subject_name: subject.subjectName,
         category: subject.category,
         max_marks: subject.totalMarks,
@@ -171,24 +164,34 @@ export default function NewMarksheetPage() {
         obtained_total_marks: (subject.theoryMarksObtained || 0) + (subject.practicalMarksObtained || 0),
       }));
 
-      const { error: subjectMarksError } = await supabase
-        .from('student_marks_details')
-        .insert(subjectMarksToInsert);
+      if (subjectMarksToInsert.length > 0) {
+        const { error: subjectMarksError } = await supabase
+          .from('student_marks_details')
+          .insert(subjectMarksToInsert);
 
-      if (subjectMarksError) {
-        console.error('Error inserting subject marks:', subjectMarksError);
-        toast({
-          title: 'Database Error',
-          description: `Failed to save subject marks: ${subjectMarksError.message}. Student data was saved, but subjects were not.`,
-          variant: 'destructive',
-        });
+        if (subjectMarksError) {
+          console.error('Error inserting subject marks:', subjectMarksError);
+          toast({
+            title: 'Database Error',
+            description: `Failed to save subject marks: ${subjectMarksError.message}. Student data was saved, but subjects were not.`,
+            variant: 'destructive',
+          });
+          // Decide if you want to proceed to show preview even if marks fail
+        } else {
+          toast({
+            title: 'Marksheet Data Saved',
+            description: 'Student and subject data successfully saved to the database.',
+          });
+        }
       } else {
-        toast({
-          title: 'Marksheet Data Saved',
-          description: 'Student and subject data successfully saved to the database.',
+         toast({
+            title: 'No Subjects',
+            description: 'Student data saved, but no subjects were provided to save.',
+            variant: 'default'
         });
       }
       
+      const processedDataForDisplay = processFormData(data, insertedStudentData.id);
       setMarksheetData(processedDataForDisplay);
 
     } catch (error) {
@@ -208,7 +211,8 @@ export default function NewMarksheetPage() {
   };
 
   const handleCreateNew = () => {
-    setMarksheetData(null); 
+    setMarksheetData(null);
+     // Optionally reset the form to default state if MarksheetForm supports it
   };
 
   if (authStatus === 'loading') {
@@ -220,19 +224,22 @@ export default function NewMarksheetPage() {
     );
   }
 
-  if (authStatus === 'unauthenticated') {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-background">
-        <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        <p className="ml-2 text-muted-foreground">Redirecting to login...</p>
-      </div>
-    );
-  }
+  // No explicit redirecting state needed here as useEffect handles it
+  // if (authStatus === 'unauthenticated') {
+  //   // Handled by useEffect redirect
+  //   return (
+  //     <div className="flex items-center justify-center min-h-screen bg-background">
+  //       <Loader2 className="h-12 w-12 animate-spin text-primary" />
+  //       <p className="ml-2 text-muted-foreground">Redirecting to login...</p>
+  //     </div>
+  //   );
+  // }
+
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col print:h-full">
       <div className="print:hidden">
-        <AppHeader 
+        <AppHeader
           pageTitle="SARYUG COLLEGE"
           pageSubtitle={defaultPageSubtitle}
           customRightContent={
@@ -242,7 +249,7 @@ export default function NewMarksheetPage() {
           }
         />
       </div>
-      
+
       <main className="flex-grow container mx-auto px-4 py-8 sm:px-6 lg:px-8 print:p-0 print:m-0 print:h-full print:container-none print:max-w-none">
         <div className="mb-6 text-center">
           <h1 className="text-2xl font-bold text-primary">
@@ -262,12 +269,10 @@ export default function NewMarksheetPage() {
 
       <footer className="py-4 border-t border-border mt-auto print:hidden">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 text-center text-xs text-muted-foreground">
-            {footerYear && <p>Copyright ©{footerYear} by Saryug College, Samastipur, Bihar. Design By Mantix.</p>}
-            {!footerYear && <p>Copyright by Saryug College, Samastipur, Bihar. Design By Mantix.</p>}
+          {footerYear && <p>Copyright ©{footerYear} by Saryug College, Samastipur, Bihar. Design By Mantix.</p>}
+          {!footerYear && <p>Copyright by Saryug College, Samastipur, Bihar. Design By Mantix.</p>}
         </div>
       </footer>
     </div>
   );
 }
-
-    

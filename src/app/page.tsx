@@ -49,14 +49,8 @@ import {
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { format, parseISO } from 'date-fns';
+import type { StudentRowData } from '@/types';
 
-interface StudentRowData {
-  id: string; // student_id
-  name: string;
-  academicYear: string; // Session like "2025-2027"
-  studentClass: string; // Class like "11th", "1st Year" (maps to 'class' column in DB)
-  faculty: string;
-}
 
 const ACADEMIC_YEARS = ['All Academic Years', '2025-2027', '2024-2028', '2024-2026', '2023-2025', '2022-2024', '2022-2023', '2021-2023', '2021-2022', '2018-2019'];
 const START_YEARS = ['All Start Years', ...Array.from({ length: new Date().getFullYear() + 1 - 2018 + 1 }, (_, i) => (2018 + i).toString()).reverse()];
@@ -77,12 +71,13 @@ export default function AdminDashboardPage() {
   const [isExporting, setIsExporting] = useState(false);
 
   const [allStudents, setAllStudents] = useState<StudentRowData[]>([]);
-  const [filteredStudents, setFilteredStudents] = useState<StudentRowData[]>([]);
+  const [displayedStudents, setDisplayedStudents] = useState<StudentRowData[]>([]);
+
 
   const [academicYearFilter, setAcademicYearFilter] = useState('All Academic Years');
   const [startYearFilter, setStartYearFilter] = useState('All Start Years');
   const [endYearFilter, setEndYearFilter] = useState('All End Years');
-  const [studentIdFilter, setStudentIdFilter] = useState('');
+  const [studentIdFilter, setStudentIdFilter] = useState(''); // This will filter by roll_no
   const [studentNameFilter, setStudentNameFilter] = useState('');
   const [classFilter, setClassFilter] = useState('All Classes');
 
@@ -117,17 +112,18 @@ export default function AdminDashboardPage() {
     setIsLoadingData(true);
     const { data: studentsData, error } = await supabase
       .from('student_details')
-      .select('student_id, name, faculty, class, academic_year');
+      .select('id, roll_no, name, faculty, class, academic_year'); // Fetch new 'id' (UUID) and 'roll_no'
 
     if (error) {
       toast({ title: "Error Loading Students", description: error.message, variant: "destructive" });
       setAllStudents([]);
     } else if (studentsData) {
       const formattedStudents: StudentRowData[] = studentsData.map(s => ({
-        id: s.student_id,
+        system_id: s.id, // Map DB 'id' to 'system_id'
+        roll_no: s.roll_no, // Map DB 'roll_no' to 'roll_no'
         name: s.name,
-        academicYear: s.academic_year, // This is the session like "2023-2024"
-        studentClass: s.class,        // This is the class like "11th"
+        academicYear: s.academic_year,
+        studentClass: s.class,
         faculty: s.faculty,
       }));
       setAllStudents(formattedStudents);
@@ -138,8 +134,9 @@ export default function AdminDashboardPage() {
     }
     setIsLoadingData(false);
   };
-
-  useEffect(() => {
+  
+  // Apply filters when allStudents or filter criteria change
+ useEffect(() => {
     let filtered = allStudents;
 
     if (academicYearFilter !== 'All Academic Years') {
@@ -151,8 +148,8 @@ export default function AdminDashboardPage() {
     if (endYearFilter !== 'All End Years') {
       filtered = filtered.filter(student => student.academicYear?.endsWith(endYearFilter));
     }
-    if (studentIdFilter) {
-      filtered = filtered.filter(student => student.id.toLowerCase().includes(studentIdFilter.toLowerCase()));
+    if (studentIdFilter) { // This now filters by roll_no
+      filtered = filtered.filter(student => student.roll_no.toLowerCase().includes(studentIdFilter.toLowerCase()));
     }
     if (studentNameFilter) {
       filtered = filtered.filter(student => student.name.toLowerCase().includes(studentNameFilter.toLowerCase()));
@@ -161,66 +158,63 @@ export default function AdminDashboardPage() {
       filtered = filtered.filter(student => student.studentClass === classFilter);
     }
 
-    setFilteredStudents(filtered);
-    setCurrentPage(1);
+    setDisplayedStudents(filtered);
+    setCurrentPage(1); // Reset to first page on filter change
   }, [allStudents, academicYearFilter, startYearFilter, endYearFilter, studentIdFilter, studentNameFilter, classFilter]);
 
 
   const paginatedStudents = useMemo(() => {
     const startIndex = (currentPage - 1) * entriesPerPage;
-    return filteredStudents.slice(startIndex, startIndex + entriesPerPage);
-  }, [filteredStudents, currentPage, entriesPerPage]);
+    return displayedStudents.slice(startIndex, startIndex + entriesPerPage);
+  }, [displayedStudents, currentPage, entriesPerPage]);
 
-  const totalPages = Math.ceil(filteredStudents.length / entriesPerPage);
+  const totalPages = Math.ceil(displayedStudents.length / entriesPerPage);
 
   const handleViewMarksheet = (student: StudentRowData) => {
-    router.push(`/marksheet/view/${student.id}`);
+    router.push(`/marksheet/view/${student.system_id}`); // Use system_id for navigation
   };
 
   const handleEditStudent = (student: StudentRowData) => {
-    router.push(`/marksheet/edit/${student.id}`);
+    router.push(`/marksheet/edit/${student.system_id}`); // Use system_id for navigation
   };
 
   const handleDeleteStudent = async (student: StudentRowData) => {
-     // First, attempt to delete related marks
     const { error: marksError } = await supabase
-        .from('student_marks_details')
-        .delete()
-        .eq('student_id', student.id);
+      .from('student_marks_details')
+      .delete()
+      .eq('student_detail_id', student.system_id); // Use system_id for FK
 
     if (marksError) {
-        toast({
-            title: 'Error Deleting Marks',
-            description: `Could not delete marks for ${student.name}: ${marksError.message}`,
-            variant: 'destructive',
-        });
-        return; // Stop if marks deletion fails
+      toast({
+        title: 'Error Deleting Marks',
+        description: `Could not delete marks for ${student.name}: ${marksError.message}`,
+        variant: 'destructive',
+      });
+      return;
     }
 
-    // Then, attempt to delete the student
     const { error: studentError } = await supabase
-        .from('student_details')
-        .delete()
-        .eq('student_id', student.id);
+      .from('student_details')
+      .delete()
+      .eq('id', student.system_id); // Use system_id for PK
 
     if (studentError) {
-        toast({
-            title: 'Error Deleting Student',
-            description: `Could not delete ${student.name}: ${studentError.message}. Their marks might have been deleted. Please check.`,
-            variant: 'destructive',
-        });
+      toast({
+        title: 'Error Deleting Student',
+        description: `Could not delete ${student.name}: ${studentError.message}. Their marks might have been deleted. Please check.`,
+        variant: 'destructive',
+      });
     } else {
-        toast({
-            title: 'Student Deleted',
-            description: `${student.name} (ID: ${student.id}) and their marks have been deleted.`,
-        });
-        // Refresh data
-        setAllStudents(prev => prev.filter(s => s.id !== student.id));
+      toast({
+        title: 'Student Deleted',
+        description: `${student.name} (Roll No: ${student.roll_no}) and their marks have been deleted.`,
+      });
+      setAllStudents(prev => prev.filter(s => s.system_id !== student.system_id));
     }
   };
 
   const handleExportToExcel = async () => {
-    if (filteredStudents.length === 0) {
+    if (displayedStudents.length === 0) {
       toast({
         title: "No Data to Export",
         description: "There are no students currently displayed to export.",
@@ -232,24 +226,25 @@ export default function AdminDashboardPage() {
     setIsExporting(true);
     toast({ title: "Exporting Data", description: "Fetching student details and marks, please wait..." });
 
-    const studentDetailsData = [];
-    const studentMarksData = [];
+    const studentDetailsDataSheet = [];
+    const studentMarksDataSheet = [];
 
     try {
-      for (const student of filteredStudents) {
+      for (const displayedStudent of displayedStudents) {
         const { data: studentDetails, error: studentError } = await supabase
           .from('student_details')
           .select('*')
-          .eq('student_id', student.id)
+          .eq('id', displayedStudent.system_id) // Fetch by system_id
           .single();
 
-        if (studentError) {
-          console.error(`Error fetching details for student ${student.id}:`, studentError);
+        if (studentError || !studentDetails) {
+          console.error(`Error fetching details for student ${displayedStudent.system_id}:`, studentError);
           continue;
         }
 
-        studentDetailsData.push({
-          "Student ID": studentDetails.student_id,
+        studentDetailsDataSheet.push({
+          "Student System ID": studentDetails.id,
+          "Roll No": studentDetails.roll_no,
           "Name": studentDetails.name,
           "Father Name": studentDetails.father_name,
           "Mother Name": studentDetails.mother_name,
@@ -264,17 +259,18 @@ export default function AdminDashboardPage() {
         const { data: marksDetails, error: marksError } = await supabase
           .from('student_marks_details')
           .select('*')
-          .eq('student_id', student.id);
+          .eq('student_detail_id', studentDetails.id); // Fetch marks by system_id (FK)
 
         if (marksError) {
-          console.error(`Error fetching marks for student ${student.id}:`, marksError);
+          console.error(`Error fetching marks for student ${studentDetails.id}:`, marksError);
         }
 
         if (marksDetails && marksDetails.length > 0) {
           for (const mark of marksDetails) {
-            studentMarksData.push({
-              "Student ID": studentDetails.student_id,
-              "Name": studentDetails.name, 
+            studentMarksDataSheet.push({
+              "Student System ID": studentDetails.id,
+              "Roll No": studentDetails.roll_no,
+              "Name": studentDetails.name,
               "Subject Name": mark.subject_name,
               "Subject Category": mark.category,
               "Max Marks": mark.max_marks,
@@ -285,47 +281,33 @@ export default function AdminDashboardPage() {
             });
           }
         } else {
-           studentMarksData.push({
-              "Student ID": studentDetails.student_id,
-              "Name": studentDetails.name,
-              "Subject Name": "N/A",
-              "Subject Category": "N/A",
-              "Max Marks": "N/A",
-              "Pass Marks": "N/A",
-              "Theory Marks Obtained": "N/A",
-              "Practical Marks Obtained": "N/A",
-              "Obtained Total Marks": "N/A",
-            });
+          studentMarksDataSheet.push({
+            "Student System ID": studentDetails.id,
+            "Roll No": studentDetails.roll_no,
+            "Name": studentDetails.name,
+            "Subject Name": "N/A", "Subject Category": "N/A", "Max Marks": "N/A", "Pass Marks": "N/A",
+            "Theory Marks Obtained": "N/A", "Practical Marks Obtained": "N/A", "Obtained Total Marks": "N/A",
+          });
         }
       }
 
-      if (studentDetailsData.length === 0 && studentMarksData.length === 0) {
-        toast({ title: "No Detailed Data", description: "Could not fetch detailed data for the selected students.", variant: "destructive"});
+      if (studentDetailsDataSheet.length === 0 && studentMarksDataSheet.length === 0) {
+        toast({ title: "No Detailed Data", description: "Could not fetch detailed data for the selected students.", variant: "destructive" });
         setIsExporting(false);
         return;
       }
 
       const workbook = XLSX.utils.book_new();
 
-      if (studentDetailsData.length > 0) {
-        const wsStudentDetails = XLSX.utils.json_to_sheet(studentDetailsData);
-        const columnWidthsDetails = Object.keys(studentDetailsData[0] || {}).map(key => ({
-          wch: Math.max(key.length, ...studentDetailsData.map(row => String(row[key as keyof typeof row] ?? '').length)) + 2
-        }));
-        if (columnWidthsDetails.length > 0) wsStudentDetails["!cols"] = columnWidthsDetails;
+      if (studentDetailsDataSheet.length > 0) {
+        const wsStudentDetails = XLSX.utils.json_to_sheet(studentDetailsDataSheet);
         XLSX.utils.book_append_sheet(workbook, wsStudentDetails, "Student Details");
       }
 
-
-      if (studentMarksData.length > 0) {
-        const wsStudentMarks = XLSX.utils.json_to_sheet(studentMarksData);
-         const columnWidthsMarks = Object.keys(studentMarksData[0] || {}).map(key => ({
-          wch: Math.max(key.length, ...studentMarksData.map(row => String(row[key as keyof typeof row] ?? '').length)) + 2
-        }));
-        if (columnWidthsMarks.length > 0) wsStudentMarks["!cols"] = columnWidthsMarks;
+      if (studentMarksDataSheet.length > 0) {
+        const wsStudentMarks = XLSX.utils.json_to_sheet(studentMarksDataSheet);
         XLSX.utils.book_append_sheet(workbook, wsStudentMarks, "Student Marks Details");
       }
-
 
       XLSX.writeFile(workbook, "students_and_marks_export.xlsx");
       toast({
@@ -356,8 +338,8 @@ export default function AdminDashboardPage() {
       />
 
       <main className="flex-grow container mx-auto px-4 py-6 sm:px-6 lg:px-8">
-       <div className="bg-primary text-primary-foreground p-3 rounded-md shadow-md mb-6">
-          <div className="container mx-auto px-0 sm:px-0 lg:px-0"> 
+        <div className="bg-primary text-primary-foreground p-3 rounded-md shadow-md mb-6">
+          <div className="container mx-auto px-0 sm:px-0 lg:px-0">
             <div className="flex flex-col sm:flex-row justify-between items-center gap-2">
               <h2 className="text-xl font-semibold">STUDENT DETAILS</h2>
               <div className="flex flex-wrap gap-2">
@@ -376,10 +358,10 @@ export default function AdminDashboardPage() {
                   </Button>
                 </Link>
                 <Link href="/import" passHref>
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    className="text-primary-foreground hover:bg-accent hover:text-accent-foreground" 
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-primary-foreground hover:bg-accent hover:text-accent-foreground"
                   >
                     <Upload className="mr-2 h-4 w-4" /> Import Data
                   </Button>
@@ -423,8 +405,8 @@ export default function AdminDashboardPage() {
                 </Select>
               </div>
               <div>
-                <Label htmlFor="studentCollegeId">Student College Id</Label>
-                <Input id="studentCollegeId" placeholder="Student Id" value={studentIdFilter} onChange={e => setStudentIdFilter(e.target.value)} />
+                <Label htmlFor="studentCollegeId">Student Roll No</Label> {/* Changed label */}
+                <Input id="studentCollegeId" placeholder="Roll No" value={studentIdFilter} onChange={e => setStudentIdFilter(e.target.value)} />
               </div>
               <div>
                 <Label htmlFor="studentName">Student Name</Label>
@@ -461,7 +443,7 @@ export default function AdminDashboardPage() {
               <Table>
                 <TableHeader className="bg-primary text-primary-foreground">
                   <TableRow>
-                    <TableHead className="text-white">Student Id</TableHead>
+                    <TableHead className="text-white">Roll No</TableHead> {/* Changed header */}
                     <TableHead className="text-white">Student Name</TableHead>
                     <TableHead className="text-white">Academic Year</TableHead>
                     <TableHead className="text-white">Class</TableHead>
@@ -478,8 +460,8 @@ export default function AdminDashboardPage() {
                       </TableCell>
                     </TableRow>
                   ) : paginatedStudents.length > 0 ? paginatedStudents.map((student) => (
-                    <TableRow key={student.id}>
-                      <TableCell>{student.id}</TableCell>
+                    <TableRow key={student.system_id}> {/* Use system_id as key */}
+                      <TableCell>{student.roll_no}</TableCell> {/* Display roll_no */}
                       <TableCell>{student.name}</TableCell>
                       <TableCell>{student.academicYear}</TableCell>
                       <TableCell>{student.studentClass}</TableCell>
@@ -503,8 +485,8 @@ export default function AdminDashboardPage() {
                     <TableRow>
                       <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                         {allStudents.length === 0 && !isLoadingData ? 'Click "Load Student Data" above to view student records, or "Import Data".' :
-                         (allStudents.length > 0 && filteredStudents.length === 0) ? 'No students found matching your filters.' :
-                              'No student data available. Try loading or adding students.'}
+                          (allStudents.length > 0 && displayedStudents.length === 0) ? 'No students found matching your filters.' :
+                            'No student data available. Try loading or adding students.'}
                       </TableCell>
                     </TableRow>
                   )}
@@ -514,7 +496,7 @@ export default function AdminDashboardPage() {
           </CardContent>
           <CardFooter className="flex flex-col sm:flex-row items-center justify-between pt-4 gap-2">
             <p className="text-sm text-muted-foreground text-center sm:text-left">
-              Showing {paginatedStudents.length > 0 ? (currentPage - 1) * entriesPerPage + 1 : 0} to {Math.min(currentPage * entriesPerPage, filteredStudents.length)} of {filteredStudents.length} entries
+              Showing {paginatedStudents.length > 0 ? (currentPage - 1) * entriesPerPage + 1 : 0} to {Math.min(currentPage * entriesPerPage, displayedStudents.length)} of {displayedStudents.length} entries
             </p>
             <div className="flex gap-2">
               <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>
