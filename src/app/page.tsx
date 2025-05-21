@@ -483,11 +483,11 @@ export default function AdminDashboardPage() {
                     size="sm"
                     className="text-primary-foreground hover:bg-accent hover:text-accent-foreground"
                   >
-                    <Upload className="mr-2 h-4 w-4" /> Import Data
+                    <Download className="mr-2 h-4 w-4" /> Import Data
                   </Button>
                 </Link>
                 <Button variant="ghost" size="sm" className="text-primary-foreground hover:bg-accent hover:text-accent-foreground" onClick={handleExportToExcel} disabled={isExporting}>
-                  {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />} Export to Excel
+                  {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />} Export to Excel
                 </Button>
               </div>
             </div>
@@ -639,3 +639,4 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
+
