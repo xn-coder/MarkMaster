@@ -6,6 +6,7 @@ import type { marksheetFormSchema, subjectEntrySchema, ACADEMIC_YEAR_OPTIONS, SU
 export type SubjectEntryFormData = z.infer<typeof subjectEntrySchema>;
 export interface MarksheetFormData extends z.infer<typeof marksheetFormSchema> {
   system_id?: string; // To hold the UUID when editing
+  dateOfIssue: Date; // Added for editable date of issue
 }
 
 // For displaying the processed marksheet
@@ -28,6 +29,7 @@ export interface MarksheetDisplayData {
   sessionStartYear: number;
   sessionEndYear: number;
   overallPassingThresholdPercentage: number;
+  dateOfIssue: string; // Formatted date of issue (e.g., "MMMM yyyy")
 
   subjects: MarksheetSubjectDisplayEntry[];
 
@@ -43,7 +45,7 @@ export interface MarksheetDisplayData {
   overallResult: 'Pass' | 'Fail';
   overallPercentageDisplay: number; // (aggregate / totalPossible) * 100
 
-  dateOfIssue: string; // Formatted current date
+  // dateOfIssue: string; // Formatted current date - This was a duplicate, actual value above
   place: string; // Constant: "Samastipur"
 }
 

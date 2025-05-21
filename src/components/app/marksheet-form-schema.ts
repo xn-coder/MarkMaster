@@ -7,7 +7,7 @@ export const SUBJECT_CATEGORIES_OPTIONS = ['Compulsory', 'Elective', 'Additional
 
 
 export const subjectEntrySchema = z.object({
-  id: z.string().optional(), 
+  id: z.string().optional(),
   subjectName: z.string().min(1, 'Subject name is required').max(100, 'Subject name too long'),
   category: z.enum(SUBJECT_CATEGORIES_OPTIONS, {
     required_error: 'Subject category is required.',
@@ -18,7 +18,7 @@ export const subjectEntrySchema = z.object({
   practicalMarksObtained: z.coerce.number().min(0, 'Practical marks cannot be negative').optional().default(0),
 }).refine(data => (data.theoryMarksObtained || 0) + (data.practicalMarksObtained || 0) <= data.totalMarks, {
   message: 'Obtained marks (Theory + Practical) cannot exceed Total Marks',
-  path: ['practicalMarksObtained'], 
+  path: ['practicalMarksObtained'],
 }).refine(data => data.passMarks <= data.totalMarks, {
   message: 'Pass Marks cannot exceed Total Marks',
   path: ['passMarks'],
@@ -30,12 +30,13 @@ export const marksheetFormSchema = z.object({
   motherName: z.string().min(1, "Mother's name is required").max(100, "Mother's name too long"),
   rollNumber: z.string().min(1, 'Roll number is required').max(20, 'Roll number too long'),
   dateOfBirth: z.date({ required_error: 'Date of birth is required' }),
+  dateOfIssue: z.date({ required_error: 'Date of issue is required' }), // Added dateOfIssue
   gender: z.enum(['Male', 'Female', 'Other'], { required_error: 'Gender is required' }),
   faculty: z.enum(['ARTS', 'COMMERCE', 'SCIENCE'], { required_error: 'Faculty is required' }),
   academicYear: z.enum(ACADEMIC_YEAR_OPTIONS, { required_error: 'Academic year is required' }),
   section: z.string().min(1, 'Section is required (e.g., A)').max(10, 'Section too long'),
   sessionStartYear: z.coerce.number().min(1990, 'Year too old').max(currentYear + 1, `Year too far in future`),
-  sessionEndYear: z.coerce.number(), 
+  sessionEndYear: z.coerce.number(),
   overallPassingThresholdPercentage: z.coerce.number().min(0, 'Percentage cannot be negative').max(100, 'Percentage cannot exceed 100'),
   subjects: z.array(subjectEntrySchema)
     .min(1, 'At least one subject is required.')
@@ -46,9 +47,9 @@ export const marksheetFormSchema = z.object({
         const filledSubjectNames = subjects
           .map((s) => (s.subjectName || '').trim().toLowerCase())
           .filter(name => name !== '');
-        
+
         if (filledSubjectNames.length <= 1) return true; // No duplicates if 0 or 1 filled subject name
-        
+
         const uniqueSubjectNames = new Set(filledSubjectNames);
         return uniqueSubjectNames.size === filledSubjectNames.length;
       },

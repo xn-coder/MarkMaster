@@ -23,7 +23,7 @@ www.saryugcollege.com`;
 export default function EditMarksheetPage() {
   const router = useRouter();
   const params = useParams();
-  const studentSystemId = params.studentId as string; 
+  const studentSystemId = params.studentId as string;
   const { toast } = useToast();
 
   const [authStatus, setAuthStatus] = useState<'loading' | 'authenticated' | 'unauthenticated'>('loading');
@@ -63,7 +63,7 @@ export default function EditMarksheetPage() {
           const { data: studentDetails, error: studentError } = await supabase
             .from('student_details')
             .select('*')
-            .eq('id', studentSystemId) 
+            .eq('id', studentSystemId)
             .single();
 
           if (studentError || !studentDetails) {
@@ -76,7 +76,7 @@ export default function EditMarksheetPage() {
           const { data: subjectMarks, error: marksError } = await supabase
             .from('student_marks_details')
             .select('*')
-            .eq('student_detail_id', studentSystemId); 
+            .eq('student_detail_id', studentSystemId);
 
           if (marksError) {
             toast({ title: 'Error Fetching Subjects', description: marksError.message, variant: 'destructive' });
@@ -91,21 +91,22 @@ export default function EditMarksheetPage() {
           }
 
           const transformedData: MarksheetFormData = {
-            system_id: studentDetails.id, 
+            system_id: studentDetails.id,
             studentName: studentDetails.name,
             fatherName: studentDetails.father_name,
             motherName: studentDetails.mother_name,
-            rollNumber: studentDetails.roll_no, 
+            rollNumber: studentDetails.roll_no,
             dateOfBirth: studentDetails.dob ? parseISO(studentDetails.dob) : new Date(),
+            dateOfIssue: new Date(), // Default to current date for editing, not stored in DB
             gender: studentDetails.gender as MarksheetFormData['gender'],
             faculty: studentDetails.faculty as MarksheetFormData['faculty'],
             academicYear: studentDetails.class as typeof ACADEMIC_YEAR_OPTIONS[number],
             section: studentDetails.section,
             sessionStartYear: sessionStartYear,
             sessionEndYear: sessionEndYear,
-            overallPassingThresholdPercentage: 33, 
+            overallPassingThresholdPercentage: 33,
             subjects: subjectMarks?.map(mark => ({
-              id: mark.mark_id?.toString() || crypto.randomUUID(), 
+              id: mark.mark_id?.toString() || crypto.randomUUID(),
               subjectName: mark.subject_name,
               category: mark.category as typeof SUBJECT_CATEGORIES_OPTIONS[number],
               totalMarks: mark.max_marks,
@@ -173,7 +174,7 @@ export default function EditMarksheetPage() {
 
     return {
       ...data,
-      system_id: data.system_id || studentSystemId, 
+      system_id: data.system_id || studentSystemId,
       collegeCode: "53010",
       subjects: subjectsDisplay,
       marksheetNo: generateMarksheetNo(data.faculty, data.rollNumber, data.sessionEndYear),
@@ -183,7 +184,7 @@ export default function EditMarksheetPage() {
       totalPossibleMarksCompulsoryElective,
       overallResult,
       overallPercentageDisplay,
-      dateOfIssue: format(new Date(), 'MMMM yyyy'),
+      dateOfIssue: format(data.dateOfIssue, 'MMMM yyyy'), // Use date from form
       place: 'Samastipur',
     };
   };
@@ -212,20 +213,20 @@ export default function EditMarksheetPage() {
           section: data.section,
           academic_year: `${data.sessionStartYear}-${data.sessionEndYear}`,
         })
-        .eq('id', studentSystemId); 
+        .eq('id', studentSystemId);
 
       if (studentUpdateError) throw studentUpdateError;
 
       const { error: deleteMarksError } = await supabase
         .from('student_marks_details')
         .delete()
-        .eq('student_detail_id', studentSystemId); 
+        .eq('student_detail_id', studentSystemId);
 
       if (deleteMarksError) throw deleteMarksError;
 
       if (data.subjects && data.subjects.length > 0) {
         const marksToInsert = data.subjects.map(subject => ({
-          student_detail_id: studentSystemId, 
+          student_detail_id: studentSystemId,
           subject_name: subject.subjectName,
           category: subject.category,
           max_marks: subject.totalMarks,
@@ -277,10 +278,10 @@ export default function EditMarksheetPage() {
           <AppHeader pageSubtitle={defaultPageSubtitle} />
         </div>
         <main className="flex-grow container mx-auto px-4 py-8 sm:px-6 lg:px-8 flex flex-col items-center justify-center print:p-0 print:m-0 print:h-full print:container-none print:max-w-none max-w-screen-xl">
-          <div className="flex justify-start w-full mb-6 print:hidden">
-              <Button variant="outline" onClick={() => router.back()}>
-                <ArrowLeft className="mr-2 h-4 w-4" /> Back
-              </Button>
+        <div className="w-full flex justify-start mb-6 print:hidden">
+            <Button variant="outline" onClick={() => router.back()}>
+              <ArrowLeft className="mr-2 h-4 w-4" /> Back
+            </Button>
           </div>
           <h1 className="text-2xl font-bold text-destructive mb-4">Student Not Found</h1>
           <p className="text-muted-foreground mb-6 text-center">The student data for ID '{studentSystemId}' could not be loaded. <br /> Please check the ID or ensure the student record exists.</p>
@@ -299,9 +300,7 @@ export default function EditMarksheetPage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col print:h-full print:bg-white">
-      <div className="print:hidden">
-        <AppHeader pageSubtitle={defaultPageSubtitle} />
-      </div>
+      <AppHeader pageSubtitle={defaultPageSubtitle} />
 
       <main className="flex-grow container mx-auto px-4 py-8 sm:px-6 lg:px-8 print:p-0 print:m-0 print:h-full print:container-none print:max-w-none max-w-screen-xl">
         <div className="flex justify-start mb-6 print:hidden">

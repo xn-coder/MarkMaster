@@ -59,7 +59,7 @@ export default function NewMarksheetPage() {
   const generateMarksheetNo = (faculty: string, rollNumber: string, sessionEndYear: number): string => {
     const facultyCode = faculty.substring(0, 2).toUpperCase();
     const month = format(new Date(), 'MMM').toUpperCase();
-    const sequence = String(Math.floor(Math.random() * 900) + 100); 
+    const sequence = String(Math.floor(Math.random() * 900) + 100);
     return `${facultyCode}/${month}/${sessionEndYear}/${rollNumber.slice(-3) || sequence}`;
   };
 
@@ -99,31 +99,33 @@ export default function NewMarksheetPage() {
 
     return {
       ...data,
-      system_id: systemId, 
-      collegeCode: "53010", 
+      system_id: systemId,
+      collegeCode: "53010",
       subjects: subjectsDisplay,
       marksheetNo: generateMarksheetNo(data.faculty, data.rollNumber, data.sessionEndYear),
       sessionDisplay: `${data.sessionStartYear}-${data.sessionEndYear}`,
-      classDisplay: `${data.academicYear} (${data.section})`, 
+      classDisplay: `${data.academicYear} (${data.section})`,
       aggregateMarksCompulsoryElective,
       totalPossibleMarksCompulsoryElective,
       overallResult,
       overallPercentageDisplay,
-      dateOfIssue: format(new Date(), 'MMMM yyyy'),
+      dateOfIssue: format(data.dateOfIssue, 'MMMM yyyy'), // Use date from form
       place: 'Samastipur',
     };
   };
 
   const handleFormSubmit = async (data: MarksheetFormData) => {
     setIsLoadingFormSubmission(true);
-    
+
     const academicSessionString = `${data.sessionStartYear}-${data.sessionEndYear}`;
-    const { data: existingStudent, error: checkError } = await supabase
+
+    // Check for existing student with the same identifying combination
+    const { data: existingStudentCheck, error: checkError } = await supabase
       .from('student_details')
       .select('id')
       .eq('roll_no', data.rollNumber)
       .eq('academic_year', academicSessionString)
-      .eq('class', data.academicYear) 
+      .eq('class', data.academicYear)
       .eq('section', data.section)
       .eq('faculty', data.faculty)
       .maybeSingle();
@@ -138,33 +140,34 @@ export default function NewMarksheetPage() {
       return;
     }
 
-    if (existingStudent) {
+    if (existingStudentCheck) {
       toast({
-        title: 'Student Exists',
-        description: 'A student with the same Roll No, Academic Session, Class, Section, and Faculty already exists in the database.',
+        title: 'Student Already Exists',
+        description: 'A student with the same Roll No., Academic Session, Class, Section, and Faculty already exists.',
         variant: 'destructive',
       });
       setIsLoadingFormSubmission(false);
       return;
     }
 
-    const systemGeneratedId = crypto.randomUUID(); 
+
+    const systemGeneratedId = crypto.randomUUID();
 
     try {
       const dobFormatted = format(data.dateOfBirth, 'yyyy-MM-dd');
 
       const studentToInsert = {
-        id: systemGeneratedId, 
-        roll_no: data.rollNumber, 
+        id: systemGeneratedId,
+        roll_no: data.rollNumber,
         name: data.studentName,
         father_name: data.fatherName,
         mother_name: data.motherName,
         dob: dobFormatted,
         gender: data.gender,
         faculty: data.faculty,
-        class: data.academicYear, 
+        class: data.academicYear,
         section: data.section,
-        academic_year: academicSessionString, 
+        academic_year: academicSessionString,
       };
 
       const { data: insertedStudentData, error: studentError } = await supabase
@@ -185,7 +188,7 @@ export default function NewMarksheetPage() {
       }
 
       const subjectMarksToInsert = data.subjects.map(subject => ({
-        student_detail_id: insertedStudentData.id, 
+        student_detail_id: insertedStudentData.id,
         subject_name: subject.subjectName,
         category: subject.category,
         max_marks: subject.totalMarks,
@@ -202,7 +205,7 @@ export default function NewMarksheetPage() {
 
         if (subjectMarksError) {
           console.error('Error inserting subject marks:', subjectMarksError);
-          
+
           await supabase.from('student_details').delete().eq('id', insertedStudentData.id);
           toast({
             title: 'Database Error',
@@ -210,7 +213,7 @@ export default function NewMarksheetPage() {
             variant: 'destructive',
           });
           setIsLoadingFormSubmission(false);
-          return; 
+          return;
         } else {
           toast({
             title: 'Marksheet Data Saved',
@@ -224,7 +227,7 @@ export default function NewMarksheetPage() {
             variant: 'default'
         });
       }
-      
+
       const processedDataForDisplay = processFormData(data, insertedStudentData.id);
       setMarksheetData(processedDataForDisplay);
 
@@ -245,7 +248,7 @@ export default function NewMarksheetPage() {
   };
 
   const handleCreateNew = () => {
-    setMarksheetData(null); 
+    setMarksheetData(null);
   };
 
   if (authStatus === 'loading') {

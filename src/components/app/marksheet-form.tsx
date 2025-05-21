@@ -235,6 +235,7 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
       motherName: '',
       rollNumber: '',
       dateOfBirth: undefined,
+      dateOfIssue: new Date(), // Default to current date
       gender: undefined,
       faculty: undefined,
       academicYear: undefined,
@@ -254,10 +255,10 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
     },
   });
 
-  const { fields, append, remove, replace } = useFieldArray({ // Added replace
+  const { fields, append, remove, replace } = useFieldArray({
     control: form.control,
     name: 'subjects',
-    keyName: "id", // Ensure keyName is "id" if your subject objects have an `id` field for keys
+    keyName: "id",
   });
 
   const watchedFaculty = form.watch('faculty');
@@ -273,9 +274,20 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
 
   useEffect(() => {
     if (initialData) {
-      const processedInitialData = {
-        ...initialData,
-        dateOfBirth: initialData.dateOfBirth ? new Date(initialData.dateOfBirth) : undefined,
+      const processedInitialData: MarksheetFormData = {
+        studentName: initialData.studentName || '',
+        fatherName: initialData.fatherName || '',
+        motherName: initialData.motherName || '',
+        rollNumber: initialData.rollNumber || '',
+        dateOfBirth: initialData.dateOfBirth ? new Date(initialData.dateOfBirth) : new Date(), // Ensure it's a Date
+        dateOfIssue: initialData.dateOfIssue ? new Date(initialData.dateOfIssue) : new Date(), // Ensure it's a Date
+        gender: initialData.gender || undefined,
+        faculty: initialData.faculty || undefined,
+        academicYear: initialData.academicYear || undefined,
+        section: initialData.section || '',
+        sessionStartYear: initialData.sessionStartYear || currentYear -1,
+        sessionEndYear: initialData.sessionEndYear || currentYear,
+        overallPassingThresholdPercentage: initialData.overallPassingThresholdPercentage || 33,
         subjects: initialData.subjects?.map(s => ({
           ...s,
           id: s.id || crypto.randomUUID(),
@@ -285,7 +297,7 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
           passMarks: s.passMarks !== undefined && s.passMarks !== null ? Number(s.passMarks) : 33,
           theoryMarksObtained: s.theoryMarksObtained !== undefined && s.theoryMarksObtained !== null ? Number(s.theoryMarksObtained) : 0,
           practicalMarksObtained: s.practicalMarksObtained !== undefined && s.practicalMarksObtained !== null ? Number(s.practicalMarksObtained) : 0,
-        })) || [{ // Ensure at least one subject if initialData.subjects is empty/null
+        })) || [{
           id: crypto.randomUUID(),
           subjectName: '',
           category: 'Compulsory',
@@ -296,15 +308,14 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
         }],
       };
       form.reset(processedInitialData);
-      prevFacultyRef.current = processedInitialData.faculty; // Initialize prevFacultyRef if faculty is in initialData
+      prevFacultyRef.current = processedInitialData.faculty;
     }
   }, [initialData, form.reset]);
 
 
-  // Effect to auto-populate subjects when faculty changes (for new forms only)
   useEffect(() => {
     const newFaculty = watchedFaculty;
-    
+
     if (!isEditMode && newFaculty && (newFaculty !== prevFacultyRef.current || fields.length === 0 || (fields.length === 1 && !fields[0].subjectName)) ) {
       const defaultSubjectDefinitions = DEFAULT_SUBJECTS_BY_FACULTY[newFaculty];
       if (defaultSubjectDefinitions) {
@@ -320,9 +331,7 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
             practicalMarksObtained: 0,
           };
         });
-        // Using replace to set the new subjects array
-        // This is generally safer than remove all then append all
-        replace(newSubjects.length > 0 ? newSubjects : [{ // Ensure at least one empty subject if no defaults
+        replace(newSubjects.length > 0 ? newSubjects : [{
             id: crypto.randomUUID(),
             subjectName: '',
             category: 'Compulsory',
@@ -332,7 +341,6 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
             practicalMarksObtained: 0,
         }]);
       } else {
-         // If no defaults for faculty, ensure one empty subject row
          replace([{
             id: crypto.randomUUID(),
             subjectName: '',
@@ -563,6 +571,44 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
               )}
             />
           </div>
+           <FormField
+              control={form.control}
+              name="dateOfIssue"
+              render={({ field }) => (
+                <FormItem className="flex flex-col">
+                  <FormLabel>Date of Issue</FormLabel>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <FormControl>
+                        <Button
+                          variant={"outline"}
+                          className={cn(
+                            "w-full pl-3 text-left font-normal",
+                            !field.value && "text-muted-foreground"
+                          )}
+                        >
+                          {field.value ? (
+                            format(new Date(field.value), "PPP")
+                          ) : (
+                            <span>Pick a date</span>
+                          )}
+                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                        </Button>
+                      </FormControl>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={field.value ? new Date(field.value) : undefined}
+                        onSelect={field.onChange}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
         </div>
 
         <div className="space-y-6 p-6 border rounded-lg shadow-lg bg-card">
@@ -622,4 +668,3 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
     </Form>
   );
 }
-
