@@ -192,9 +192,14 @@ export default function ViewMarksheetPage() {
     return (
       <div className="min-h-screen bg-background text-foreground flex flex-col print:h-full print:bg-white">
         <div className="print:hidden">
-          <AppHeader pageSubtitle={defaultPageSubtitle} showBackButton={true} />
+          <AppHeader pageSubtitle={defaultPageSubtitle} />
         </div>
         <main className="flex-grow container mx-auto px-4 py-8 sm:px-6 lg:px-8 flex flex-col items-center justify-center print:p-0 print:m-0 print:h-full print:container-none print:max-w-none max-w-screen-xl">
+          <div className="flex justify-start w-full mb-6 print:hidden">
+              <Button variant="outline" onClick={() => router.back()}>
+                <ArrowLeft className="mr-2 h-4 w-4" /> Back
+              </Button>
+          </div>
           <h1 className="text-2xl font-bold text-destructive mb-4">Marksheet Not Found</h1>
           <p className="text-muted-foreground mb-6 text-center">The marksheet data for student ID '{studentSystemId}' could not be loaded. <br /> Please check the ID or ensure the student and their marks exist in the database.</p>
           <Button onClick={() => router.push('/')}>
@@ -213,10 +218,15 @@ export default function ViewMarksheetPage() {
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col print:h-full print:bg-white">
       <div className="print:hidden">
-        <AppHeader pageSubtitle={defaultPageSubtitle} showBackButton={true} />
+        <AppHeader pageSubtitle={defaultPageSubtitle} />
       </div>
 
       <main className="flex-grow container mx-auto px-4 py-8 sm:px-6 lg:px-8 print:p-0 print:m-0 print:h-full print:container-none print:max-w-none max-w-screen-xl">
+        <div className="flex justify-start mb-6 print:hidden">
+            <Button variant="outline" onClick={() => router.back()}>
+              <ArrowLeft className="mr-2 h-4 w-4" /> Back
+            </Button>
+        </div>
         {marksheetData ? (
           <MarksheetDisplay data={marksheetData} />
         ) : (

@@ -141,7 +141,7 @@ export default function NewMarksheetPage() {
     if (existingStudent) {
       toast({
         title: 'Student Exists',
-        description: 'A student with the same Roll No, Session, Class, Section, and Faculty already exists.',
+        description: 'A student with the same Roll No, Academic Session, Class, Section, and Faculty already exists in the database.',
         variant: 'destructive',
       });
       setIsLoadingFormSubmission(false);
@@ -245,8 +245,7 @@ export default function NewMarksheetPage() {
   };
 
   const handleCreateNew = () => {
-    setMarksheetData(null);
-     
+    setMarksheetData(null); 
   };
 
   if (authStatus === 'loading') {
@@ -261,8 +260,13 @@ export default function NewMarksheetPage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col print:h-full">
-      <AppHeader pageSubtitle={defaultPageSubtitle} showBackButton={true} />
+      <AppHeader pageSubtitle={defaultPageSubtitle} />
       <main className="flex-grow container mx-auto px-4 py-8 sm:px-6 lg:px-8 print:p-0 print:m-0 print:h-full print:container-none print:max-w-none max-w-screen-xl">
+        <div className="flex justify-start mb-6 print:hidden">
+            <Button variant="outline" onClick={() => router.back()}>
+              <ArrowLeft className="mr-2 h-4 w-4" /> Back
+            </Button>
+        </div>
         <div className="mb-6 text-center print:hidden">
           <h1 className="text-2xl font-bold text-primary">
             {marksheetData ? 'Marksheet Preview' : 'Create New Marksheet'}

@@ -13,7 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Upload, FileText, CheckCircle, XCircle, AlertTriangle, Download, Info } from 'lucide-react';
+import { Loader2, Upload, FileText, CheckCircle, XCircle, AlertTriangle, Download, Info, ArrowLeft } from 'lucide-react';
 import type { ImportProcessingResults, StudentImportFeedbackItem, MarksImportFeedbackItem } from '@/types';
 import {
   Select,
@@ -482,8 +482,13 @@ export default function ImportDataPage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
-      <AppHeader pageSubtitle={pageSubtitle} showBackButton={true} />
+      <AppHeader pageSubtitle={pageSubtitle} />
       <main className="flex-grow container mx-auto px-4 py-8 sm:px-6 lg:px-8 max-w-screen-xl">
+        <div className="flex justify-start mb-6">
+            <Button variant="outline" onClick={() => router.back()}>
+              <ArrowLeft className="mr-2 h-4 w-4" /> Back to Dashboard
+            </Button>
+        </div>
         <div className="max-w-3xl mx-auto"> 
           <Card> 
             <CardHeader>

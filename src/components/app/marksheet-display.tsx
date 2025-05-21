@@ -30,8 +30,18 @@ export function MarksheetDisplay({ data, onCreateNew, onEditBack }: MarksheetDis
       const element = marksheetRef.current;
       if (!element) return;
 
+      const width = element.offsetWidth;
+      const height = element.offsetHeight;
+      const scale = Math.min(1, 1920 / width);
+
       toPng(element, {
-        cacheBust: true, // To prevent caching issues
+        width: width * scale,
+        height: height * scale,
+        style: {
+          transform: `scale(${scale})`,
+          transformOrigin: 'top left',
+        },
+        backgroundColor: '#FFFFFF',
       })
         .then((dataUrl) => {
           const link = document.createElement('a'); // Create download link
@@ -119,8 +129,8 @@ export function MarksheetDisplay({ data, onCreateNew, onEditBack }: MarksheetDis
 
 
   return (
-    <div className="marksheet-print-container bg-gray-100 print:bg-white py-8 print:py-0 flex justify-center items-center flex-col">
-      <Card ref={marksheetRef} className="marksheet-card w-full max-w-[210mm] min-h-[297mm] shadow-lg print:shadow-none border-4 border-black print:border-4 print:border-black my-4 print:my-0 print:mx-0 bg-white p-1 print:p-0.5 relative">
+    <div className="marksheet-print-container bg-white print:bg-white py-8 print:py-0 flex justify-center items-center flex-col">
+      <Card ref={marksheetRef} className="marksheet-preview marksheet-card flex w-full max-w-[210mm] min-h-[297mm] shadow-lg print:shadow-none border-4 border-black print:border-4 print:border-black my-4 print:my-0 print:mx-0 bg-white p-1 print:p-0.5 relative">
         {/* Watermark */}
         <div className="absolute inset-0 flex items-center justify-center z-0 pointer-events-none">
           <Image
@@ -133,7 +143,7 @@ export function MarksheetDisplay({ data, onCreateNew, onEditBack }: MarksheetDis
           />
         </div>
 
-        <div className="border border-black print:border-black p-4 print:p-[0.8cm] flex flex-col h-full relative z-10 print:border print:border-black">
+        <div className="border border-black flex-grow print:border-black p-8 print:p-[0.8cm] flex flex-col relative z-10 print:border print:border-black">
           
           <header className="relative mb-1 print:mb-0.5">
  <div className="absolute top-0 right-0 text-[10px] print:text-[8pt] text-blue-600 hover:underline">
@@ -223,12 +233,12 @@ export function MarksheetDisplay({ data, onCreateNew, onEditBack }: MarksheetDis
           <div className="flex-grow flex flex-col -mt-1 print:-mt-0.5">
             <section className="my-3 print:my-[0.5cm]">
  <div className="overflow-x-hidden print:overflow-x-hidden">
-                <Table className="border-collapse w-full text-black print:text-black text-xs print:text-[9px] bg-transparent print:bg-transparent">
+                <Table className="border-collapse text-black print:text-black text-xs print:text-[9px] bg-transparent print:bg-transparent">
                     <TableHeader className="bg-gray-100 print:bg-transparent hover:bg-gray-100 print:hover:bg-transparent">
                         <TableRow className="border-b border-black bg-transparent print:bg-transparent hover:bg-transparent print:hover:bg-transparent dark:hover:bg-inherit print:h-[20px]"> {/* Added print height */}
                             <TableHead rowSpan={2} className="w-[8%] text-center border border-black font-bold text-black align-middle p-1 print:p-0.5 text-base print:text-[11px]">
                                 Sr. No.</TableHead> {/* Increased font size */}
-                            <TableHead rowSpan={2} className="min-w-[25%] border border-black font-bold text-black text-center align-middle p-1 print:p-0.5 text-base print:text-[11px]">Subject</TableHead>
+                            <TableHead rowSpan={2} className="min-w-[21%] border border-black font-bold text-black text-center align-middle p-1 print:p-0.5 text-base print:text-[11px]">Subject</TableHead>
                             <TableHead rowSpan={2} className="w-[12%] text-center border border-black font-bold text-black align-middle p-1 print:p-0.5 text-base print:text-[11px]">Total Marks</TableHead>
                             <TableHead rowSpan={2} className="w-[12%] text-center border border-black font-bold text-black align-middle p-1 print:p-0.5 text-base print:text-[11px]">Passing Marks</TableHead>
                             <TableHead colSpan={2} className="text-center border border-black font-bold text-black align-middle p-1 print:p-0.5 text-base print:text-[11px]">Marks Obtained</TableHead>
@@ -360,6 +370,20 @@ export function MarksheetDisplay({ data, onCreateNew, onEditBack }: MarksheetDis
       </div>
 
       <style jsx global>{`
+      @media not print {
+    .marksheet-preview {
+      overflow: visible !important;
+    }
+    .marksheet-preview table {
+      width: 100% !important;
+      table-layout: auto !important;
+    }
+    .marksheet-preview th, 
+    .marksheet-preview td {
+      white-space: nowrap !important;
+      min-width: auto !important;
+    }
+  }
         @media print {
           body, html {
             height: 100%; 
@@ -487,6 +511,8 @@ export function MarksheetDisplay({ data, onCreateNew, onEditBack }: MarksheetDis
  overflow-x: hidden !important; /* Hide overflow in preview */
  }
  .overflow-x-visible { overflow-x: visible; }
+
+ 
 
           @page {
             size: A4 portrait;

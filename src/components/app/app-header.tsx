@@ -6,19 +6,17 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase/client';
 import { useToast } from "@/hooks/use-toast";
 import { Button } from '@/components/ui/button';
-import { Loader2, LogOut, ArrowLeft } from 'lucide-react';
+import { Loader2, LogOut } from 'lucide-react';
 import React, { useState } from 'react';
 
 interface AppHeaderProps {
   pageTitle?: string;
   pageSubtitle?: string | React.ReactNode;
-  showBackButton?: boolean;
 }
 
 export function AppHeader({
   pageTitle = "SARYUG COLLEGE",
   pageSubtitle,
-  showBackButton = false,
 }: AppHeaderProps) {
   const router = useRouter();
   const { toast } = useToast();
@@ -69,17 +67,12 @@ export function AppHeader({
     <header className="bg-secondary text-secondary-foreground py-3 shadow-sm print:hidden">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between max-w-screen-xl">
         <div className="flex items-center gap-3 flex-shrink-0">
-          {showBackButton && (
-            <Button variant="ghost" size="icon" onClick={() => router.back()} className="mr-2">
-              <ArrowLeft className="h-5 w-5" />
-              <span className="sr-only">Back</span>
-            </Button>
-          )}
+          {/* Logo is always the leftmost item now */}
           <Image
             src="/college-logo.png"
             alt="College Logo"
-            width={80} // Increased logo size
-            height={80} // Increased logo size
+            width={80}
+            height={80}
             className="rounded-full"
             data-ai-hint="college logo"
           />
