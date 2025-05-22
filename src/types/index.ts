@@ -38,6 +38,7 @@ export interface MarksheetDisplayData {
 
   aggregateMarksCompulsoryElective: number;
   totalPossibleMarksCompulsoryElective: number;
+  totalMarksInWords:string;
 
   overallResult: 'Pass' | 'Fail';
   overallPercentageDisplay: number;
@@ -93,7 +94,6 @@ export interface ImportProcessingResults {
 export interface StudentRowData {
   system_id: string;
   roll_no: string;
-  registrationNo: string; // New field
   name: string;
   academicYear: string;
   studentClass: string;

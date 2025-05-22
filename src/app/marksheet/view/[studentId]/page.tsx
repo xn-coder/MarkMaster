@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Loader2, ArrowLeft } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { AppHeader } from '@/components/app/app-header';
+import { numberToWords } from '@/lib/utils'
 import type { ACADEMIC_YEAR_OPTIONS } from '@/components/app/marksheet-form-schema';
 
 const defaultPageSubtitle = `(Affiliated By Bihar School Examination Board, Patna)
@@ -90,13 +91,13 @@ export default function ViewMarksheetPage() {
             studentName: studentDetails.name,
             fatherName: studentDetails.father_name,
             motherName: studentDetails.mother_name,
+            registrationNo: studentDetails.registration_no,
             rollNumber: studentDetails.roll_no,
             dateOfBirth: studentDetails.dob ? parseISO(studentDetails.dob) : new Date(),
             dateOfIssue: new Date(), // Date of issue for viewing will be current date
             gender: studentDetails.gender as MarksheetFormData['gender'],
             faculty: studentDetails.faculty as MarksheetFormData['faculty'],
             academicYear: studentDetails.class as typeof ACADEMIC_YEAR_OPTIONS[number],
-            // section: studentDetails.section, // Removed section
             sessionStartYear: sessionStartYear,
             sessionEndYear: sessionEndYear,
             overallPassingThresholdPercentage: 33, // Default, not stored in DB
@@ -133,6 +134,8 @@ export default function ViewMarksheetPage() {
             ? (aggregateMarksCompulsoryElective / totalPossibleMarksCompulsoryElective) * 100
             : 0;
 
+          const totalMarksInWords = numberToWords(aggregateMarksCompulsoryElective);
+
           let overallResult: 'Pass' | 'Fail' = 'Pass';
           if (overallPercentageDisplay < formDataFromDb.overallPassingThresholdPercentage) {
             overallResult = 'Fail';
@@ -155,11 +158,11 @@ export default function ViewMarksheetPage() {
             ...formDataFromDb,
             subjects: subjectsDisplay,
             collegeCode: "53010",
-            marksheetNo: generateMarksheetNo(formDataFromDb.faculty, formDataFromDb.rollNumber, formDataFromDb.sessionEndYear),
             sessionDisplay: `${formDataFromDb.sessionStartYear}-${formDataFromDb.sessionEndYear}`,
             classDisplay: `${formDataFromDb.academicYear}`, // Removed section
             aggregateMarksCompulsoryElective,
             totalPossibleMarksCompulsoryElective,
+            totalMarksInWords,
             overallResult,
             overallPercentageDisplay,
             dateOfIssue: format(formDataFromDb.dateOfIssue, 'MMMM yyyy'),

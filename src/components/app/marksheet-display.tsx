@@ -206,17 +206,17 @@ export function MarksheetDisplay({ data, onCreateNew, onEditBack }: MarksheetDis
                 <Table className="border-collapse text-black print:text-black text-xs print:text-[9px] bg-transparent print:bg-transparent">
                     <TableHeader className="bg-transparent print:bg-transparent hover:bg-gray-100 print:hover:bg-transparent">
                         <TableRow className="border-b border-black bg-transparent print:bg-transparent hover:bg-transparent print:hover:bg-transparent dark:hover:bg-inherit print:h-[20px]">
-                            <TableHead rowSpan={2} className="w-[8%] text-center border border-black font-bold text-black align-middle p-1 print:p-0.5 text-lg print:text-base">
+                            <TableHead rowSpan={2} className="w-[8%] text-center border border-black font-bold text-black align-middle p-2 print:p-0.5 text-base print:text-base">
                                 Sr. No.</TableHead>
-                            <TableHead rowSpan={2} className="min-w-[21%] border border-black font-bold text-black text-center align-middle p-1 print:p-0.5 text-lg print:text-base">Subject</TableHead>
-                            <TableHead rowSpan={2} className="w-[12%] text-center border border-black font-bold text-black align-middle p-1 print:p-0.5 text-lg print:text-base">Total Marks</TableHead>
-                            <TableHead rowSpan={2} className="w-[12%] text-center border border-black font-bold text-black align-middle p-1 print:p-0.5 text-lg print:text-base">Passing Marks</TableHead>
-                            <TableHead colSpan={2} className="text-center border border-black font-bold text-black align-middle p-1 print:p-0.5 text-lg print:text-base">Marks Obtained</TableHead>
-                            <TableHead rowSpan={2} className="w-[12%] text-center border border-black font-bold text-black align-middle p-1 print:p-0.5 text-lg print:text-base">Total</TableHead>
+                            <TableHead rowSpan={2} className="min-w-[21%] border border-black font-bold text-black text-center align-middle p-2 print:p-0.5 text-base print:text-base">Subject</TableHead>
+                            <TableHead rowSpan={2} className="w-[12%] text-center border border-black font-bold text-black align-middle p-2 print:p-0.5 text-base print:text-base">Total Marks</TableHead>
+                            <TableHead rowSpan={2} className="w-[12%] text-center border border-black font-bold text-black align-middle p-2 print:p-0.5 text-base print:text-base">Passing Marks</TableHead>
+                            <TableHead colSpan={2} className="text-center border border-black font-bold text-black align-middle p-2 print:p-0.5 text-base print:text-base">Marks Obtained</TableHead>
+                            <TableHead rowSpan={2} className="w-[12%] text-center border border-black font-bold text-black align-middle p-2 print:p-0.5 text-base print:text-base">Total</TableHead>
                         </TableRow>
                         <TableRow className="border-b border-black bg-transparent print:bg-transparent hover:bg-transparent print:hover:bg-transparent dark:hover:bg-inherit font-bold text-black text-sm print:text-xs">
-                            <TableHead className="text-center border border-black font-bold text-black align-middle p-1 print:p-0.5 text-sm print:text-xs">Theory</TableHead>
-                            <TableHead className="text-center border border-black font-bold text-black align-middle p-1 print:p-0.5 text-sm print:text-xs">Practical</TableHead>
+                            <TableHead className="text-center border border-black font-bold text-black align-middle p-2 print:p-0.5 text-base print:text-xs">Theory</TableHead>
+                            <TableHead className="text-center border border-black font-bold text-black align-middle p-2 print:p-0.5 text-base print:text-xs">Practical</TableHead>
                         </TableRow>
                     </TableHeader>
 
@@ -225,7 +225,7 @@ export function MarksheetDisplay({ data, onCreateNew, onEditBack }: MarksheetDis
                             <TableRow className="font-bold bg-transparent print:bg-transparent hover:bg-gray-50 print:hover:bg-gray-50 dark:hover:bg-inherit">
                                 <TableCell 
                                     colSpan={7}
-                                    className="border border-black py-0.5 px-1 print:py-0.25 print:px-0.5 text-left text-sm print:text-xs text-black"
+                                    className="border border-black py-1 px-2 print:py-0.25 print:px-0.5 text-left text-sm print:text-xs text-black"
                                 >
                                     COMPULSORY SUBJECTS
                                 </TableCell>
@@ -233,13 +233,13 @@ export function MarksheetDisplay({ data, onCreateNew, onEditBack }: MarksheetDis
                         )}
                         {compulsorySubjects.map((subject, index) => ( 
                             <TableRow key={`comp-${index}`} className="border-b border-black h-[22px] print:h-[20px] hover:bg-transparent print:hover:bg-transparent dark:hover:bg-inherit">
-                                <TableCell className="text-center border border-black p-1 print:p-0.5">{index + 1}</TableCell>
-                                <TableCell className="border border-black p-1 print:p-0.5 text-left bg-transparent print:bg-transparent">{subject.subjectName}</TableCell>
-                                <TableCell className="text-center border border-black p-1 print:p-0.5">{subject.totalMarks}</TableCell>
-                                <TableCell className="text-center border border-black p-1 print:p-0.5">{subject.passMarks}</TableCell>
-                                <TableCell className="text-center border border-black p-1 print:p-0.5">{subject.theoryMarksObtained}</TableCell>
-                                <TableCell className="text-center border border-black p-1 print:p-0.5">{subject.practicalMarksObtained}</TableCell>
-                                <TableCell className="text-center border border-black p-1 print:p-0.5 font-bold">{subject.obtainedTotal}</TableCell>
+                                <TableCell className="text-center border border-black p-1 text-sm print:text-sm print:p-0.5">{index + 1}</TableCell>
+                                <TableCell className="border border-black p-1 text-sm print:text-sm print:p-0.5 text-left bg-transparent print:bg-transparent">{subject.subjectName}</TableCell>
+                                <TableCell className="text-center border border-black p-1 text-sm print:text-sm print:p-0.5">{subject.totalMarks}</TableCell>
+                                <TableCell className="text-center border border-black p-1 text-sm print:text-sm print:p-0.5">{subject.passMarks}</TableCell>
+                                <TableCell className="text-center border border-black p-1 text-sm print:text-sm print:p-0.5">{subject.theoryMarksObtained}</TableCell>
+                                <TableCell className="text-center border border-black p-1 text-sm print:text-sm print:p-0.5">{subject.practicalMarksObtained}</TableCell>
+                                <TableCell className="text-center border border-black p-1 text-sm print:text-sm print:p-0.5 font-bold">{subject.obtainedTotal}</TableCell>
                             </TableRow>
                         ))}
 
@@ -247,7 +247,7 @@ export function MarksheetDisplay({ data, onCreateNew, onEditBack }: MarksheetDis
                             <TableRow className="font-bold bg-transparent print:bg-transparent hover:bg-gray-50 print:hover:bg-gray-50 dark:hover:bg-inherit">
                                  <TableCell
                                     colSpan={7}
-                                    className="border border-black py-0.5 px-1 print:py-0.25 print:px-0.5 text-left text-sm print:text-xs text-black"
+                                    className="border border-black py-1 px-2 print:py-0.25 print:px-0.5 text-left text-sm print:text-xs text-black"
                                 >
                                     ELECTIVE SUBJECTS
                                 </TableCell>
@@ -255,13 +255,13 @@ export function MarksheetDisplay({ data, onCreateNew, onEditBack }: MarksheetDis
                         )}
                        {electiveSubjects.map((subject, index) => (
                             <TableRow key={`elec-${index}`} className="border-b border-black h-[22px] print:h-[20px] hover:bg-transparent print:hover:bg-transparent dark:hover:bg-inherit">
-                                <TableCell className="text-center border border-black p-1 print:p-0.5">{compulsorySubjects.length + index + 1}</TableCell>
-                                <TableCell className="border border-black p-1 print:p-0.5 text-left">{subject.subjectName}</TableCell>
-                                <TableCell className="text-center border border-black p-1 print:p-0.5">{subject.totalMarks}</TableCell>
-                                <TableCell className="text-center border border-black p-1 print:p-0.5">{subject.passMarks}</TableCell>
-                                <TableCell className="text-center border border-black p-1 print:p-0.5">{subject.theoryMarksObtained}</TableCell>
-                                <TableCell className="text-center border border-black p-1 print:p-0.5">{subject.practicalMarksObtained}</TableCell>
-                                <TableCell className="text-center border border-black p-1 print:p-0.5 font-bold">{subject.obtainedTotal}</TableCell>
+                                <TableCell className="text-center border border-black p-1 text-sm print:text-sm print:p-0.5">{compulsorySubjects.length + index + 1}</TableCell>
+                                <TableCell className="border border-black p-1 text-sm print:text-sm print:p-0.5 text-left">{subject.subjectName}</TableCell>
+                                <TableCell className="text-center border border-black p-1 text-sm print:text-sm print:p-0.5">{subject.totalMarks}</TableCell>
+                                <TableCell className="text-center border border-black p-1 text-sm print:text-sm print:p-0.5">{subject.passMarks}</TableCell>
+                                <TableCell className="text-center border border-black p-1 text-sm print:text-sm print:p-0.5">{subject.theoryMarksObtained}</TableCell>
+                                <TableCell className="text-center border border-black p-1 text-sm print:text-sm print:p-0.5">{subject.practicalMarksObtained}</TableCell>
+                                <TableCell className="text-center border border-black p-1 text-sm print:text-sm print:p-0.5 font-bold">{subject.obtainedTotal}</TableCell>
                             </TableRow>
                         ))}
 
@@ -269,7 +269,7 @@ export function MarksheetDisplay({ data, onCreateNew, onEditBack }: MarksheetDis
                             <TableRow className="font-bold bg-transparent print:bg-transparent hover:bg-gray-50 print:hover:bg-gray-50 dark:hover:bg-inherit"> 
                                  <TableCell
                                     colSpan={7}
-                                    className="border border-black py-0.5 px-1 print:py-0.25 print:px-0.5 text-left text-sm print:text-xs text-black"
+                                    className="border border-black py-1 px-2 print:py-0.25 print:px-0.5 text-left text-sm print:text-xs text-black"
                                 >
                                     ADDITIONAL SUBJECTS
                                 </TableCell>
@@ -277,18 +277,27 @@ export function MarksheetDisplay({ data, onCreateNew, onEditBack }: MarksheetDis
                         )}
                         {additionalSubjects.map((subject, index) => (
                             <TableRow key={`addl-${index}`} className="border-b border-black h-[22px] print:h-[20px] hover:bg-transparent print:hover:bg-transparent dark:hover:bg-inherit">
-                                <TableCell className="text-center border border-black p-1 print:p-0.5">{compulsorySubjects.length + electiveSubjects.length + index + 1}</TableCell>
-                                <TableCell className="border border-black p-1 print:p-0.5 text-left bg-transparent print:bg-transparent">{subject.subjectName}</TableCell>
-                                <TableCell className="text-center border border-black p-1 print:p-0.5">{subject.totalMarks}</TableCell>
-                                <TableCell className="text-center border border-black p-1 print:p-0.5">{subject.passMarks}</TableCell>
-                                <TableCell className="text-center border border-black p-1 print:p-0.5">{subject.theoryMarksObtained}</TableCell>
-                                <TableCell className="text-center border border-black p-1 print:p-0.5">{subject.practicalMarksObtained}</TableCell>
-                                <TableCell className="text-center border border-black p-1 print:p-0.5 font-bold">{subject.obtainedTotal}</TableCell>
+                                <TableCell className="text-center border border-black p-1 text-sm print:text-sm print:p-0.5">{compulsorySubjects.length + electiveSubjects.length + index + 1}</TableCell>
+                                <TableCell className="border border-black p-1 text-sm print:text-sm print:p-0.5 text-left bg-transparent print:bg-transparent">{subject.subjectName}</TableCell>
+                                <TableCell className="text-center border border-black p-1 text-sm print:text-sm print:p-0.5">{subject.totalMarks}</TableCell>
+                                <TableCell className="text-center border border-black p-1 text-sm print:text-sm print:p-0.5">{subject.passMarks}</TableCell>
+                                <TableCell className="text-center border border-black p-1 text-sm print:text-sm print:p-0.5">{subject.theoryMarksObtained}</TableCell>
+                                <TableCell className="text-center border border-black p-1 text-sm print:text-sm print:p-0.5">{subject.practicalMarksObtained}</TableCell>
+                                <TableCell className="text-center border border-black p-1 text-sm print:text-sm print:p-0.5 font-bold">{subject.obtainedTotal}</TableCell>
                             </TableRow>
                         ))}
-                        <TableRow className="border-t-2 border-black h-[24px] print:h-[22px] hover:bg-transparent print:hover:bg-transparent dark:hover:bg-inherit"> 
+                        <TableRow className="border-black h-[24px] print:h-[22px] hover:bg-transparent print:hover:bg-transparent dark:hover:bg-inherit"> 
                             <TableCell colSpan={6} className="text-right border-l border-r border-b border-black p-1 print:p-0.5 pr-2 print:pr-1.5 font-bold text-base print:text-sm text-black">AGGREGATE (Compulsory + Elective)</TableCell> 
                             <TableCell className="text-center border-r border-b border-black p-1 print:p-0.5 font-bold text-base print:text-sm text-black">{data.aggregateMarksCompulsoryElective}</TableCell>
+                        </TableRow>
+                        {/* New Row for Total Marks in Words */}
+                        <TableRow className="h-[24px] print:h-[22px] hover:bg-transparent print:hover:bg-transparent dark:hover:bg-inherit">
+                            <TableCell colSpan={3} className="text-right border-l border-r border-b border-black p-1 print:p-0.5 pr-2 print:pr-1.5 text-base print:text-sm text-black">
+                                Total Marks in Words:
+                            </TableCell>
+                            <TableCell colSpan={4} className="text-center border-r border-b border-black p-1 print:p-0.5 font-bold text-base print:text-sm text-black">
+                                {data.totalMarksInWords}
+                            </TableCell>
                         </TableRow>
                     </TableBody> 
                 </Table>

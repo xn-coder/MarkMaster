@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Loader2, ArrowLeft } from 'lucide-react';
 import { format } from 'date-fns';
 import { AppHeader } from '@/components/app/app-header';
+import { numberToWords } from '@/lib/utils';
 
 const defaultPageSubtitle = `(Affiliated By Bihar School Examination Board, Patna)
 [Estd. - 1983] College Code: 53010
@@ -86,6 +87,8 @@ export default function NewMarksheetPage() {
       ? (aggregateMarksCompulsoryElective / totalPossibleMarksCompulsoryElective) * 100
       : 0;
 
+    const totalMarksInWords = numberToWords(aggregateMarksCompulsoryElective);
+
     let overallResult: 'Pass' | 'Fail' = 'Pass';
     if (overallPercentageDisplay < data.overallPassingThresholdPercentage) {
       overallResult = 'Fail';
@@ -102,11 +105,11 @@ export default function NewMarksheetPage() {
       system_id: systemId,
       collegeCode: "53010",
       subjects: subjectsDisplay,
-      marksheetNo: generateMarksheetNo(data.faculty, data.rollNumber, data.sessionEndYear),
       sessionDisplay: `${data.sessionStartYear}-${data.sessionEndYear}`,
       classDisplay: `${data.academicYear}`, // Removed section
       aggregateMarksCompulsoryElective,
       totalPossibleMarksCompulsoryElective,
+      totalMarksInWords,
       overallResult,
       overallPercentageDisplay,
       dateOfIssue: format(data.dateOfIssue, 'MMMM yyyy'), 

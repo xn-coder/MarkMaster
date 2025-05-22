@@ -117,8 +117,8 @@ export default function ImportDataPage() {
   };
 
   const handleDownloadSampleFile = () => {
-    const studentDetailsHeaders = ["Student ID", "Student Name", "Father Name", "Mother Name", "Date of Birth", "Gender", "Faculty", "Class"]; // Removed Section
-    const sampleStudentRow = ["S001", "John Doe", "Robert Doe", "Jane Doe", "15-07-2003", "Male", "SCIENCE", "12th"];
+    const studentDetailsHeaders = ["Student ID", "Student Name", "Father Name", "Mother Name", "Date of Birth", "Gender", "Registration No", "Faculty", "Class"];
+    const sampleStudentRow = ["S001", "John Doe", "Robert Doe", "Jane Doe", "15-07-2003", "Male", "REG001", "SCIENCE", "12th"];
 
     const studentMarksHeaders = ["Student ID", "Name", "Subject Name", "Subject Category", "Max Marks", "Pass Marks", "Theory Marks Obtained", "Practical Marks Obtained"];
     const sampleMarkRow = ["S001", "John Doe", "Physics", "Elective", 100, 33, 65, 25];
@@ -203,14 +203,14 @@ export default function ImportDataPage() {
             const motherName = String(row['Mother Name'] || '').trim();
             const dobRaw = row['Date of Birth'];
             const gender = String(row['Gender'] || '').trim();
+            const registrationNo = String(row['Registration No'] || '').trim();
             const faculty = String(row['Faculty'] || '').trim();
             const studentClass = String(row['Class'] || '').trim();
-            // const section = String(row['Section'] || '').trim(); // Removed section
-
+            
             const currentFeedback: StudentImportFeedbackItem = { rowNumber: rowNum, excelStudentId: excelStudentId, name: studentName, status: 'skipped', message: '' };
 
-            if (!excelStudentId || !studentName || !fatherName || !motherName || !dobRaw || !gender || !faculty || !studentClass) {
-              currentFeedback.message = "Missing one or more required fields (Student ID, Student Name, Father Name, Mother Name, DOB, Gender, Faculty, Class)."; // Removed section
+            if (!excelStudentId || !studentName || !fatherName || !motherName || !dobRaw || !gender || !faculty || !studentClass || !registrationNo) {
+              currentFeedback.message = "Missing one or more required fields (Student ID, Student Name, Father Name, Mother Name, DOB, Gender, Registration No, Faculty, Class).";
               results.studentFeedback.push(currentFeedback);
               results.totalStudentsSkipped++;
               continue;
@@ -230,8 +230,8 @@ export default function ImportDataPage() {
               .eq('roll_no', excelStudentId)
               .eq('academic_year', selectedAcademicSession)
               .eq('class', studentClass)
-              // .eq('section', section) // Removed section
               .eq('faculty', faculty)
+              .eq('registration_no', registrationNo)
               .maybeSingle();
 
             if (checkError) {
@@ -243,7 +243,7 @@ export default function ImportDataPage() {
             }
 
             if (existingStudent) {
-              currentFeedback.message = `Student with Roll No ${excelStudentId} in Session ${selectedAcademicSession}, Class ${studentClass}, Faculty ${faculty} already exists. Skipped.`; // Removed section
+              currentFeedback.message = `Student with Roll No ${excelStudentId}, Reg No ${registrationNo} in Session ${selectedAcademicSession}, Class ${studentClass}, Faculty ${faculty} already exists. Skipped.`;
               results.studentFeedback.push(currentFeedback);
               results.totalStudentsSkipped++;
               excelStudentIdToSystemIdMap.set(excelStudentId, existingStudent.id); 
@@ -269,9 +269,9 @@ export default function ImportDataPage() {
               mother_name: motherName,
               dob: dobFormatted,
               gender: gender,
+              registration_no: registrationNo,
               faculty: faculty,
               class: studentClass,
-              // section: section, // Removed section
               academic_year: selectedAcademicSession,
             });
             currentFeedback.status = 'added';
@@ -640,3 +640,4 @@ export default function ImportDataPage() {
     </div>
   );
 }
+

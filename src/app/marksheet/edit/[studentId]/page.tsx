@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Loader2, ArrowLeft } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { AppHeader } from '@/components/app/app-header';
+import { numberToWords } from '@/lib/utils';
 import type { ACADEMIC_YEAR_OPTIONS, SUBJECT_CATEGORIES_OPTIONS } from '@/components/app/marksheet-form-schema';
 
 const defaultPageSubtitle = `(Affiliated By Bihar School Examination Board, Patna)
@@ -161,6 +162,8 @@ export default function EditMarksheetPage() {
       ? (aggregateMarksCompulsoryElective / totalPossibleMarksCompulsoryElective) * 100
       : 0;
 
+    const totalMarksInWords = numberToWords(aggregateMarksCompulsoryElective);
+
     let overallResult: 'Pass' | 'Fail' = 'Pass';
     if (overallPercentageDisplay < data.overallPassingThresholdPercentage) {
       overallResult = 'Fail';
@@ -177,11 +180,11 @@ export default function EditMarksheetPage() {
       system_id: data.system_id || studentSystemId,
       collegeCode: "53010",
       subjects: subjectsDisplay,
-      marksheetNo: generateMarksheetNo(data.faculty, data.rollNumber, data.sessionEndYear),
       sessionDisplay: `${data.sessionStartYear}-${data.sessionEndYear}`,
       classDisplay: `${data.academicYear}`,
       aggregateMarksCompulsoryElective,
       totalPossibleMarksCompulsoryElective,
+      totalMarksInWords,
       overallResult,
       overallPercentageDisplay,
       dateOfIssue: format(data.dateOfIssue, 'MMMM yyyy'),

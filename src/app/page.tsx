@@ -153,7 +153,6 @@ export default function AdminDashboardPage() {
           academicYear: s.academic_year, 
           studentClass: s.class, 
           faculty: s.faculty,
-          // section: s.section, // Removed section
         }));
         setAllStudents(formattedStudents);
         populateDynamicFilterOptions(formattedStudents); 
@@ -561,7 +560,7 @@ export default function AdminDashboardPage() {
           <CardContent>
             <div className="overflow-x-auto">
               <Table>
-                <TableHeader className="bg-primary text-primary-foreground">
+                <TableHeader className="h-12 bg-primary text-primary-foreground">
                   <TableRow>
                     <TableHead className="text-white">Roll No</TableHead>
                     <TableHead className="text-white">Student Name</TableHead>
