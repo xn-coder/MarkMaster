@@ -130,8 +130,8 @@ export default function LoginPage() {
             <Image
               src="/college-logo.png"
               alt="College Logo"
-              width={70} 
-              height={70} 
+              width={80} 
+              height={80} 
               className="rounded-full"
               data-ai-hint="college logo"
             />
@@ -162,8 +162,6 @@ export default function LoginPage() {
         className="flex-grow relative flex items-center justify-center bg-cover bg-center"
         style={{ backgroundImage: "url('/login-bg.png')" }}
       >
-        {/* The Next.js Image component for the background has been removed. */}
-        {/* The background is now applied via CSS to the main element. */}
         
         <div className="bg-slate-800 bg-opacity-80 backdrop-blur-sm p-8 sm:p-10 rounded-xl shadow-2xl w-full max-w-sm sm:max-w-md m-4 z-10">
           {view === 'signIn' && (
@@ -235,7 +233,7 @@ export default function LoginPage() {
               <Button onClick={handleForgotPasswordRequest} className="w-full py-3" disabled={loading || !adminEmail}>
                 {loading ? <Loader2 className="animate-spin mr-2" /> : null} Send Reset Instructions
               </Button>
-              <Button variant="outline" onClick={() => setView('signIn')} className="w-full py-3 text-white border-white hover:bg-white hover:text-slate-800">
+              <Button variant="outline" onClick={() => setView('signIn')} className="w-full py-3 text-blue-300 border-blue-300 hover:bg-blue-300 hover:text-slate-800">
                 Back to Login
               </Button>
             </div>
@@ -244,6 +242,7 @@ export default function LoginPage() {
           {view === 'resetPasswordForm' && (
              <form onSubmit={handleResetPassword} className="space-y-6">
               <h2 className="text-xl font-semibold text-white text-center">Reset Your Password</h2>
+              <p className="text-sm text-slate-300 text-center">You have successfully verified your email. Enter a new password below.</p>
                <div>
                  <Label htmlFor="new-password"className="text-white mb-1 block">New Password</Label>
                  <Input
@@ -259,7 +258,7 @@ export default function LoginPage() {
                <Button type="submit" className="w-full py-3" disabled={loading}>
                  {loading ? <Loader2 className="animate-spin mr-2" /> : null} Reset Password
                </Button>
-                <Button variant="outline" onClick={() => setView('signIn')} className="w-full py-3 text-white border-white hover:bg-white hover:text-slate-800">
+                <Button variant="outline" onClick={() => setView('signIn')} className="w-full py-3 text-blue-300 border-blue-300 hover:bg-blue-300 hover:text-slate-800">
                 Back to Login
               </Button>
              </form>
@@ -277,3 +276,4 @@ export default function LoginPage() {
     </div>
   );
 }
+
