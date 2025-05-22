@@ -40,7 +40,7 @@ const GENDERS: MarksheetFormData['gender'][] = ['Male', 'Female', 'Other'];
 const FACULTIES: MarksheetFormData['faculty'][] = ['ARTS', 'COMMERCE', 'SCIENCE'];
 
 const currentYear = new Date().getFullYear();
-const startYearOptions = Array.from({ length: currentYear + 1 - 1990 + 1 }, (_, i) => 1990 + i).reverse();
+const startYearOptions = Array.from({ length: currentYear + 1 - 1950 + 1 }, (_, i) => 1950 + i).reverse(); // Extended range for DOB
 
 interface SubjectRowProps {
   control: any; // Control from useForm
@@ -109,8 +109,7 @@ const SubjectRow: React.FC<SubjectRowProps> = ({ control, index, remove, form, w
                 const newSuggestions = getSubjectSuggestions(watchedFaculty, value as SubjectEntryFormData['category']);
                 if (currentSubjectName && !newSuggestions.find(s => s.subjectName === currentSubjectName)) {
                   form.setValue(`subjects.${index}.subjectName`, '', { shouldValidate: true });
-                  // Reset marks if subject name becomes invalid due to category change
-                  const defaultTemplateForNewCategory = newSuggestions[0]; // Or some other logic
+                  const defaultTemplateForNewCategory = newSuggestions[0]; 
                   form.setValue(`subjects.${index}.totalMarks`, defaultTemplateForNewCategory?.totalMarks || 100, { shouldValidate: true });
                   form.setValue(`subjects.${index}.passMarks`, defaultTemplateForNewCategory?.passMarks || 33, { shouldValidate: true });
 
@@ -235,7 +234,7 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
       motherName: '',
       rollNumber: '',
       dateOfBirth: undefined,
-      dateOfIssue: new Date(), // Default to current date
+      dateOfIssue: new Date(), 
       gender: undefined,
       faculty: undefined,
       academicYear: undefined,
@@ -262,25 +261,22 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
   });
 
   const watchedFaculty = form.watch('faculty');
-  const watchedSessionStartYear = form.watch('sessionStartYear');
+  // const watchedSessionStartYear = form.watch('sessionStartYear'); // No longer needed to auto-set end year
   const prevFacultyRef = useRef<MarksheetFormData['faculty'] | undefined>(form.getValues('faculty'));
 
 
-  useEffect(() => {
-    if (watchedSessionStartYear) {
-      form.setValue('sessionEndYear', watchedSessionStartYear + 1, { shouldValidate: true });
-    }
-  }, [watchedSessionStartYear, form.setValue]);
+  // Removed useEffect that automatically sets sessionEndYear based on sessionStartYear
 
   useEffect(() => {
     if (initialData) {
       const processedInitialData: MarksheetFormData = {
+        system_id: initialData.system_id,
         studentName: initialData.studentName || '',
         fatherName: initialData.fatherName || '',
         motherName: initialData.motherName || '',
         rollNumber: initialData.rollNumber || '',
-        dateOfBirth: initialData.dateOfBirth ? new Date(initialData.dateOfBirth) : new Date(), // Ensure it's a Date
-        dateOfIssue: initialData.dateOfIssue ? new Date(initialData.dateOfIssue) : new Date(), // Ensure it's a Date
+        dateOfBirth: initialData.dateOfBirth ? new Date(initialData.dateOfBirth) : new Date(),
+        dateOfIssue: initialData.dateOfIssue ? new Date(initialData.dateOfIssue) : new Date(),
         gender: initialData.gender || undefined,
         faculty: initialData.faculty || undefined,
         academicYear: initialData.academicYear || undefined,
@@ -442,8 +438,11 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
                         mode="single"
                         selected={field.value ? new Date(field.value) : undefined}
                         onSelect={field.onChange}
+                        captionLayout="dropdown-buttons"
+                        fromYear={1950}
+                        toYear={currentYear}
                         disabled={(date) =>
-                          date > new Date() || date < new Date("1900-01-01")
+                          date > new Date() || date < new Date("1950-01-01")
                         }
                         initialFocus
                       />
@@ -546,7 +545,15 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Session End Year</FormLabel>
-                  <FormControl><Input type="number" value={field.value || ''} readOnly className="bg-muted/50 cursor-not-allowed" /></FormControl>
+                  <FormControl>
+                    <Input 
+                      type="number" 
+                      placeholder="e.g. 2025"
+                      {...field}
+                      onChange={e => field.onChange(e.target.value === '' ? undefined : parseInt(e.target.value, 10))}
+                      value={field.value ?? ''}
+                    />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -601,6 +608,9 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
                         mode="single"
                         selected={field.value ? new Date(field.value) : undefined}
                         onSelect={field.onChange}
+                        captionLayout="dropdown-buttons"
+                        fromYear={currentYear - 10} // Example range: 10 years back
+                        toYear={currentYear + 10}   // Example range: 10 years forward
                         initialFocus
                       />
                     </PopoverContent>

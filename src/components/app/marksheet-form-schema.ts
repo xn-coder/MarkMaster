@@ -25,36 +25,37 @@ export const subjectEntrySchema = z.object({
 });
 
 export const marksheetFormSchema = z.object({
+  system_id: z.string().optional(), // Added for edit mode
   studentName: z.string().min(1, 'Student name is required').max(100, 'Student name too long'),
   fatherName: z.string().min(1, "Father's name is required").max(100, "Father's name too long"),
   motherName: z.string().min(1, "Mother's name is required").max(100, "Mother's name too long"),
   rollNumber: z.string().min(1, 'Roll number is required').max(20, 'Roll number too long'),
   dateOfBirth: z.date({ required_error: 'Date of birth is required' }),
-  dateOfIssue: z.date({ required_error: 'Date of issue is required' }), // Added dateOfIssue
+  dateOfIssue: z.date({ required_error: 'Date of issue is required' }), 
   gender: z.enum(['Male', 'Female', 'Other'], { required_error: 'Gender is required' }),
   faculty: z.enum(['ARTS', 'COMMERCE', 'SCIENCE'], { required_error: 'Faculty is required' }),
   academicYear: z.enum(ACADEMIC_YEAR_OPTIONS, { required_error: 'Academic year is required' }),
   section: z.string().min(1, 'Section is required (e.g., A)').max(10, 'Section too long'),
-  sessionStartYear: z.coerce.number().min(1990, 'Year too old').max(currentYear + 1, `Year too far in future`),
-  sessionEndYear: z.coerce.number(),
+  sessionStartYear: z.coerce.number().min(1950, 'Year too old').max(currentYear + 5, `Year too far in future`), // Adjusted range
+  sessionEndYear: z.coerce.number().min(1951, 'Year too old').max(currentYear + 6, `Year too far in future`), // Adjusted range
   overallPassingThresholdPercentage: z.coerce.number().min(0, 'Percentage cannot be negative').max(100, 'Percentage cannot exceed 100'),
   subjects: z.array(subjectEntrySchema)
     .min(1, 'At least one subject is required.')
     .refine(
       (subjects) => {
         if (subjects.length <= 1) return true;
-        // Only check for duplicates among subjects that have a name
         const filledSubjectNames = subjects
           .map((s) => (s.subjectName || '').trim().toLowerCase())
           .filter(name => name !== '');
 
-        if (filledSubjectNames.length <= 1) return true; // No duplicates if 0 or 1 filled subject name
+        if (filledSubjectNames.length <= 1) return true; 
 
         const uniqueSubjectNames = new Set(filledSubjectNames);
         return uniqueSubjectNames.size === filledSubjectNames.length;
       },
       {
         message: 'Duplicate subject names are not allowed. Each subject name must be unique.',
+        // This error will appear under the subjects array. Fine for now.
       }
     ),
 }).refine(data => data.sessionEndYear === data.sessionStartYear + 1, {
