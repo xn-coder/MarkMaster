@@ -138,7 +138,7 @@ const SubjectRow: React.FC<SubjectRowProps> = ({ control, index, remove, form, w
                 placeholder="Total"
                 {...field}
                 onChange={e => field.onChange(e.target.value === '' ? undefined : parseInt(e.target.value, 10))}
-                value={field.value ?? ''}
+                value={field.value === undefined || field.value === null ? '' : String(field.value)}
                 className="text-center"
               />
             </FormControl>
@@ -158,7 +158,7 @@ const SubjectRow: React.FC<SubjectRowProps> = ({ control, index, remove, form, w
                 placeholder="Pass"
                 {...field}
                 onChange={e => field.onChange(e.target.value === '' ? undefined : parseInt(e.target.value, 10))}
-                value={field.value ?? ''}
+                value={field.value === undefined || field.value === null ? '' : String(field.value)}
                 className="text-center"
               />
             </FormControl>
@@ -178,7 +178,7 @@ const SubjectRow: React.FC<SubjectRowProps> = ({ control, index, remove, form, w
                 placeholder="e.g. 70"
                 {...field}
                 onChange={e => field.onChange(e.target.value === '' ? undefined : parseInt(e.target.value, 10))}
-                value={field.value ?? ''}
+                value={field.value === undefined || field.value === null ? '' : String(field.value)}
                 className="text-center"
               />
             </FormControl>
@@ -198,7 +198,7 @@ const SubjectRow: React.FC<SubjectRowProps> = ({ control, index, remove, form, w
                 placeholder="e.g. 15"
                 {...field}
                 onChange={e => field.onChange(e.target.value === '' ? undefined : parseInt(e.target.value, 10))}
-                value={field.value ?? ''}
+                value={field.value === undefined || field.value === null ? '' : String(field.value)}
                 className="text-center"
               />
             </FormControl>
@@ -233,7 +233,7 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
       fatherName: '',
       motherName: '',
       rollNumber: '',
-      registrationNo: '', // New field default
+      registrationNo: '',
       dateOfBirth: undefined,
       dateOfIssue: new Date(),
       gender: undefined,
@@ -271,7 +271,7 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
         fatherName: initialData.fatherName || '',
         motherName: initialData.motherName || '',
         rollNumber: initialData.rollNumber || '',
-        registrationNo: initialData.registrationNo || '', // Initialize new field
+        registrationNo: initialData.registrationNo || '',
         dateOfBirth: initialData.dateOfBirth ? toDate(initialData.dateOfBirth) : new Date(),
         dateOfIssue: initialData.dateOfIssue ? toDate(initialData.dateOfIssue) : new Date(),
         gender: initialData.gender || undefined,
@@ -302,13 +302,13 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
       form.reset(processedInitialData);
       prevFacultyRef.current = processedInitialData.faculty;
     }
-  }, [initialData, form.reset]);
+  }, [initialData, form]);
 
 
   useEffect(() => {
     const newFaculty = watchedFaculty;
 
-    if (!isEditMode && newFaculty && (newFaculty !== prevFacultyRef.current || fields.length === 0 || (fields.length === 1 && !fields[0].subjectName)) ) {
+    if (!isEditMode && newFaculty && (newFaculty !== prevFacultyRef.current || (fields.length === 0 || (fields.length === 1 && !fields[0].subjectName))) ) {
       const defaultSubjectDefinitions = DEFAULT_SUBJECTS_BY_FACULTY[newFaculty];
       if (defaultSubjectDefinitions) {
         const newSubjects = defaultSubjectDefinitions.map(def => {
@@ -345,7 +345,7 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
       }
     }
     prevFacultyRef.current = newFaculty;
-  }, [watchedFaculty, isEditMode, replace, fields, form]);
+  }, [watchedFaculty, isEditMode, replace, fields, form, prevFacultyRef]);
 
 
   const handleFormSubmit = (data: MarksheetFormData) => {
@@ -572,7 +572,7 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
                       placeholder="e.g., 33"
                       {...field}
                       onChange={e => field.onChange(e.target.value === '' ? undefined : parseInt(e.target.value, 10))}
-                      value={field.value ?? ''}
+                      value={field.value === undefined || field.value === null ? '' : String(field.value)}
                     />
                   </FormControl>
                   <FormMessage />
@@ -609,7 +609,7 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
                       placeholder="e.g. 2025"
                       {...field}
                       onChange={e => field.onChange(e.target.value === '' ? undefined : parseInt(e.target.value, 10))}
-                      value={field.value ?? ''}
+                      value={field.value === undefined || field.value === null ? '' : String(field.value)}
                     />
                   </FormControl>
                   <FormMessage />
