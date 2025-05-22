@@ -25,7 +25,7 @@ import {
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { PlusCircle, Trash2, CalendarIcon, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { format } from 'date-fns';
+import { format, toDate } from 'date-fns';
 import { getSubjectSuggestions, findSubjectTemplate, DEFAULT_SUBJECTS_BY_FACULTY } from '@/lib/subject-templates';
 
 
@@ -40,13 +40,13 @@ const GENDERS: MarksheetFormData['gender'][] = ['Male', 'Female', 'Other'];
 const FACULTIES: MarksheetFormData['faculty'][] = ['ARTS', 'COMMERCE', 'SCIENCE'];
 
 const currentYear = new Date().getFullYear();
-const startYearOptions = Array.from({ length: currentYear + 1 - 1950 + 1 }, (_, i) => 1950 + i).reverse(); 
+const startYearOptions = Array.from({ length: currentYear + 1 - 1950 + 1 }, (_, i) => 1950 + i).reverse();
 
 interface SubjectRowProps {
-  control: any; 
+  control: any;
   index: number;
   remove: (index: number) => void;
-  form: any; 
+  form: any;
   watchedFaculty: MarksheetFormData['faculty'] | undefined;
   isOnlySubject: boolean;
 }
@@ -109,7 +109,7 @@ const SubjectRow: React.FC<SubjectRowProps> = ({ control, index, remove, form, w
                 const newSuggestions = getSubjectSuggestions(watchedFaculty, value as SubjectEntryFormData['category']);
                 if (currentSubjectName && !newSuggestions.find(s => s.subjectName === currentSubjectName)) {
                   form.setValue(`subjects.${index}.subjectName`, '', { shouldValidate: true });
-                  const defaultTemplateForNewCategory = newSuggestions[0]; 
+                  const defaultTemplateForNewCategory = newSuggestions[0];
                   form.setValue(`subjects.${index}.totalMarks`, defaultTemplateForNewCategory?.totalMarks || 100, { shouldValidate: true });
                   form.setValue(`subjects.${index}.passMarks`, defaultTemplateForNewCategory?.passMarks || 33, { shouldValidate: true });
 
@@ -233,8 +233,9 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
       fatherName: '',
       motherName: '',
       rollNumber: '',
+      registrationNo: '', // New field default
       dateOfBirth: undefined,
-      dateOfIssue: new Date(), 
+      dateOfIssue: new Date(),
       gender: undefined,
       faculty: undefined,
       academicYear: undefined,
@@ -270,8 +271,9 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
         fatherName: initialData.fatherName || '',
         motherName: initialData.motherName || '',
         rollNumber: initialData.rollNumber || '',
-        dateOfBirth: initialData.dateOfBirth ? new Date(initialData.dateOfBirth) : new Date(),
-        dateOfIssue: initialData.dateOfIssue ? new Date(initialData.dateOfIssue) : new Date(),
+        registrationNo: initialData.registrationNo || '', // Initialize new field
+        dateOfBirth: initialData.dateOfBirth ? toDate(initialData.dateOfBirth) : new Date(),
+        dateOfIssue: initialData.dateOfIssue ? toDate(initialData.dateOfIssue) : new Date(),
         gender: initialData.gender || undefined,
         faculty: initialData.faculty || undefined,
         academicYear: initialData.academicYear || undefined,
@@ -402,6 +404,19 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
                 </FormItem>
               )}
             />
+             <FormField
+              control={form.control}
+              name="registrationNo"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Registration No.</FormLabel>
+                  <FormControl><Input placeholder="e.g., REG12345" {...field} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <FormField
               control={form.control}
               name="dateOfBirth"
@@ -419,7 +434,7 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
                           )}
                         >
                           {field.value ? (
-                            format(new Date(field.value), "PPP")
+                            format(toDate(field.value), "PPP")
                           ) : (
                             <span>Pick a date</span>
                           )}
@@ -430,7 +445,7 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
                     <PopoverContent className="w-auto p-0" align="start">
                       <Calendar
                         mode="single"
-                        selected={field.value ? new Date(field.value) : undefined}
+                        selected={field.value ? toDate(field.value) : undefined}
                         onSelect={field.onChange}
                         captionLayout="dropdown-buttons"
                         fromYear={1950}
@@ -438,6 +453,47 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
                         disabled={(date) =>
                           date > new Date() || date < new Date("1950-01-01")
                         }
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="dateOfIssue"
+              render={({ field }) => (
+                <FormItem className="flex flex-col">
+                  <FormLabel>Date of Issue</FormLabel>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <FormControl>
+                        <Button
+                          variant={"outline"}
+                          className={cn(
+                            "w-full pl-3 text-left font-normal",
+                            !field.value && "text-muted-foreground"
+                          )}
+                        >
+                          {field.value ? (
+                            format(toDate(field.value), "PPP")
+                          ) : (
+                            <span>Pick a date</span>
+                          )}
+                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                        </Button>
+                      </FormControl>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={field.value ? toDate(field.value) : undefined}
+                        onSelect={field.onChange}
+                        captionLayout="dropdown-buttons"
+                        fromYear={currentYear - 10}
+                        toYear={currentYear + 10}
                         initialFocus
                       />
                     </PopoverContent>
@@ -548,8 +604,8 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
                 <FormItem>
                   <FormLabel>Session End Year</FormLabel>
                   <FormControl>
-                    <Input 
-                      type="number" 
+                    <Input
+                      type="number"
                       placeholder="e.g. 2025"
                       {...field}
                       onChange={e => field.onChange(e.target.value === '' ? undefined : parseInt(e.target.value, 10))}
@@ -561,47 +617,6 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
               )}
             />
           </div>
-           <FormField
-              control={form.control}
-              name="dateOfIssue"
-              render={({ field }) => (
-                <FormItem className="flex flex-col">
-                  <FormLabel>Date of Issue</FormLabel>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <FormControl>
-                        <Button
-                          variant={"outline"}
-                          className={cn(
-                            "w-full pl-3 text-left font-normal",
-                            !field.value && "text-muted-foreground"
-                          )}
-                        >
-                          {field.value ? (
-                            format(new Date(field.value), "PPP")
-                          ) : (
-                            <span>Pick a date</span>
-                          )}
-                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                        </Button>
-                      </FormControl>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={field.value ? new Date(field.value) : undefined}
-                        onSelect={field.onChange}
-                        captionLayout="dropdown-buttons"
-                        fromYear={currentYear - 10} 
-                        toYear={currentYear + 10}   
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
         </div>
 
         <div className="space-y-6 p-6 border rounded-lg shadow-lg bg-card">
@@ -660,4 +675,3 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
       </form>
     </Form>
   );
-}

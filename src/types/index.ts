@@ -1,4 +1,3 @@
-
 import type { z } from 'zod';
 import type { marksheetFormSchema, subjectEntrySchema, ACADEMIC_YEAR_OPTIONS, SUBJECT_CATEGORIES_OPTIONS } from '@/components/app/marksheet-form-schema';
 
@@ -6,43 +5,44 @@ import type { marksheetFormSchema, subjectEntrySchema, ACADEMIC_YEAR_OPTIONS, SU
 export type SubjectEntryFormData = z.infer<typeof subjectEntrySchema>;
 export interface MarksheetFormData extends z.infer<typeof marksheetFormSchema> {
   system_id?: string; // To hold the UUID when editing
-  dateOfIssue: Date; 
+  registrationNo: string; // New field
+  dateOfIssue: Date;
 }
 
 // For displaying the processed marksheet
 export interface MarksheetSubjectDisplayEntry extends SubjectEntryFormData {
-  obtainedTotal: number; 
+  obtainedTotal: number;
 }
 
 export interface MarksheetDisplayData {
-  system_id?: string; 
+  system_id?: string;
   studentName: string;
   fatherName: string;
   motherName: string;
-  rollNumber: string; 
-  dateOfBirth: Date; 
+  rollNumber: string;
+  registrationNo: string; // New field
+  dateOfBirth: Date;
   gender: 'Male' | 'Female' | 'Other';
   faculty: 'ARTS' | 'COMMERCE' | 'SCIENCE';
-  academicYear: typeof ACADEMIC_YEAR_OPTIONS[number]; // This is the "Class" like "11th"
+  academicYear: typeof ACADEMIC_YEAR_OPTIONS[number];
   sessionStartYear: number;
   sessionEndYear: number;
   overallPassingThresholdPercentage: number;
-  dateOfIssue: string; 
+  dateOfIssue: string;
 
   subjects: MarksheetSubjectDisplayEntry[];
 
   collegeCode: string;
-  marksheetNo: string;
-  sessionDisplay: string; 
-  classDisplay: string; // e.g., "11th" (derived from academicYear)
+  sessionDisplay: string;
+  classDisplay: string;
 
   aggregateMarksCompulsoryElective: number;
   totalPossibleMarksCompulsoryElective: number;
 
   overallResult: 'Pass' | 'Fail';
-  overallPercentageDisplay: number; 
+  overallPercentageDisplay: number;
 
-  place: string; 
+  place: string;
 }
 
 export interface SubjectTemplateItem {
@@ -54,9 +54,10 @@ export interface SubjectTemplateItem {
 
 export interface StudentImportFeedbackItem {
   rowNumber: number;
-  excelStudentId?: string; 
+  excelStudentId?: string; // This is the Roll No from Excel
+  registrationNo?: string; // Registration No from Excel
   name: string;
-  generatedSystemId?: string; 
+  generatedSystemId?: string;
   status: 'added' | 'skipped' | 'error';
   message: string;
   details?: string;
@@ -64,8 +65,8 @@ export interface StudentImportFeedbackItem {
 
 export interface MarksImportFeedbackItem {
   rowNumber: number;
-  excelStudentId?: string; 
-  studentName: string; 
+  excelStudentId?: string; // This is the Roll No from Excel used to link marks
+  studentName: string;
   subjectName: string;
   status: 'added' | 'skipped' | 'error';
   message: string;
@@ -90,10 +91,11 @@ export interface ImportProcessingResults {
 }
 
 export interface StudentRowData {
-  system_id: string; 
-  roll_no: string;   
+  system_id: string;
+  roll_no: string;
+  registrationNo: string; // New field
   name: string;
-  academicYear: string; 
-  studentClass: string; 
+  academicYear: string;
+  studentClass: string;
   faculty: string;
 }

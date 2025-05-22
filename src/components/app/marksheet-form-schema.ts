@@ -25,13 +25,14 @@ export const subjectEntrySchema = z.object({
 });
 
 export const marksheetFormSchema = z.object({
-  system_id: z.string().optional(), // Added for edit mode
+  system_id: z.string().optional(),
   studentName: z.string().min(1, 'Student name is required').max(100, 'Student name too long'),
   fatherName: z.string().min(1, "Father's name is required").max(100, "Father's name too long"),
   motherName: z.string().min(1, "Mother's name is required").max(100, "Mother's name too long"),
   rollNumber: z.string().min(1, 'Roll number is required').max(20, 'Roll number too long'),
+  registrationNo: z.string().min(1, 'Registration No. is required').max(50, 'Registration No. too long'), // New field
   dateOfBirth: z.date({ required_error: 'Date of birth is required' }),
-  dateOfIssue: z.date({ required_error: 'Date of issue is required' }), 
+  dateOfIssue: z.date({ required_error: 'Date of issue is required' }),
   gender: z.enum(['Male', 'Female', 'Other'], { required_error: 'Gender is required' }),
   faculty: z.enum(['ARTS', 'COMMERCE', 'SCIENCE'], { required_error: 'Faculty is required' }),
   academicYear: z.enum(ACADEMIC_YEAR_OPTIONS, { required_error: 'Academic year (Class) is required' }),
@@ -47,7 +48,7 @@ export const marksheetFormSchema = z.object({
           .map((s) => (s.subjectName || '').trim().toLowerCase())
           .filter(name => name !== '');
 
-        if (filledSubjectNames.length <= 1) return true; 
+        if (filledSubjectNames.length <= 1) return true;
 
         const uniqueSubjectNames = new Set(filledSubjectNames);
         return uniqueSubjectNames.size === filledSubjectNames.length;
@@ -57,6 +58,4 @@ export const marksheetFormSchema = z.object({
       }
     ),
 }).refine(data => data.sessionEndYear === data.sessionStartYear + 1, {
-  message: 'Session end year must be one year after the start year.',
-  path: ['sessionEndYear'],
-});
+  message: 'Session end year must be one year after
