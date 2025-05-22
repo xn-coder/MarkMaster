@@ -32,19 +32,17 @@ export default function LoginPage() {
       setAdminEmail(emailFromEnv);
     } else {
       console.warn('NEXT_PUBLIC_ADMIN_EMAIL is not set in .env file');
-      toast({
-        title: 'Configuration Error',
-        description: 'Admin email is not configured. Please contact support.',
-        variant: 'destructive',
-      });
+      // toast({
+      //   title: 'Configuration Error',
+      //   description: 'Admin email is not configured. Please contact support.',
+      //   variant: 'destructive',
+      // });
     }
   }, [toast]);
 
   useEffect(() => {
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'PASSWORD_RECOVERY') {
-        // This event is triggered when the user clicks the recovery link
-        // and is redirected back to this page.
         setView('resetPasswordForm');
         toast({
           title: 'Password Recovery',
@@ -55,7 +53,6 @@ export default function LoginPage() {
       }
     });
 
-    // Check if user is already logged in
     const checkUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
@@ -81,7 +78,6 @@ export default function LoginPage() {
       toast({ title: 'Login Failed', description: error.message, variant: 'destructive' });
     } else {
       toast({ title: 'Login Successful', description: 'Redirecting...' });
-      // onAuthStateChange will handle redirect
     }
     setLoading(false);
   };
@@ -93,13 +89,13 @@ export default function LoginPage() {
     }
     setLoading(true);
     const { error } = await supabase.auth.resetPasswordForEmail(adminEmail, {
-      redirectTo: window.location.origin + '/login', // Redirect back to login page to handle recovery
+      redirectTo: typeof window !== 'undefined' ? window.location.origin + '/login' : '',
     });
     if (error) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     } else {
       toast({ title: 'Check your email', description: 'Password reset instructions have been sent.' });
-      setView('signIn'); // Go back to sign in view, user will click link from email
+      setView('signIn'); 
     }
     setLoading(false);
   };
@@ -128,15 +124,16 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
-      <header className="bg-white shadow-md">
-        <div className="container mx-auto flex items-center justify-between py-3 px-4 sm:px-6 lg:px-8 h-auto md:h-24">
-          <div className="flex-shrink-0">
+      <header className="bg-white shadow-md py-3">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between max-w-screen-xl">
+          <div className="flex items-center flex-shrink-0 gap-3">
             <Image
               src="/college-logo.png"
               alt="College Logo"
-              width={60} // Increased from 50
-              height={60} // Increased from 50
+              width={70} 
+              height={70} 
               className="rounded-full"
+              data-ai-hint="college logo"
             />
           </div>
           <div className="text-center mx-2 sm:mx-4 flex-grow">
@@ -146,14 +143,14 @@ export default function LoginPage() {
             <p className="text-[10px] sm:text-xs md:text-sm text-slate-600 mt-0.5">
               Affiled By Bihar School Examination Board | [Estd. - 1983]
             </p>
-            <p className="text-[10px] sm:text-xs text-slate-500">53010</p>
+            <p className="text-[10px] sm:text-xs text-slate-500">College Code: 53010</p>
           </div>
           <div className="flex-shrink-0">
             <Image
-              src="https://placehold.co/40x40.png"
+              src="/person.png"
               alt="User Icon"
-              width={40}
-              height={40}
+              width={70}
+              height={70}
               className="rounded-full"
               data-ai-hint="profile avatar"
             />
@@ -161,15 +158,13 @@ export default function LoginPage() {
         </div>
       </header>
 
-      <main className="flex-grow relative flex items-center justify-center">
-        <Image
-          src="/login-bg.png"
-          alt="Login background"
-          layout="fill"
-          objectFit="cover"
-          className="absolute inset-0 -z-10"
-          priority
-        />
+      <main 
+        className="flex-grow relative flex items-center justify-center bg-cover bg-center"
+        style={{ backgroundImage: "url('/login-bg.png')" }}
+      >
+        {/* The Next.js Image component for the background has been removed. */}
+        {/* The background is now applied via CSS to the main element. */}
+        
         <div className="bg-slate-800 bg-opacity-80 backdrop-blur-sm p-8 sm:p-10 rounded-xl shadow-2xl w-full max-w-sm sm:max-w-md m-4 z-10">
           {view === 'signIn' && (
             <form onSubmit={handleLogin} className="space-y-6">
@@ -275,12 +270,10 @@ export default function LoginPage() {
 
       <footer className="bg-white py-4 shadow-sm">
         <div className="container mx-auto flex flex-col sm:flex-row items-center justify-between text-xs text-slate-600 px-4 sm:px-6 lg:px-8">
-          <p className="mb-2 sm:mb-0 text-center sm:text-left">Copyright ©2025 by Saryug College, Samastipur, Bihar</p>
+          <p className="mb-2 sm:mb-0 text-center sm:text-left">Copyright ©{isClient ? new Date().getFullYear() : ''} by Saryug College, Samastipur, Bihar</p>
           <p className="text-center sm:text-right">Design By Mantix</p>
         </div>
       </footer>
     </div>
   );
 }
-
-    
