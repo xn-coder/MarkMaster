@@ -30,7 +30,7 @@ export const marksheetFormSchema = z.object({
   fatherName: z.string().min(1, "Father's name is required").max(100, "Father's name too long"),
   motherName: z.string().min(1, "Mother's name is required").max(100, "Mother's name too long"),
   rollNumber: z.string().min(1, 'Roll number is required').max(20, 'Roll number too long'),
-  registrationNo: z.string().min(1, 'Registration No. is required').max(50, 'Registration No. too long'), // New field
+  registrationNo: z.string().min(1, 'Registration No. is required').max(50, 'Registration No. too long'),
   dateOfBirth: z.date({ required_error: 'Date of birth is required' }),
   dateOfIssue: z.date({ required_error: 'Date of issue is required' }),
   gender: z.enum(['Male', 'Female', 'Other'], { required_error: 'Gender is required' }),
@@ -58,4 +58,6 @@ export const marksheetFormSchema = z.object({
       }
     ),
 }).refine(data => data.sessionEndYear === data.sessionStartYear + 1, {
-  message: 'Session end year must be one year after
+  message: 'Session end year must be one year after the start year.',
+  path: ['sessionEndYear'],
+});

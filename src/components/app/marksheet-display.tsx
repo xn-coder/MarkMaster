@@ -538,4 +538,4 @@ export function MarksheetDisplay({ data, onCreateNew, onEditBack }: MarksheetDis
 </div>
 ); }
 
-used this updated marksheet display component to display the marksheet with updated code.
+// used this updated marksheet display component to display the marksheet with updated code.
