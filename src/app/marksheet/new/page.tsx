@@ -1,18 +1,24 @@
-
 'use client';
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { supabase } from '@/lib/supabase/client';
+import { supabase } from '@/lib/supabase/client'; // KEEP for AUTH
 import { MarksheetForm } from '@/components/app/marksheet-form';
 import { MarksheetDisplay } from '@/components/app/marksheet-display';
 import type { MarksheetFormData, MarksheetDisplayData, MarksheetSubjectDisplayEntry } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Loader2, ArrowLeft } from 'lucide-react';
-import { format } from 'date-fns';
+import { format } from 'date-fns'; // Keep for client-side date formatting
 import { AppHeader } from '@/components/app/app-header';
 import { numberToWords } from '@/lib/utils';
+
+// IMPORT SERVER ACTIONS
+import {
+  checkExistingStudentAction,
+  saveMarksheetAction,
+  type SaveMarksheetResult // Optional import for type safety
+} from '@/app/admin/actions'; // Adjust path if needed
 
 const defaultPageSubtitle = `(Affiliated By Bihar School Examination Board, Patna)
 [Estd. - 1983] College Code: 53010
@@ -24,11 +30,11 @@ export default function NewMarksheetPage() {
   const { toast } = useToast();
 
   const [authStatus, setAuthStatus] = useState<'loading' | 'authenticated' | 'unauthenticated'>('loading');
-
   const [isLoadingFormSubmission, setIsLoadingFormSubmission] = useState(false);
   const [marksheetData, setMarksheetData] = useState<MarksheetDisplayData | null>(null);
   const [footerYear, setFooterYear] = useState<number | null>(null);
 
+  // --- AUTHENTICATION LOGIC (NO CHANGE) ---
   useEffect(() => {
     const checkAuthentication = async () => {
       try {
@@ -57,13 +63,14 @@ export default function NewMarksheetPage() {
     }
   }, [authStatus, router]);
 
+  // --- CLIENT-SIDE DATA PROCESSING LOGIC (NO CHANGE) ---
   const generateMarksheetNo = (faculty: string, rollNumber: string, sessionEndYear: number): string => {
     const facultyCode = faculty.substring(0, 2).toUpperCase();
     const month = format(new Date(), 'MMM').toUpperCase();
     const sequence = String(Math.floor(Math.random() * 900) + 100);
     return `${facultyCode}/${month}/${sessionEndYear}/${rollNumber.slice(-3) || sequence}`;
   };
-
+  
   const processFormData = (data: MarksheetFormData, systemId: string): MarksheetDisplayData => {
     const subjectsDisplay: MarksheetSubjectDisplayEntry[] = data.subjects.map(s => ({
       ...s,
@@ -100,142 +107,82 @@ export default function NewMarksheetPage() {
       }
     }
 
+    // Generate marksheet number client-side if needed for immediate display,
+    // or consider generating it server-side and returning it.
+    const marksheetNo = generateMarksheetNo(data.faculty, data.rollNumber, data.sessionEndYear);
+
     return {
       ...data,
       system_id: systemId,
       collegeCode: "53010",
+      registrationNo: data.registrationNo,
       subjects: subjectsDisplay,
       sessionDisplay: `${data.sessionStartYear}-${data.sessionEndYear}`,
-      classDisplay: `${data.academicYear}`, // Removed section
+      classDisplay: `${data.academicYear}`,
       aggregateMarksCompulsoryElective,
       totalPossibleMarksCompulsoryElective,
       totalMarksInWords,
       overallResult,
       overallPercentageDisplay,
-      dateOfIssue: format(data.dateOfIssue, 'MMMM yyyy'), 
+      dateOfIssue: format(new Date(data.dateOfIssue), 'MMMM yyyy'), 
       place: 'Samastipur',
     };
   };
 
+  // --- MODIFIED: HANDLE FORM SUBMIT ---
   const handleFormSubmit = async (data: MarksheetFormData) => {
     setIsLoadingFormSubmission(true);
-
     const academicSessionString = `${data.sessionStartYear}-${data.sessionEndYear}`;
 
-    const { data: existingStudentCheck, error: checkError } = await supabase
-      .from('student_details')
-      .select('id')
-      .eq('roll_no', data.rollNumber)
-      .eq('academic_year', academicSessionString)
-      .eq('class', data.academicYear)
-      .eq('faculty', data.faculty)
-      // Removed section from uniqueness check
-      .maybeSingle();
-
-    if (checkError) {
-      toast({
-        title: 'Database Error',
-        description: `Failed to check for existing student: ${checkError.message}`,
-        variant: 'destructive',
-      });
-      setIsLoadingFormSubmission(false);
-      return;
-    }
-
-    if (existingStudentCheck) {
-      toast({
-        title: 'Student Already Exists',
-        description: 'A student with the same Roll No., Academic Session, Class, and Faculty already exists.',
-        variant: 'destructive',
-      });
-      setIsLoadingFormSubmission(false);
-      return;
-    }
-
-
-    const systemGeneratedId = crypto.randomUUID();
-
     try {
-      const dobFormatted = format(data.dateOfBirth, 'yyyy-MM-dd');
+      // Client-side check (optional, server will also check)
+      const checkResult = await checkExistingStudentAction(
+        data.rollNumber,
+        academicSessionString,
+        data.academicYear, // Use data.academicYear for class
+        data.faculty
+      );
 
-      const studentToInsert = {
-        id: systemGeneratedId,
-        roll_no: data.rollNumber,
-        name: data.studentName,
-        father_name: data.fatherName,
-        mother_name: data.motherName,
-        dob: dobFormatted,
-        gender: data.gender,
-        faculty: data.faculty,
-        class: data.academicYear,
-        // section: data.section, // Removed section
-        academic_year: academicSessionString,
-      };
-
-      const { data: insertedStudentData, error: studentError } = await supabase
-        .from('student_details')
-        .insert(studentToInsert)
-        .select()
-        .single();
-
-      if (studentError || !insertedStudentData) {
-        console.error('Error inserting student:', studentError);
+      if (checkResult.error) {
         toast({
-          title: 'Database Error',
-          description: `Failed to save student data: ${studentError?.message || 'Unknown error.'}`,
+          title: 'Error',
+          description: `Failed to check for existing student: ${checkResult.error}`,
           variant: 'destructive',
         });
         setIsLoadingFormSubmission(false);
         return;
       }
 
-      const subjectMarksToInsert = data.subjects.map(subject => ({
-        student_detail_id: insertedStudentData.id,
-        subject_name: subject.subjectName,
-        category: subject.category,
-        max_marks: subject.totalMarks,
-        pass_marks: subject.passMarks,
-        theory_marks_obtained: subject.theoryMarksObtained,
-        practical_marks_obtained: subject.practicalMarksObtained,
-        obtained_total_marks: (subject.theoryMarksObtained || 0) + (subject.practicalMarksObtained || 0),
-      }));
-
-      if (subjectMarksToInsert.length > 0) {
-        const { error: subjectMarksError } = await supabase
-          .from('student_marks_details')
-          .insert(subjectMarksToInsert);
-
-        if (subjectMarksError) {
-          console.error('Error inserting subject marks:', subjectMarksError);
-
-          await supabase.from('student_details').delete().eq('id', insertedStudentData.id);
-          toast({
-            title: 'Database Error',
-            description: `Failed to save subject marks: ${subjectMarksError.message}. Student data was not saved.`,
-            variant: 'destructive',
-          });
-          setIsLoadingFormSubmission(false);
-          return;
-        } else {
-          toast({
-            title: 'Marksheet Data Saved',
-            description: 'Student and subject data successfully saved to the database.',
-          });
-        }
-      } else {
-         toast({
-            title: 'Student Data Saved (No Subjects)',
-            description: 'Student data saved, but no subjects were provided to save.',
-            variant: 'default'
+      if (checkResult.exists) {
+        toast({
+          title: 'Student Already Exists',
+          description: 'A student with the same Roll No., Academic Session, Class, and Faculty already exists (client check).',
+          variant: 'destructive',
         });
+        setIsLoadingFormSubmission(false);
+        return;
       }
 
-      const processedDataForDisplay = processFormData(data, insertedStudentData.id);
-      setMarksheetData(processedDataForDisplay);
+      // Call the server action to save the data
+      const saveResult: SaveMarksheetResult = await saveMarksheetAction(data);
 
+      if (saveResult.success && saveResult.studentId) {
+        toast({
+          title: 'Marksheet Data Saved',
+          description: saveResult.message,
+        });
+        const processedDataForDisplay = processFormData(data, saveResult.studentId);
+        setMarksheetData(processedDataForDisplay);
+      } else {
+        toast({
+          title: 'Failed to Save Marksheet',
+          description: saveResult.message + (saveResult.errorDetails ? ` Details: ${saveResult.errorDetails}` : ''),
+          variant: 'destructive',
+        });
+      }
     } catch (error) {
-      console.error("Error processing or saving marksheet:", error);
-      let message = 'An unexpected error occurred while saving or processing the marksheet.';
+      console.error("Error during form submission process:", error);
+      let message = 'An unexpected error occurred during submission.';
       if (error instanceof Error) {
         message = error.message;
       }
@@ -262,7 +209,8 @@ export default function NewMarksheetPage() {
     );
   }
 
-
+  // --- REMAINDER OF THE COMPONENT (JSX) - NO SIGNIFICANT CHANGES NEEDED ---
+  // The JSX structure remains the same as it's driven by the component's state.
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col print:h-full">
       <AppHeader pageSubtitle={defaultPageSubtitle} />

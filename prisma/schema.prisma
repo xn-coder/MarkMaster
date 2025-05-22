@@ -1,0 +1,43 @@
+// prisma/schema.prisma
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model StudentDetail { // <-- IS IT EXACTLY 'StudentDetail'?
+  id                String    @id
+  rollNo            String?   @map("roll_no") // Prisma model fields are camelCase
+  name              String?
+  fatherName        String?   @map("father_name")
+  motherName        String?   @map("mother_name")
+  dob               DateTime? @db.Date
+  gender            String?
+  faculty           String?
+  class             String?   // 'class' is okay as a field name in Prisma models
+  academicYear      String?   @map("academic_year")
+  registrationNo    String?   @unique @map("registration_no")
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamp(0)
+
+  marks             StudentMarksDetail[]
+  @@map("student_details")
+}
+
+model StudentMarksDetail { // <-- IS IT EXACTLY 'StudentMarksDetail'?
+  markId                  Int       @id @default(autoincrement()) @map("mark_id")
+  studentDetailId         String    @map("student_detail_id")
+  subjectName             String?   @map("subject_name")
+  category                String?
+  maxMarks                Int?      @map("max_marks")
+  passMarks               Int?      @map("pass_marks")
+  theoryMarksObtained     Int?      @map("theory_marks_obtained")
+  practicalMarksObtained  Int?      @map("practical_marks_obtained")
+  obtainedTotalMarks      Int?      @map("obtained_total_marks")
+  createdAt               DateTime  @default(now()) @map("created_at") @db.Timestamp(0)
+
+  student                 StudentDetail @relation(fields: [studentDetailId], references: [id], onDelete: Cascade)
+  @@map("student_marks_details")
+}
