@@ -13,7 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/lib/supabase/client';
 import { Loader2 } from 'lucide-react';
 
-type View = 'signIn' | 'forgotPassword' | 'resetPasswordForm';
+type View = 'signIn' | 'forgotPasswordRequestOtp' | 'verifyOtp' | 'resetPasswordForm';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -21,6 +21,7 @@ export default function LoginPage() {
   const [adminEmail, setAdminEmail] = useState('');
   const [password, setPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
+  const [otp, setOtp] = useState('');
   const [view, setView] = useState<View>('signIn');
   const [loading, setLoading] = useState(false);
   const [isClient, setIsClient] = useState(false);
@@ -42,15 +43,12 @@ export default function LoginPage() {
 
   useEffect(() => {
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'PASSWORD_RECOVERY') {
-        setView('resetPasswordForm');
-        toast({
-          title: 'Password Recovery',
-          description: 'Please enter your new password.',
-        });
-      } else if (event === 'SIGNED_IN') {
+      // If SIGNED_IN event occurs AND we are not in the middle of resetting password, then redirect.
+      if (event === 'SIGNED_IN' && view !== 'resetPasswordForm') {
         router.push('/');
       }
+      // Note: The PASSWORD_RECOVERY event is for link-based recovery, not OTP.
+      // We handle OTP flow manually.
     });
 
     const checkUser = async () => {
@@ -64,7 +62,7 @@ export default function LoginPage() {
     return () => {
       authListener.subscription.unsubscribe();
     };
-  }, [router, toast]);
+  }, [router, view]);
 
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -78,24 +76,59 @@ export default function LoginPage() {
       toast({ title: 'Login Failed', description: error.message, variant: 'destructive' });
     } else {
       toast({ title: 'Login Successful', description: 'Redirecting...' });
+      // Redirection is handled by onAuthStateChange
     }
     setLoading(false);
   };
 
-  const handleForgotPasswordRequest = async () => {
+  const handleRequestOtp = async () => {
     if (!adminEmail) {
        toast({ title: 'Error', description: 'Admin email is not configured.', variant: 'destructive' });
        return;
     }
     setLoading(true);
-    const { error } = await supabase.auth.resetPasswordForEmail(adminEmail, {
-      redirectTo: typeof window !== 'undefined' ? window.location.origin + '/login' : '',
+    // For OTP based reset, we use signInWithOtp.
+    // The email template from Supabase might still contain a link, but we'll rely on the OTP.
+    const { error } = await supabase.auth.signInWithOtp({
+      email: adminEmail,
+      options: {
+        shouldCreateUser: false, // We are not creating a new user
+        // emailRedirectTo is good practice though we focus on OTP.
+        emailRedirectTo: typeof window !== 'undefined' ? window.location.origin + '/login' : '', 
+      }
     });
+
     if (error) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+      toast({ title: 'Error Sending OTP', description: error.message, variant: 'destructive' });
     } else {
-      toast({ title: 'Check your email', description: 'Password reset instructions have been sent.' });
-      setView('signIn'); 
+      toast({ title: 'OTP Sent', description: 'An OTP has been sent to your email address.' });
+      setView('verifyOtp');
+    }
+    setLoading(false);
+  };
+
+  const handleVerifyOtp = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!adminEmail || !otp) {
+      toast({ title: 'Error', description: 'Email or OTP missing.', variant: 'destructive' });
+      return;
+    }
+    setLoading(true);
+    const { data, error } = await supabase.auth.verifyOtp({
+      email: adminEmail,
+      token: otp,
+      type: 'email', // Type for email OTP verification
+    });
+
+    if (error) {
+      toast({ title: 'OTP Verification Failed', description: error.message, variant: 'destructive' });
+    } else if (data.session) {
+      // OTP is correct, user is now signed in. Proceed to password reset form.
+      toast({ title: 'OTP Verified', description: 'Please set your new password.' });
+      setView('resetPasswordForm');
+    } else {
+      // Should not happen if error is null and session is null, but as a fallback.
+      toast({ title: 'OTP Verification Failed', description: 'Invalid OTP or unknown error.', variant: 'destructive' });
     }
     setLoading(false);
   };
@@ -103,12 +136,15 @@ export default function LoginPage() {
   const handleResetPassword = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
+    // User is already authenticated at this point via OTP verification
     const { error } = await supabase.auth.updateUser({ password: newPassword });
     if (error) {
       toast({ title: 'Password Reset Failed', description: error.message, variant: 'destructive' });
     } else {
       toast({ title: 'Password Reset Successful', description: 'You can now login with your new password.' });
       setNewPassword('');
+      // Sign out the user after password reset so they have to log in with new password
+      await supabase.auth.signOut(); 
       setView('signIn');
     }
     setLoading(false);
@@ -203,7 +239,7 @@ export default function LoginPage() {
                   </Label>
                 </div>
                 <div className="text-xs sm:text-sm">
-                  <Button variant="link" type="button" onClick={() => setView('forgotPassword')} className="font-medium text-white hover:text-blue-300 p-0 h-auto">
+                  <Button variant="link" type="button" onClick={() => setView('forgotPasswordRequestOtp')} className="font-medium text-white hover:text-blue-300 p-0 h-auto">
                     Forgot password?
                   </Button>
                 </div>
@@ -216,10 +252,10 @@ export default function LoginPage() {
             </form>
           )}
 
-          {view === 'forgotPassword' && (
+          {view === 'forgotPasswordRequestOtp' && (
             <div className="space-y-6">
               <h2 className="text-xl font-semibold text-white text-center">Forgot Password</h2>
-              <p className="text-sm text-slate-300 text-center">Enter the admin email address to receive password reset instructions.</p>
+              <p className="text-sm text-slate-300 text-center">Enter the admin email address to receive an OTP for password reset.</p>
               <div>
                 <Label htmlFor="reset-email" className="text-white mb-1 block">Admin Email</Label>
                 <Input
@@ -230,19 +266,46 @@ export default function LoginPage() {
                   className="bg-slate-200 text-slate-700 cursor-not-allowed placeholder-slate-500 border-slate-300 focus:ring-primary focus:border-primary text-sm h-11"
                 />
               </div>
-              <Button onClick={handleForgotPasswordRequest} className="w-full py-3" disabled={loading || !adminEmail}>
-                {loading ? <Loader2 className="animate-spin mr-2" /> : null} Send Reset Instructions
+              <Button onClick={handleRequestOtp} className="w-full py-3" disabled={loading || !adminEmail}>
+                {loading ? <Loader2 className="animate-spin mr-2" /> : null} Send OTP
               </Button>
               <Button variant="outline" onClick={() => setView('signIn')} className="w-full py-3 text-blue-300 border-blue-300 hover:bg-blue-300 hover:text-slate-800">
                 Back to Login
               </Button>
             </div>
           )}
+
+          {view === 'verifyOtp' && (
+            <form onSubmit={handleVerifyOtp} className="space-y-6">
+              <h2 className="text-xl font-semibold text-white text-center">Verify OTP</h2>
+              <p className="text-sm text-slate-300 text-center">An OTP has been sent to {adminEmail}. Please enter it below.</p>
+              <div>
+                <Label htmlFor="otp"className="text-white mb-1 block">One-Time Password (OTP)</Label>
+                <Input
+                  type="text"
+                  id="otp"
+                  name="otp"
+                  value={otp}
+                  onChange={(e) => setOtp(e.target.value)}
+                  required
+                  placeholder="Enter OTP"
+                  className="bg-white text-slate-900 placeholder-slate-500 border-slate-300 focus:ring-primary focus:border-primary text-sm h-11"
+                  autoComplete="one-time-code"
+                />
+              </div>
+              <Button type="submit" className="w-full py-3" disabled={loading || !otp}>
+                {loading ? <Loader2 className="animate-spin mr-2" /> : null} Verify OTP
+              </Button>
+              <Button variant="outline" onClick={() => setView('signIn')} className="w-full py-3 text-blue-300 border-blue-300 hover:bg-blue-300 hover:text-slate-800">
+                Back to Login
+              </Button>
+            </form>
+          )}
           
           {view === 'resetPasswordForm' && (
              <form onSubmit={handleResetPassword} className="space-y-6">
               <h2 className="text-xl font-semibold text-white text-center">Reset Your Password</h2>
-              <p className="text-sm text-slate-300 text-center">You have successfully verified your email. Enter a new password below.</p>
+              <p className="text-sm text-slate-300 text-center">OTP verified. Please enter your new password below.</p>
                <div>
                  <Label htmlFor="new-password"className="text-white mb-1 block">New Password</Label>
                  <Input
@@ -276,4 +339,3 @@ export default function LoginPage() {
     </div>
   );
 }
-
