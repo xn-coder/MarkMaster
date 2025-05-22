@@ -96,12 +96,12 @@ export default function EditMarksheetPage() {
             fatherName: studentDetails.father_name,
             motherName: studentDetails.mother_name,
             rollNumber: studentDetails.roll_no,
+            registrationNo: studentDetails.registration_no || '', // Fetch registration_no
             dateOfBirth: studentDetails.dob ? parseISO(studentDetails.dob) : new Date(),
             dateOfIssue: new Date(), 
             gender: studentDetails.gender as MarksheetFormData['gender'],
             faculty: studentDetails.faculty as MarksheetFormData['faculty'],
             academicYear: studentDetails.class as typeof ACADEMIC_YEAR_OPTIONS[number],
-            // section: studentDetails.section, // Removed section
             sessionStartYear: sessionStartYear,
             sessionEndYear: sessionEndYear,
             overallPassingThresholdPercentage: 33, // Default, not stored in DB
@@ -179,13 +179,14 @@ export default function EditMarksheetPage() {
       subjects: subjectsDisplay,
       marksheetNo: generateMarksheetNo(data.faculty, data.rollNumber, data.sessionEndYear),
       sessionDisplay: `${data.sessionStartYear}-${data.sessionEndYear}`,
-      classDisplay: `${data.academicYear}`, // Removed section
+      classDisplay: `${data.academicYear}`,
       aggregateMarksCompulsoryElective,
       totalPossibleMarksCompulsoryElective,
       overallResult,
       overallPercentageDisplay,
       dateOfIssue: format(data.dateOfIssue, 'MMMM yyyy'),
       place: 'Samastipur',
+      registrationNo: data.registrationNo,
     };
   };
 
@@ -206,11 +207,11 @@ export default function EditMarksheetPage() {
           father_name: data.fatherName,
           mother_name: data.motherName,
           roll_no: data.rollNumber,
+          registration_no: data.registrationNo, // Added registrationNo to update
           dob: format(data.dateOfBirth, 'yyyy-MM-dd'),
           gender: data.gender,
           faculty: data.faculty,
           class: data.academicYear,
-          // section: data.section, // Removed section
           academic_year: `${data.sessionStartYear}-${data.sessionEndYear}`,
         })
         .eq('id', studentSystemId);
@@ -300,8 +301,9 @@ export default function EditMarksheetPage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col print:h-full print:bg-white">
-      <AppHeader pageSubtitle={defaultPageSubtitle} />
-
+       <div className="print:hidden">
+        <AppHeader pageSubtitle={defaultPageSubtitle} />
+      </div>
       <main className="flex-grow container mx-auto px-4 py-8 sm:px-6 lg:px-8 print:p-0 print:m-0 print:h-full print:container-none print:max-w-none max-w-screen-xl">
         <div className="flex justify-start mb-6 print:hidden">
             <Button variant="outline" onClick={() => router.back()}>
