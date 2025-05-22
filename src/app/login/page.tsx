@@ -39,12 +39,12 @@ export default function LoginPage() {
       //   variant: 'destructive',
       // });
     }
-  }, [toast]);
+  }, []);
 
   useEffect(() => {
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-      // If SIGNED_IN event occurs AND we are not in the middle of resetting password, then redirect.
-      if (event === 'SIGNED_IN' && view !== 'resetPasswordForm') {
+      // If SIGNED_IN event occurs AND we are not in the middle of verifying OTP or resetting password, then redirect.
+      if (event === 'SIGNED_IN' && view !== 'resetPasswordForm' && view !== 'verifyOtp') {
         router.push('/');
       }
       // Note: The PASSWORD_RECOVERY event is for link-based recovery, not OTP.
@@ -53,16 +53,19 @@ export default function LoginPage() {
 
     const checkUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
+      if (user && view !== 'resetPasswordForm' && view !== 'verifyOtp' && view !== 'forgotPasswordRequestOtp' ) { // Only redirect if not in a password reset flow
         router.push('/');
       }
     };
-    checkUser();
+    if(isClient){ // Ensure this runs only client-side
+        checkUser();
+    }
+
 
     return () => {
       authListener.subscription.unsubscribe();
     };
-  }, [router, view]);
+  }, [router, view, isClient]);
 
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -87,13 +90,10 @@ export default function LoginPage() {
        return;
     }
     setLoading(true);
-    // For OTP based reset, we use signInWithOtp.
-    // The email template from Supabase might still contain a link, but we'll rely on the OTP.
     const { error } = await supabase.auth.signInWithOtp({
       email: adminEmail,
       options: {
-        shouldCreateUser: false, // We are not creating a new user
-        // emailRedirectTo is good practice though we focus on OTP.
+        shouldCreateUser: false,
         emailRedirectTo: typeof window !== 'undefined' ? window.location.origin + '/login' : '', 
       }
     });
@@ -117,17 +117,15 @@ export default function LoginPage() {
     const { data, error } = await supabase.auth.verifyOtp({
       email: adminEmail,
       token: otp,
-      type: 'email', // Type for email OTP verification
+      type: 'email', 
     });
 
     if (error) {
       toast({ title: 'OTP Verification Failed', description: error.message, variant: 'destructive' });
     } else if (data.session) {
-      // OTP is correct, user is now signed in. Proceed to password reset form.
       toast({ title: 'OTP Verified', description: 'Please set your new password.' });
       setView('resetPasswordForm');
     } else {
-      // Should not happen if error is null and session is null, but as a fallback.
       toast({ title: 'OTP Verification Failed', description: 'Invalid OTP or unknown error.', variant: 'destructive' });
     }
     setLoading(false);
@@ -136,14 +134,12 @@ export default function LoginPage() {
   const handleResetPassword = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
-    // User is already authenticated at this point via OTP verification
     const { error } = await supabase.auth.updateUser({ password: newPassword });
     if (error) {
       toast({ title: 'Password Reset Failed', description: error.message, variant: 'destructive' });
     } else {
       toast({ title: 'Password Reset Successful', description: 'You can now login with your new password.' });
       setNewPassword('');
-      // Sign out the user after password reset so they have to log in with new password
       await supabase.auth.signOut(); 
       setView('signIn');
     }
@@ -339,3 +335,5 @@ export default function LoginPage() {
     </div>
   );
 }
+
+    
