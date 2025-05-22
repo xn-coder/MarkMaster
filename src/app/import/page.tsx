@@ -117,8 +117,8 @@ export default function ImportDataPage() {
   };
 
   const handleDownloadSampleFile = () => {
-    const studentDetailsHeaders = ["Student ID", "Student Name", "Father Name", "Mother Name", "Date of Birth", "Gender", "Faculty", "Class", "Section"];
-    const sampleStudentRow = ["S001", "John Doe", "Robert Doe", "Jane Doe", "15-07-2003", "Male", "SCIENCE", "12th", "B"];
+    const studentDetailsHeaders = ["Student ID", "Student Name", "Father Name", "Mother Name", "Date of Birth", "Gender", "Faculty", "Class"]; // Removed Section
+    const sampleStudentRow = ["S001", "John Doe", "Robert Doe", "Jane Doe", "15-07-2003", "Male", "SCIENCE", "12th"];
 
     const studentMarksHeaders = ["Student ID", "Name", "Subject Name", "Subject Category", "Max Marks", "Pass Marks", "Theory Marks Obtained", "Practical Marks Obtained"];
     const sampleMarkRow = ["S001", "John Doe", "Physics", "Elective", 100, 33, 65, 25];
@@ -205,12 +205,12 @@ export default function ImportDataPage() {
             const gender = String(row['Gender'] || '').trim();
             const faculty = String(row['Faculty'] || '').trim();
             const studentClass = String(row['Class'] || '').trim();
-            const section = String(row['Section'] || '').trim();
+            // const section = String(row['Section'] || '').trim(); // Removed section
 
             const currentFeedback: StudentImportFeedbackItem = { rowNumber: rowNum, excelStudentId: excelStudentId, name: studentName, status: 'skipped', message: '' };
 
-            if (!excelStudentId || !studentName || !fatherName || !motherName || !dobRaw || !gender || !faculty || !studentClass || !section) {
-              currentFeedback.message = "Missing one or more required fields (Student ID, Student Name, Father Name, Mother Name, DOB, Gender, Faculty, Class, Section).";
+            if (!excelStudentId || !studentName || !fatherName || !motherName || !dobRaw || !gender || !faculty || !studentClass) {
+              currentFeedback.message = "Missing one or more required fields (Student ID, Student Name, Father Name, Mother Name, DOB, Gender, Faculty, Class)."; // Removed section
               results.studentFeedback.push(currentFeedback);
               results.totalStudentsSkipped++;
               continue;
@@ -230,7 +230,7 @@ export default function ImportDataPage() {
               .eq('roll_no', excelStudentId)
               .eq('academic_year', selectedAcademicSession)
               .eq('class', studentClass)
-              .eq('section', section)
+              // .eq('section', section) // Removed section
               .eq('faculty', faculty)
               .maybeSingle();
 
@@ -243,7 +243,7 @@ export default function ImportDataPage() {
             }
 
             if (existingStudent) {
-              currentFeedback.message = `Student with Roll No ${excelStudentId} in Session ${selectedAcademicSession}, Class ${studentClass} (${section}), Faculty ${faculty} already exists. Skipped.`;
+              currentFeedback.message = `Student with Roll No ${excelStudentId} in Session ${selectedAcademicSession}, Class ${studentClass}, Faculty ${faculty} already exists. Skipped.`; // Removed section
               results.studentFeedback.push(currentFeedback);
               results.totalStudentsSkipped++;
               excelStudentIdToSystemIdMap.set(excelStudentId, existingStudent.id); 
@@ -271,7 +271,7 @@ export default function ImportDataPage() {
               gender: gender,
               faculty: faculty,
               class: studentClass,
-              section: section,
+              // section: section, // Removed section
               academic_year: selectedAcademicSession,
             });
             currentFeedback.status = 'added';
@@ -486,7 +486,7 @@ export default function ImportDataPage() {
       <main className="flex-grow container mx-auto px-4 py-8 sm:px-6 lg:px-8 max-w-screen-xl">
         <div className="flex justify-start mb-6">
             <Button variant="outline" onClick={() => router.back()}>
-              <ArrowLeft className="mr-2 h-4 w-4" /> Back to Dashboard
+              <ArrowLeft className="mr-2 h-4 w-4" /> Back
             </Button>
         </div>
         <div className="max-w-3xl mx-auto"> 

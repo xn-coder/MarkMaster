@@ -104,12 +104,12 @@ export default function NewMarksheetPage() {
       subjects: subjectsDisplay,
       marksheetNo: generateMarksheetNo(data.faculty, data.rollNumber, data.sessionEndYear),
       sessionDisplay: `${data.sessionStartYear}-${data.sessionEndYear}`,
-      classDisplay: `${data.academicYear} (${data.section})`,
+      classDisplay: `${data.academicYear}`, // Removed section
       aggregateMarksCompulsoryElective,
       totalPossibleMarksCompulsoryElective,
       overallResult,
       overallPercentageDisplay,
-      dateOfIssue: format(data.dateOfIssue, 'MMMM yyyy'), // Use date from form
+      dateOfIssue: format(data.dateOfIssue, 'MMMM yyyy'), 
       place: 'Samastipur',
     };
   };
@@ -119,15 +119,14 @@ export default function NewMarksheetPage() {
 
     const academicSessionString = `${data.sessionStartYear}-${data.sessionEndYear}`;
 
-    // Check for existing student with the same identifying combination
     const { data: existingStudentCheck, error: checkError } = await supabase
       .from('student_details')
       .select('id')
       .eq('roll_no', data.rollNumber)
       .eq('academic_year', academicSessionString)
       .eq('class', data.academicYear)
-      .eq('section', data.section)
       .eq('faculty', data.faculty)
+      // Removed section from uniqueness check
       .maybeSingle();
 
     if (checkError) {
@@ -143,7 +142,7 @@ export default function NewMarksheetPage() {
     if (existingStudentCheck) {
       toast({
         title: 'Student Already Exists',
-        description: 'A student with the same Roll No., Academic Session, Class, Section, and Faculty already exists.',
+        description: 'A student with the same Roll No., Academic Session, Class, and Faculty already exists.',
         variant: 'destructive',
       });
       setIsLoadingFormSubmission(false);
@@ -166,7 +165,7 @@ export default function NewMarksheetPage() {
         gender: data.gender,
         faculty: data.faculty,
         class: data.academicYear,
-        section: data.section,
+        // section: data.section, // Removed section
         academic_year: academicSessionString,
       };
 

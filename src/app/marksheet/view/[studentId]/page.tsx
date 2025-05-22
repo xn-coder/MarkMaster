@@ -92,13 +92,14 @@ export default function ViewMarksheetPage() {
             motherName: studentDetails.mother_name,
             rollNumber: studentDetails.roll_no,
             dateOfBirth: studentDetails.dob ? parseISO(studentDetails.dob) : new Date(),
+            dateOfIssue: new Date(), // Date of issue for viewing will be current date
             gender: studentDetails.gender as MarksheetFormData['gender'],
             faculty: studentDetails.faculty as MarksheetFormData['faculty'],
             academicYear: studentDetails.class as typeof ACADEMIC_YEAR_OPTIONS[number],
-            section: studentDetails.section,
+            // section: studentDetails.section, // Removed section
             sessionStartYear: sessionStartYear,
             sessionEndYear: sessionEndYear,
-            overallPassingThresholdPercentage: 33,
+            overallPassingThresholdPercentage: 33, // Default, not stored in DB
             subjects: subjectMarks?.map(mark => ({
               id: mark.mark_id?.toString() || crypto.randomUUID(),
               subjectName: mark.subject_name,
@@ -156,12 +157,12 @@ export default function ViewMarksheetPage() {
             collegeCode: "53010",
             marksheetNo: generateMarksheetNo(formDataFromDb.faculty, formDataFromDb.rollNumber, formDataFromDb.sessionEndYear),
             sessionDisplay: `${formDataFromDb.sessionStartYear}-${formDataFromDb.sessionEndYear}`,
-            classDisplay: `${formDataFromDb.academicYear} (${formDataFromDb.section})`,
+            classDisplay: `${formDataFromDb.academicYear}`, // Removed section
             aggregateMarksCompulsoryElective,
             totalPossibleMarksCompulsoryElective,
             overallResult,
             overallPercentageDisplay,
-            dateOfIssue: format(new Date(), 'MMMM yyyy'),
+            dateOfIssue: format(formDataFromDb.dateOfIssue, 'MMMM yyyy'),
             place: 'Samastipur',
           };
           setMarksheetData(processedData);

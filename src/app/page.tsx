@@ -68,7 +68,6 @@ export default function AdminDashboardPage() {
   const [allStudents, setAllStudents] = useState<StudentRowData[]>([]);
   
 
-  // State for dynamic filter options
   const [dynamicAcademicYearOptions, setDynamicAcademicYearOptions] = useState<string[]>(['All Academic Years']);
   const [dynamicStartYearOptions, setDynamicStartYearOptions] = useState<string[]>(['All Start Years']);
   const [dynamicEndYearOptions, setDynamicEndYearOptions] = useState<string[]>(['All End Years']);
@@ -77,7 +76,7 @@ export default function AdminDashboardPage() {
   const [academicYearFilter, setAcademicYearFilter] = useState('All Academic Years');
   const [startYearFilter, setStartYearFilter] = useState('All Start Years');
   const [endYearFilter, setEndYearFilter] = useState('All End Years');
-  const [studentIdFilter, setStudentIdFilter] = useState(''); // This will filter by roll_no
+  const [studentIdFilter, setStudentIdFilter] = useState(''); 
   const [studentNameFilter, setStudentNameFilter] = useState('');
   const [classFilter, setClassFilter] = useState('All Classes');
 
@@ -125,10 +124,10 @@ export default function AdminDashboardPage() {
     const academicYears = [...new Set(students.map(s => s.academicYear).filter(Boolean) as string[])].sort();
     setDynamicAcademicYearOptions(['All Academic Years', ...academicYears]);
 
-    const startYears = [...new Set(students.map(s => s.academicYear?.split('-')[0]).filter(Boolean) as string[])].sort((a, b) => parseInt(b) - parseInt(a)); // Descending
+    const startYears = [...new Set(students.map(s => s.academicYear?.split('-')[0]).filter(Boolean) as string[])].sort((a, b) => parseInt(b) - parseInt(a)); 
     setDynamicStartYearOptions(['All Start Years', ...startYears]);
     
-    const endYears = [...new Set(students.map(s => s.academicYear?.split('-')[1]).filter(Boolean) as string[])].sort((a, b) => parseInt(b) - parseInt(a)); // Descending
+    const endYears = [...new Set(students.map(s => s.academicYear?.split('-')[1]).filter(Boolean) as string[])].sort((a, b) => parseInt(b) - parseInt(a)); 
     setDynamicEndYearOptions(['All End Years', ...endYears]);
 
     const classes = [...new Set(students.map(s => s.studentClass).filter(Boolean) as string[])].sort();
@@ -140,7 +139,7 @@ export default function AdminDashboardPage() {
     try {
       const { data: studentsData, error } = await supabase
         .from('student_details')
-        .select('id, roll_no, name, faculty, class, academic_year'); 
+        .select('id, roll_no, name, faculty, class, academic_year'); // Removed section
 
       if (error) {
         throw error;
@@ -154,6 +153,7 @@ export default function AdminDashboardPage() {
           academicYear: s.academic_year, 
           studentClass: s.class, 
           faculty: s.faculty,
+          // section: s.section, // Removed section
         }));
         setAllStudents(formattedStudents);
         populateDynamicFilterOptions(formattedStudents); 
@@ -303,7 +303,7 @@ export default function AdminDashboardPage() {
     const studentMarksDataSheet: any[] = [];
 
     
-    const studentDetailHeaders = ["Student System ID", "Roll No", "Name", "Father Name", "Mother Name", "Date of Birth", "Gender", "Faculty", "Class", "Section", "Academic Session"];
+    const studentDetailHeaders = ["Student System ID", "Roll No", "Name", "Father Name", "Mother Name", "Date of Birth", "Gender", "Faculty", "Class", "Academic Session"]; // Removed Section
     
     const studentMarkHeaders = ["Student System ID", "Roll No", "Name", "Subject Name", "Subject Category", "Max Marks", "Pass Marks", "Theory Marks Obtained", "Practical Marks Obtained", "Obtained Total Marks"];
 
@@ -341,7 +341,7 @@ export default function AdminDashboardPage() {
           "Gender": studentDetails.gender,
           "Faculty": studentDetails.faculty,
           "Class": studentDetails.class,
-          "Section": studentDetails.section,
+          // "Section": studentDetails.section, // Removed Section
           "Academic Session": studentDetails.academic_year,
         });
 
@@ -483,7 +483,7 @@ export default function AdminDashboardPage() {
                     size="sm"
                     className="text-primary-foreground hover:bg-accent hover:text-accent-foreground"
                   >
-                    <Download className="mr-2 h-4 w-4" /> Import Data
+                    <Download className="mr-2 h-4 w-4" /> Import Data 
                   </Button>
                 </Link>
                 <Button variant="ghost" size="sm" className="text-primary-foreground hover:bg-accent hover:text-accent-foreground" onClick={handleExportToExcel} disabled={isExporting}>
@@ -496,7 +496,7 @@ export default function AdminDashboardPage() {
 
         <Card className="mb-6 shadow-md">
           <CardContent className="pt-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4 items-end">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 items-end"> 
               <div>
                 <Label htmlFor="academicYear">Academic Session</Label>
                 <Select value={academicYearFilter} onValueChange={setAcademicYearFilter}>
@@ -639,4 +639,3 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
-

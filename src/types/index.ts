@@ -6,50 +6,45 @@ import type { marksheetFormSchema, subjectEntrySchema, ACADEMIC_YEAR_OPTIONS, SU
 export type SubjectEntryFormData = z.infer<typeof subjectEntrySchema>;
 export interface MarksheetFormData extends z.infer<typeof marksheetFormSchema> {
   system_id?: string; // To hold the UUID when editing
-  dateOfIssue: Date; // Added for editable date of issue
+  dateOfIssue: Date; 
 }
 
 // For displaying the processed marksheet
 export interface MarksheetSubjectDisplayEntry extends SubjectEntryFormData {
-  obtainedTotal: number; // Calculated: theoryMarksObtained + practicalMarksObtained
+  obtainedTotal: number; 
 }
 
 export interface MarksheetDisplayData {
-  // Student Info from form
-  system_id?: string; // System generated UUID
+  system_id?: string; 
   studentName: string;
   fatherName: string;
   motherName: string;
-  rollNumber: string; // This is the user-facing Roll No.
-  dateOfBirth: Date; // Will be formatted for display
+  rollNumber: string; 
+  dateOfBirth: Date; 
   gender: 'Male' | 'Female' | 'Other';
   faculty: 'ARTS' | 'COMMERCE' | 'SCIENCE';
-  academicYear: typeof ACADEMIC_YEAR_OPTIONS[number];
-  section: string;
+  academicYear: typeof ACADEMIC_YEAR_OPTIONS[number]; // This is the "Class" like "11th"
   sessionStartYear: number;
   sessionEndYear: number;
   overallPassingThresholdPercentage: number;
-  dateOfIssue: string; // Formatted date of issue (e.g., "MMMM yyyy")
+  dateOfIssue: string; 
 
   subjects: MarksheetSubjectDisplayEntry[];
 
-  // Auto-filled or derived for display
   collegeCode: string;
   marksheetNo: string;
-  sessionDisplay: string; // e.g., "2018-2019"
-  classDisplay: string; // e.g., "11th (A)" (derived from academicYear and section)
+  sessionDisplay: string; 
+  classDisplay: string; // e.g., "11th" (derived from academicYear)
 
   aggregateMarksCompulsoryElective: number;
   totalPossibleMarksCompulsoryElective: number;
 
   overallResult: 'Pass' | 'Fail';
-  overallPercentageDisplay: number; // (aggregate / totalPossible) * 100
+  overallPercentageDisplay: number; 
 
-  // dateOfIssue: string; // Formatted current date - This was a duplicate, actual value above
-  place: string; // Constant: "Samastipur"
+  place: string; 
 }
 
-// For subject templates
 export interface SubjectTemplateItem {
   subjectName: string;
   category: typeof SUBJECT_CATEGORIES_OPTIONS[number];
@@ -57,12 +52,11 @@ export interface SubjectTemplateItem {
   passMarks: number;
 }
 
-// For Import Page Feedback
 export interface StudentImportFeedbackItem {
   rowNumber: number;
-  excelStudentId?: string; // ID/Roll No from Excel
+  excelStudentId?: string; 
   name: string;
-  generatedSystemId?: string; // New UUID if added
+  generatedSystemId?: string; 
   status: 'added' | 'skipped' | 'error';
   message: string;
   details?: string;
@@ -70,8 +64,8 @@ export interface StudentImportFeedbackItem {
 
 export interface MarksImportFeedbackItem {
   rowNumber: number;
-  excelStudentId?: string; // ID/Roll No from Excel (used for linking)
-  studentName: string; // As it appeared in Excel
+  excelStudentId?: string; 
+  studentName: string; 
   subjectName: string;
   status: 'added' | 'skipped' | 'error';
   message: string;
@@ -95,12 +89,11 @@ export interface ImportProcessingResults {
   totalMarksSkipped: number;
 }
 
-// For Dashboard student list
 export interface StudentRowData {
-  system_id: string; // System generated UUID (PK in student_details)
-  roll_no: string;   // User-facing roll number
+  system_id: string; 
+  roll_no: string;   
   name: string;
-  academicYear: string; // Session like "2025-2027"
-  studentClass: string; // Class like "11th", "1st Year" (maps to 'class' column in DB)
+  academicYear: string; 
+  studentClass: string; 
   faculty: string;
 }

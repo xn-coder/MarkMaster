@@ -97,14 +97,14 @@ export default function EditMarksheetPage() {
             motherName: studentDetails.mother_name,
             rollNumber: studentDetails.roll_no,
             dateOfBirth: studentDetails.dob ? parseISO(studentDetails.dob) : new Date(),
-            dateOfIssue: new Date(), // Default to current date for editing, not stored in DB
+            dateOfIssue: new Date(), 
             gender: studentDetails.gender as MarksheetFormData['gender'],
             faculty: studentDetails.faculty as MarksheetFormData['faculty'],
             academicYear: studentDetails.class as typeof ACADEMIC_YEAR_OPTIONS[number],
-            section: studentDetails.section,
+            // section: studentDetails.section, // Removed section
             sessionStartYear: sessionStartYear,
             sessionEndYear: sessionEndYear,
-            overallPassingThresholdPercentage: 33,
+            overallPassingThresholdPercentage: 33, // Default, not stored in DB
             subjects: subjectMarks?.map(mark => ({
               id: mark.mark_id?.toString() || crypto.randomUUID(),
               subjectName: mark.subject_name,
@@ -179,12 +179,12 @@ export default function EditMarksheetPage() {
       subjects: subjectsDisplay,
       marksheetNo: generateMarksheetNo(data.faculty, data.rollNumber, data.sessionEndYear),
       sessionDisplay: `${data.sessionStartYear}-${data.sessionEndYear}`,
-      classDisplay: `${data.academicYear} (${data.section})`,
+      classDisplay: `${data.academicYear}`, // Removed section
       aggregateMarksCompulsoryElective,
       totalPossibleMarksCompulsoryElective,
       overallResult,
       overallPercentageDisplay,
-      dateOfIssue: format(data.dateOfIssue, 'MMMM yyyy'), // Use date from form
+      dateOfIssue: format(data.dateOfIssue, 'MMMM yyyy'),
       place: 'Samastipur',
     };
   };
@@ -210,7 +210,7 @@ export default function EditMarksheetPage() {
           gender: data.gender,
           faculty: data.faculty,
           class: data.academicYear,
-          section: data.section,
+          // section: data.section, // Removed section
           academic_year: `${data.sessionStartYear}-${data.sessionEndYear}`,
         })
         .eq('id', studentSystemId);

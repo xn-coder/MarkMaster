@@ -34,10 +34,9 @@ export const marksheetFormSchema = z.object({
   dateOfIssue: z.date({ required_error: 'Date of issue is required' }), 
   gender: z.enum(['Male', 'Female', 'Other'], { required_error: 'Gender is required' }),
   faculty: z.enum(['ARTS', 'COMMERCE', 'SCIENCE'], { required_error: 'Faculty is required' }),
-  academicYear: z.enum(ACADEMIC_YEAR_OPTIONS, { required_error: 'Academic year is required' }),
-  section: z.string().min(1, 'Section is required (e.g., A)').max(10, 'Section too long'),
-  sessionStartYear: z.coerce.number().min(1950, 'Year too old').max(currentYear + 5, `Year too far in future`), // Adjusted range
-  sessionEndYear: z.coerce.number().min(1951, 'Year too old').max(currentYear + 6, `Year too far in future`), // Adjusted range
+  academicYear: z.enum(ACADEMIC_YEAR_OPTIONS, { required_error: 'Academic year (Class) is required' }),
+  sessionStartYear: z.coerce.number().min(1950, 'Year too old').max(currentYear + 5, `Year too far in future`),
+  sessionEndYear: z.coerce.number().min(1951, 'Year too old').max(currentYear + 6, `Year too far in future`),
   overallPassingThresholdPercentage: z.coerce.number().min(0, 'Percentage cannot be negative').max(100, 'Percentage cannot exceed 100'),
   subjects: z.array(subjectEntrySchema)
     .min(1, 'At least one subject is required.')
@@ -55,7 +54,6 @@ export const marksheetFormSchema = z.object({
       },
       {
         message: 'Duplicate subject names are not allowed. Each subject name must be unique.',
-        // This error will appear under the subjects array. Fine for now.
       }
     ),
 }).refine(data => data.sessionEndYear === data.sessionStartYear + 1, {

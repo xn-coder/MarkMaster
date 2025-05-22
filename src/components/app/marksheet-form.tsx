@@ -40,13 +40,13 @@ const GENDERS: MarksheetFormData['gender'][] = ['Male', 'Female', 'Other'];
 const FACULTIES: MarksheetFormData['faculty'][] = ['ARTS', 'COMMERCE', 'SCIENCE'];
 
 const currentYear = new Date().getFullYear();
-const startYearOptions = Array.from({ length: currentYear + 1 - 1950 + 1 }, (_, i) => 1950 + i).reverse(); // Extended range for DOB
+const startYearOptions = Array.from({ length: currentYear + 1 - 1950 + 1 }, (_, i) => 1950 + i).reverse(); 
 
 interface SubjectRowProps {
-  control: any; // Control from useForm
+  control: any; 
   index: number;
   remove: (index: number) => void;
-  form: any; // Full form instance
+  form: any; 
   watchedFaculty: MarksheetFormData['faculty'] | undefined;
   isOnlySubject: boolean;
 }
@@ -238,7 +238,6 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
       gender: undefined,
       faculty: undefined,
       academicYear: undefined,
-      section: '',
       sessionStartYear: currentYear - 1,
       sessionEndYear: currentYear,
       overallPassingThresholdPercentage: 33,
@@ -261,11 +260,7 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
   });
 
   const watchedFaculty = form.watch('faculty');
-  // const watchedSessionStartYear = form.watch('sessionStartYear'); // No longer needed to auto-set end year
   const prevFacultyRef = useRef<MarksheetFormData['faculty'] | undefined>(form.getValues('faculty'));
-
-
-  // Removed useEffect that automatically sets sessionEndYear based on sessionStartYear
 
   useEffect(() => {
     if (initialData) {
@@ -280,7 +275,6 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
         gender: initialData.gender || undefined,
         faculty: initialData.faculty || undefined,
         academicYear: initialData.academicYear || undefined,
-        section: initialData.section || '',
         sessionStartYear: initialData.sessionStartYear || currentYear -1,
         sessionEndYear: initialData.sessionEndYear || currentYear,
         overallPassingThresholdPercentage: initialData.overallPassingThresholdPercentage || 33,
@@ -349,7 +343,7 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
       }
     }
     prevFacultyRef.current = newFaculty;
-  }, [watchedFaculty, isEditMode, replace, fields.length, fields[0]?.subjectName]);
+  }, [watchedFaculty, isEditMode, replace, fields, form]);
 
 
   const handleFormSubmit = (data: MarksheetFormData) => {
@@ -510,19 +504,27 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
                 </FormItem>
               )}
             />
-            <FormField
+             <FormField
               control={form.control}
-              name="section"
+              name="overallPassingThresholdPercentage"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Section</FormLabel>
-                  <FormControl><Input placeholder="e.g., A" {...field} /></FormControl>
+                  <FormLabel>Overall Passing %</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      placeholder="e.g., 33"
+                      {...field}
+                      onChange={e => field.onChange(e.target.value === '' ? undefined : parseInt(e.target.value, 10))}
+                      value={field.value ?? ''}
+                    />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <FormField
               control={form.control}
               name="sessionStartYear"
@@ -549,25 +551,6 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
                     <Input 
                       type="number" 
                       placeholder="e.g. 2025"
-                      {...field}
-                      onChange={e => field.onChange(e.target.value === '' ? undefined : parseInt(e.target.value, 10))}
-                      value={field.value ?? ''}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="overallPassingThresholdPercentage"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Overall Passing %</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      placeholder="e.g., 33"
                       {...field}
                       onChange={e => field.onChange(e.target.value === '' ? undefined : parseInt(e.target.value, 10))}
                       value={field.value ?? ''}
@@ -609,8 +592,8 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
                         selected={field.value ? new Date(field.value) : undefined}
                         onSelect={field.onChange}
                         captionLayout="dropdown-buttons"
-                        fromYear={currentYear - 10} // Example range: 10 years back
-                        toYear={currentYear + 10}   // Example range: 10 years forward
+                        fromYear={currentYear - 10} 
+                        toYear={currentYear + 10}   
                         initialFocus
                       />
                     </PopoverContent>
