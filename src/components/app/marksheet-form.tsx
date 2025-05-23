@@ -267,11 +267,12 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
   const sessionEndYearOptions = useMemo(() => {
     if (watchedSessionStartYear) {
       const options = [];
+      // Start from startYear + 1 and go up to currentYear + 2
       const endYearLimit = currentYear + 2;
       for (let i = watchedSessionStartYear + 1; i <= endYearLimit; i++) {
         options.push(i);
       }
-      return options.length > 0 ? options : [watchedSessionStartYear + 1]; // Ensure at least startYear + 1 is an option
+      return options.length > 0 ? options : [watchedSessionStartYear + 1]; // Ensure at least one option
     }
     return [currentYear]; // Default if start year not selected
   }, [watchedSessionStartYear]);
@@ -317,6 +318,11 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
     }
   }, [initialData, form]);
 
+  useEffect(() => {
+    if (watchedSessionStartYear) {
+      form.setValue('sessionEndYear', watchedSessionStartYear + 1, { shouldValidate: true });
+    }
+  }, [watchedSessionStartYear, form.setValue]);
 
   useEffect(() => {
     const newFaculty = watchedFaculty;
@@ -604,12 +610,6 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
                     onValueChange={(value) => {
                         const startYear = value ? parseInt(value) : undefined;
                         field.onChange(startYear);
-                        // Also update sessionEndYear if it becomes invalid
-                        if (startYear && form.getValues('sessionEndYear') !== startYear + 1) {
-                             form.setValue('sessionEndYear', startYear + 1, {shouldValidate: true});
-                        } else if (!startYear) {
-                            form.setValue('sessionEndYear', undefined, {shouldValidate: true});
-                        }
                     }}
                     value={String(field.value || '')}
                   >
@@ -702,3 +702,4 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
     </Form>
   );
 }
+
