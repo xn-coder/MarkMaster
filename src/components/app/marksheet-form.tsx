@@ -266,23 +266,15 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
 
   const sessionEndYearOptions = useMemo(() => {
     if (watchedSessionStartYear) {
-      // For now, only provide StartYear + 1, as per schema.
-      // Could be extended to sessionStartYear + 5 if schema changes.
-      return [watchedSessionStartYear + 1];
+      const options = [];
+      const endYearLimit = currentYear + 2;
+      for (let i = watchedSessionStartYear + 1; i <= endYearLimit; i++) {
+        options.push(i);
+      }
+      return options.length > 0 ? options : [watchedSessionStartYear + 1]; // Ensure at least startYear + 1 is an option
     }
     return [currentYear]; // Default if start year not selected
   }, [watchedSessionStartYear]);
-
-  useEffect(() => {
-    if (watchedSessionStartYear) {
-      // Automatically set sessionEndYear if it's not already set or if it's invalid
-      const currentEndYear = form.getValues('sessionEndYear');
-      const expectedEndYear = watchedSessionStartYear + 1;
-      if (currentEndYear !== expectedEndYear) {
-        form.setValue('sessionEndYear', expectedEndYear, { shouldValidate: true });
-      }
-    }
-  }, [watchedSessionStartYear, form]);
 
   useEffect(() => {
     if (initialData) {
@@ -609,7 +601,16 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
                 <FormItem>
                   <FormLabel>Session Start Year</FormLabel>
                   <Select
-                    onValueChange={(value) => field.onChange(value ? parseInt(value) : undefined)}
+                    onValueChange={(value) => {
+                        const startYear = value ? parseInt(value) : undefined;
+                        field.onChange(startYear);
+                        // Also update sessionEndYear if it becomes invalid
+                        if (startYear && form.getValues('sessionEndYear') !== startYear + 1) {
+                             form.setValue('sessionEndYear', startYear + 1, {shouldValidate: true});
+                        } else if (!startYear) {
+                            form.setValue('sessionEndYear', undefined, {shouldValidate: true});
+                        }
+                    }}
                     value={String(field.value || '')}
                   >
                     <FormControl><SelectTrigger><SelectValue placeholder="Select year" /></SelectTrigger></FormControl>
@@ -701,6 +702,3 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
     </Form>
   );
 }
-
-
-    
