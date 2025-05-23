@@ -261,7 +261,28 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
   });
 
   const watchedFaculty = form.watch('faculty');
+  const watchedSessionStartYear = form.watch('sessionStartYear');
   const prevFacultyRef = useRef<MarksheetFormData['faculty'] | undefined>(form.getValues('faculty'));
+
+  const sessionEndYearOptions = useMemo(() => {
+    if (watchedSessionStartYear) {
+      // For now, only provide StartYear + 1, as per schema.
+      // Could be extended to sessionStartYear + 5 if schema changes.
+      return [watchedSessionStartYear + 1];
+    }
+    return [currentYear]; // Default if start year not selected
+  }, [watchedSessionStartYear]);
+
+  useEffect(() => {
+    if (watchedSessionStartYear) {
+      // Automatically set sessionEndYear if it's not already set or if it's invalid
+      const currentEndYear = form.getValues('sessionEndYear');
+      const expectedEndYear = watchedSessionStartYear + 1;
+      if (currentEndYear !== expectedEndYear) {
+        form.setValue('sessionEndYear', expectedEndYear, { shouldValidate: true });
+      }
+    }
+  }, [watchedSessionStartYear, form]);
 
   useEffect(() => {
     if (initialData) {
@@ -345,7 +366,7 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
       }
     }
     prevFacultyRef.current = newFaculty;
-  }, [watchedFaculty, isEditMode, replace, fields, form, prevFacultyRef]);
+  }, [watchedFaculty, isEditMode, replace, fields, form]);
 
 
   const handleFormSubmit = (data: MarksheetFormData) => {
@@ -587,7 +608,10 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Session Start Year</FormLabel>
-                  <Select onValueChange={(value) => field.onChange(value ? parseInt(value) : undefined)} value={String(field.value || '')} >
+                  <Select
+                    onValueChange={(value) => field.onChange(value ? parseInt(value) : undefined)}
+                    value={String(field.value || '')}
+                  >
                     <FormControl><SelectTrigger><SelectValue placeholder="Select year" /></SelectTrigger></FormControl>
                     <SelectContent>
                       {startYearOptions.map(year => <SelectItem key={year} value={String(year)}>{year}</SelectItem>)}
@@ -603,15 +627,16 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Session End Year</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      placeholder="e.g. 2025"
-                      {...field}
-                      onChange={e => field.onChange(e.target.value === '' ? undefined : parseInt(e.target.value, 10))}
-                      value={field.value === undefined || field.value === null ? '' : String(field.value)}
-                    />
-                  </FormControl>
+                  <Select
+                    onValueChange={(value) => field.onChange(value ? parseInt(value) : undefined)}
+                    value={String(field.value || '')}
+                    disabled={!watchedSessionStartYear}
+                  >
+                    <FormControl><SelectTrigger><SelectValue placeholder="Select year" /></SelectTrigger></FormControl>
+                    <SelectContent>
+                      {sessionEndYearOptions.map(year => <SelectItem key={year} value={String(year)}>{year}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
                 </FormItem>
               )}
@@ -676,3 +701,6 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
     </Form>
   );
 }
+
+
+    
