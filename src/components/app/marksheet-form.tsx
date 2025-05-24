@@ -261,7 +261,21 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
   });
 
   const watchedFaculty = form.watch('faculty');
+  const watchedSessionStartYear = form.watch('sessionStartYear');
   const prevFacultyRef = useRef<MarksheetFormData['faculty'] | undefined>(form.getValues('faculty'));
+
+  const sessionEndYearOptions = useMemo(() => {
+    if (watchedSessionStartYear) {
+      const options = [];
+      // Start from startYear + 1 and go up to currentYear + 2
+      const endYearLimit = currentYear + 2;
+      for (let i = watchedSessionStartYear + 1; i <= endYearLimit; i++) {
+        options.push(i);
+      }
+      return options.length > 0 ? options : [watchedSessionStartYear + 1]; // Ensure at least one option
+    }
+    return [currentYear]; // Default if start year not selected
+  }, [watchedSessionStartYear]);
 
   useEffect(() => {
     if (initialData) {
@@ -304,6 +318,11 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
     }
   }, [initialData, form]);
 
+  useEffect(() => {
+    if (watchedSessionStartYear) {
+      form.setValue('sessionEndYear', watchedSessionStartYear + 1, { shouldValidate: true });
+    }
+  }, [watchedSessionStartYear, form.setValue]);
 
   useEffect(() => {
     const newFaculty = watchedFaculty;
@@ -345,7 +364,7 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
       }
     }
     prevFacultyRef.current = newFaculty;
-  }, [watchedFaculty, isEditMode, replace, fields, form, prevFacultyRef]);
+  }, [watchedFaculty, isEditMode, replace, fields, form]);
 
 
   const handleFormSubmit = (data: MarksheetFormData) => {
@@ -587,7 +606,13 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Session Start Year</FormLabel>
-                  <Select onValueChange={(value) => field.onChange(value ? parseInt(value) : undefined)} value={String(field.value || '')} >
+                  <Select
+                    onValueChange={(value) => {
+                        const startYear = value ? parseInt(value) : undefined;
+                        field.onChange(startYear);
+                    }}
+                    value={String(field.value || '')}
+                  >
                     <FormControl><SelectTrigger><SelectValue placeholder="Select year" /></SelectTrigger></FormControl>
                     <SelectContent>
                       {startYearOptions.map(year => <SelectItem key={year} value={String(year)}>{year}</SelectItem>)}
@@ -603,15 +628,16 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Session End Year</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      placeholder="e.g. 2025"
-                      {...field}
-                      onChange={e => field.onChange(e.target.value === '' ? undefined : parseInt(e.target.value, 10))}
-                      value={field.value === undefined || field.value === null ? '' : String(field.value)}
-                    />
-                  </FormControl>
+                  <Select
+                    onValueChange={(value) => field.onChange(value ? parseInt(value) : undefined)}
+                    value={String(field.value || '')}
+                    disabled={!watchedSessionStartYear}
+                  >
+                    <FormControl><SelectTrigger><SelectValue placeholder="Select year" /></SelectTrigger></FormControl>
+                    <SelectContent>
+                      {sessionEndYearOptions.map(year => <SelectItem key={year} value={String(year)}>{year}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
                 </FormItem>
               )}
@@ -676,3 +702,4 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
     </Form>
   );
 }
+

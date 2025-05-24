@@ -1,30 +1,50 @@
-// app/admin/actions.ts (or app/import/actions.ts)
 'use server';
 
 import { cookies } from 'next/headers';
-import { createServerClient } from '@supabase/ssr';
-import prisma from '@/lib/prisma';
+import { createServerClient, type CookieOptions } from '@supabase/ssr'; // Ensure you import CookieOptions
+import prisma from '@/lib/prisma'; // This connects to your MySQL database
 import * as XLSX from 'xlsx';
-import { format, parse, isValid, parseISO } from 'date-fns'; // Keep for date parsing
+import { format, parse, isValid, parseISO } from 'date-fns';
 import type { StudentDetail, StudentMarksDetail } from '@prisma/client';
-import type { ImportProcessingResults, StudentImportFeedbackItem, MarksImportFeedbackItem } from '@/types';
-import { supabase } from '@/lib/supabase/client';
+import type { ImportProcessingResults, StudentImportFeedbackItem, MarksImportFeedbackItem, MarksheetFormData, MarksheetDisplayData, MarksheetSubjectDisplayEntry } from '@/types'; // Added types for clarity
 import { numberToWords } from '@/lib/utils';
+// Note: No need to import `supabase` from `@/lib/supabase/client` here,
+// as server actions create their own Supabase client using `createServerClient`.
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+// Environment variables for Supabase authentication
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!; // Add ! for non-nullable assertion if sure it's defined
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
-// Helper to ensure user is authenticated
-async function ensureAuthenticated() {
-//   const cookieStore = cookies();
-//   const supabase = createServerClient( supabaseUrl, supabaseAnonKey, { cookies: () => cookieStore });
-  const { data: { session } } = await supabase.auth.getSession();
-  console.log(session);
-  if (!session) {
-    throw new Error('User not authenticated. Access denied.');
-  }
-  return session.user;
-}
+/**
+ * Helper function to ensure user is authenticated in a Server Action.
+ * It reads the Supabase session cookies from the request.
+ * Throws an error if authentication fails.
+ * @returns The Supabase User object.
+ */
+// async function getAuthenticatedUser() {
+//     const cookieStore = cookies();
+//     const supabase = createServerClient(
+//         supabaseUrl,
+//         supabaseAnonKey,
+//         {
+//             cookies: {
+//                 get: (name: string) => cookieStore.get(name)?.value,
+//                 set: (name: string, value: string, options: CookieOptions) => cookieStore.set({ name, value, ...options }),
+//                 remove: (name: string, options: CookieOptions) => cookieStore.set({ name, value: '', ...options }),
+//             },
+//         }
+//     );
+
+//     const { data: { session }, error } = await supabase.auth.getSession();
+//     if (error) {
+//         console.error("Supabase authentication error in server action:", error.message);
+//         throw new Error(`Authentication error: ${error.message}`);
+//     }
+//     if (!session) {
+//         throw new Error('User not authenticated. Access denied.');
+//     }
+//     return session.user; // Return the authenticated user
+// }
 
 // Helper for date parsing (can be kept in actions or a shared util)
 const parseExcelDateServer = (excelDate: any): string | null => {
@@ -61,7 +81,18 @@ export async function importDataAction(
   fileContentBase64: string,
   selectedAcademicSession: string
 ): Promise<ImportProcessingResults> {
-//   await ensureAuthenticated();
+  // Ensure user is authenticated before performing the action
+  // try {
+  //   await getAuthenticatedUser();
+  // } catch (authError: any) {
+  //   return {
+  //     summaryMessages: [{ type: 'error', message: authError.message || 'Authentication failed.' }],
+  //     studentFeedback: [],
+  //     marksFeedback: [],
+  //     totalStudentsProcessed: 0, totalStudentsAdded: 0, totalStudentsSkipped: 0,
+  //     totalMarksProcessed: 0, totalMarksAdded: 0, totalMarksSkipped: 0,
+  //   };
+  // }
 
   const results: ImportProcessingResults = {
     summaryMessages: [],
@@ -359,8 +390,8 @@ export interface DashboardStudentData {
 }
 
 export async function loadStudentsForDashboardAction(): Promise<DashboardStudentData[]> {
-//   await ensureAuthenticated(); // Ensures only logged-in users can call this
   try {
+    // await getAuthenticatedUser(); // Authenticate
     const students = await prisma.studentDetail.findMany({
       select: {
         id: true,
@@ -393,8 +424,8 @@ export async function loadStudentsForDashboardAction(): Promise<DashboardStudent
 }
 
 export async function deleteStudentAction(studentSystemId: string): Promise<{ success: boolean; message: string }> {
-//   await ensureAuthenticated();
   try {
+    // await getAuthenticatedUser(); // Authenticate
     // Use a transaction to ensure atomicity
     await prisma.$transaction(async (tx) => {
       await tx.studentMarksDetail.deleteMany({
@@ -417,8 +448,8 @@ export interface StudentDataForExport extends StudentDetail {
 }
 
 export async function fetchStudentsForExportAction(studentSystemIds: string[]): Promise<StudentDataForExport[]> {
-//   await ensureAuthenticated();
   try {
+    // await getAuthenticatedUser(); // Authenticate
     const studentsWithMarks = await prisma.studentDetail.findMany({
       where: {
         id: {
@@ -443,8 +474,8 @@ export async function checkExistingStudentAction(
   studentClass: string, // Changed from academicYear to studentClass to match form data
   faculty: string
 ): Promise<{ exists: boolean; studentId?: string; error?: string }> {
-//   await ensureAuthenticated();
   try {
+    // await getAuthenticatedUser(); // Authenticate
     const existingStudent = await prisma.studentDetail.findFirst({
       where: {
         rollNo: rollNumber,
@@ -469,19 +500,15 @@ export interface SaveMarksheetResult {
   errorDetails?: string;
 }
 
-export async function saveMarksheetAction(formData: any): Promise<SaveMarksheetResult> {
-//   await ensureAuthenticated();
+export async function saveMarksheetAction(formData: MarksheetFormData): Promise<SaveMarksheetResult> {
+  try {
+    // await getAuthenticatedUser(); // Authenticate
+  } catch (authError: any) {
+    return { success: false, message: authError.message || 'Authentication failed.' };
+  }
 
   const academicSessionString = `${formData.sessionStartYear}-${formData.sessionEndYear}`;
   const systemGeneratedId = crypto.randomUUID(); // Generate ID on the server
-
-  if (!formData.registrationNo || typeof formData.registrationNo !== 'string' || formData.registrationNo.trim() === '') {
-  return {
-    success: false,
-    message: 'Registration Number is required and cannot be empty.',
-    errorDetails: 'Registration Number validation failed.', // Optional more detail
-  };
-}
 
   try {
     // Check for existing student again on the server as a safeguard
@@ -518,7 +545,7 @@ export async function saveMarksheetAction(formData: any): Promise<SaveMarksheetR
           faculty: formData.faculty,
           class: formData.academicYear, 
           academicYear: academicSessionString,
-          registrationNo: formData.registrationNo, // <<< THIS IS THE CULPRIT if formData.registrationNumber is undefined/null
+          registrationNo: formData.registrationNo,
           // createdAt and updatedAt will be handled by Prisma if @default(now()) and @updatedAt are set
         },
       });
@@ -566,8 +593,8 @@ export interface FetchMarksheetForEditResult {
 }
 
 export async function fetchMarksheetForEditAction(studentSystemId: string): Promise<FetchMarksheetForEditResult> {
-//   await ensureAuthenticated();
   try {
+    // await getAuthenticatedUser(); // Authenticate
     const studentDetails = await prisma.studentDetail.findUnique({
       where: { id: studentSystemId },
       include: {
@@ -606,7 +633,7 @@ export async function fetchMarksheetForEditAction(studentSystemId: string): Prom
       subjects: studentDetails.marks?.map(mark => ({
         id: mark.markId.toString(), // Use markId from DB
         subjectName: mark.subjectName ?? '',
-        category: mark.category as typeof SUBJECT_CATEGORIES_OPTIONS[number] ?? 'Compulsory',
+        category: mark.category as MarksheetSubjectDisplayEntry['category'] ?? 'Compulsory',
         totalMarks: mark.maxMarks ?? 0,
         passMarks: mark.passMarks ?? 0,
         theoryMarksObtained: mark.theoryMarksObtained ?? 0,
@@ -629,7 +656,11 @@ export interface UpdateMarksheetResult {
 }
 
 export async function updateMarksheetAction(studentSystemId: string, formData: MarksheetFormData): Promise<UpdateMarksheetResult> {
-//   await ensureAuthenticated();
+  try {
+    // await getAuthenticatedUser(); // Authenticate
+  } catch (authError: any) {
+    return { success: false, message: authError.message || 'Authentication failed.' };
+  }
 
   if (!studentSystemId) {
     return { success: false, message: "Student System ID is missing." };
@@ -702,10 +733,15 @@ const generateMarksheetNoServer = (faculty: string, rollNumber: string, sessionE
   return `${facultyCode}/${month}/${sessionEndYear}/${rollNumber.slice(-3) || sequence}`;
 };
 
+// Define ACADEMIC_YEAR_OPTIONS for proper type inference in fetchMarksheetForEditAction
+// This should match your actual options defined elsewhere, e.g., in types.ts or a constants file
+const ACADEMIC_YEAR_OPTIONS = ['Intermediate Year 1', 'Intermediate Year 2', 'Degree Part 1', 'Degree Part 2', 'Degree Part 3'] as const;
+const SUBJECT_CATEGORIES_OPTIONS = ['Compulsory', 'Elective', 'Optional'] as const;
+
 
 export async function fetchMarksheetForDisplayAction(studentSystemId: string): Promise<FetchMarksheetForDisplayResult> {
-//   await ensureAuthenticated();
   try {
+    // await getAuthenticatedUser(); // Authenticate
     const studentDetails = await prisma.studentDetail.findUnique({
       where: { id: studentSystemId },
       include: {
