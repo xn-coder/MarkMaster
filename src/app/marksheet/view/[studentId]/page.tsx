@@ -8,10 +8,6 @@ import type { MarksheetDisplayData } from '@/types'; // Only MarksheetDisplayDat
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Loader2, ArrowLeft } from 'lucide-react';
-// format, parseISO, numberToWords are no longer directly needed here if server action prepares all display data
-// import { format, parseISO } from 'date-fns';
-// import { numberToWords } from '@/lib/utils'
-// import type { ACADEMIC_YEAR_OPTIONS } from '@/components/app/marksheet-form-schema';
 import { AppHeader } from '@/components/app/app-header';
 
 

@@ -19,7 +19,7 @@ model StudentDetail { // <-- IS IT EXACTLY 'StudentDetail'?
   faculty           String?
   class             String?   // 'class' is okay as a field name in Prisma models
   academicYear      String?   @map("academic_year")
-  registrationNo    String?   @unique @map("registration_no")
+  registrationNo    String?
   createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamp(0)
 
   marks             StudentMarksDetail[]

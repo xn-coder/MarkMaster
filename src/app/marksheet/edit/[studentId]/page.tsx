@@ -12,9 +12,6 @@ import { Loader2, ArrowLeft } from 'lucide-react';
 import { format, parseISO } from 'date-fns'; // Keep for client-side formatting
 import { AppHeader } from '@/components/app/app-header';
 import { numberToWords } from '@/lib/utils';
-// Assuming these types are string arrays or similar, otherwise import actual types
-// import type { ACADEMIC_YEAR_OPTIONS, SUBJECT_CATEGORIES_OPTIONS } from '@/components/app/marksheet-form-schema';
-
 
 // IMPORT SERVER ACTIONS
 import {

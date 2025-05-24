@@ -1,50 +1,12 @@
 'use server';
 
-import { cookies } from 'next/headers';
-import { createServerClient, type CookieOptions } from '@supabase/ssr'; // Ensure you import CookieOptions
 import prisma from '@/lib/prisma'; // This connects to your MySQL database
 import * as XLSX from 'xlsx';
 import { format, parse, isValid, parseISO } from 'date-fns';
-import type { StudentDetail, StudentMarksDetail } from '@prisma/client';
+import type { StudentDetail, StudentMarksDetail, Prisma  } from '@prisma/client';
 import type { ImportProcessingResults, StudentImportFeedbackItem, MarksImportFeedbackItem, MarksheetFormData, MarksheetDisplayData, MarksheetSubjectDisplayEntry } from '@/types'; // Added types for clarity
 import { numberToWords } from '@/lib/utils';
-// Note: No need to import `supabase` from `@/lib/supabase/client` here,
-// as server actions create their own Supabase client using `createServerClient`.
 
-// Environment variables for Supabase authentication
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!; // Add ! for non-nullable assertion if sure it's defined
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-
-/**
- * Helper function to ensure user is authenticated in a Server Action.
- * It reads the Supabase session cookies from the request.
- * Throws an error if authentication fails.
- * @returns The Supabase User object.
- */
-// async function getAuthenticatedUser() {
-//     const cookieStore = cookies();
-//     const supabase = createServerClient(
-//         supabaseUrl,
-//         supabaseAnonKey,
-//         {
-//             cookies: {
-//                 get: (name: string) => cookieStore.get(name)?.value,
-//                 set: (name: string, value: string, options: CookieOptions) => cookieStore.set({ name, value, ...options }),
-//                 remove: (name: string, options: CookieOptions) => cookieStore.set({ name, value: '', ...options }),
-//             },
-//         }
-//     );
-
-//     const { data: { session }, error } = await supabase.auth.getSession();
-//     if (error) {
-//         console.error("Supabase authentication error in server action:", error.message);
-//         throw new Error(`Authentication error: ${error.message}`);
-//     }
-//     if (!session) {
-//         throw new Error('User not authenticated. Access denied.');
-//     }
-//     return session.user; // Return the authenticated user
-// }
 
 // Helper for date parsing (can be kept in actions or a shared util)
 const parseExcelDateServer = (excelDate: any): string | null => {
@@ -76,23 +38,18 @@ const parseExcelDateServer = (excelDate: any): string | null => {
   return null; // Return null if parsing fails
 };
 
+function convertEmptyToNull(value: string | null | undefined): string | null {
+    if (value === null || value === undefined || value.trim() === '') {
+        return null;
+    }
+    return value.trim();
+}
+
 
 export async function importDataAction(
   fileContentBase64: string,
   selectedAcademicSession: string
 ): Promise<ImportProcessingResults> {
-  // Ensure user is authenticated before performing the action
-  // try {
-  //   await getAuthenticatedUser();
-  // } catch (authError: any) {
-  //   return {
-  //     summaryMessages: [{ type: 'error', message: authError.message || 'Authentication failed.' }],
-  //     studentFeedback: [],
-  //     marksFeedback: [],
-  //     totalStudentsProcessed: 0, totalStudentsAdded: 0, totalStudentsSkipped: 0,
-  //     totalMarksProcessed: 0, totalMarksAdded: 0, totalMarksSkipped: 0,
-  //   };
-  // }
 
   const results: ImportProcessingResults = {
     summaryMessages: [],
@@ -139,8 +96,8 @@ export async function importDataAction(
         
         const currentFeedback: StudentImportFeedbackItem = { rowNumber: rowNum, excelStudentId, name: studentName, status: 'skipped', message: '' };
 
-        if (!excelStudentId || !studentName || !fatherName || !motherName || !dobRaw || !gender || !faculty || !studentClass || !registrationNo) {
-          currentFeedback.message = "Missing one or more required fields (Student ID, Student Name, Father Name, Mother Name, DOB, Gender, Registration No, Faculty, Class).";
+        if (!excelStudentId || !studentName || !fatherName || !motherName || !dobRaw || !gender || !faculty || !studentClass) {
+          currentFeedback.message = "Missing one or more required fields (Student ID, Student Name, Father Name, Mother Name, DOB, Gender, Faculty, Class).";
           results.studentFeedback.push(currentFeedback);
           results.totalStudentsSkipped++;
           continue;
@@ -154,38 +111,36 @@ export async function importDataAction(
           continue;
         }
 
-        // Check existing student in DB using Prisma
-        const existingStudent = await prisma.studentDetail.findFirst({
-          where: {
-            rollNo: excelStudentId,
-            academicYear: selectedAcademicSession,
-            class: studentClass,
-            faculty: faculty,
-            registrationNo: registrationNo, // Added registration number to uniqueness check
-          },
-          select: { id: true },
-        });
+        const registrationNoForDb = convertEmptyToNull(registrationNo);
 
-        if (existingStudent) {
-          currentFeedback.message = `Student with Roll No ${excelStudentId}, Reg No ${registrationNo} in Session ${selectedAcademicSession}, Class ${studentClass}, Faculty ${faculty} already exists in DB. Skipped.`;
-          results.studentFeedback.push(currentFeedback);
-          results.totalStudentsSkipped++;
-          excelStudentIdToSystemIdMap.set(excelStudentId, existingStudent.id); // Map to existing DB ID
-          continue;
-        }
-        
-        // Check for duplicate Excel Student ID within this import file
-        if (excelStudentIdToSystemIdMap.has(excelStudentId)) {
-            currentFeedback.message = `Duplicate Student ID "${excelStudentId}" found within the 'Student Details' sheet. Only the first instance will be processed for database insertion. Subsequent marks will map to the first instance.`;
+        const checkResult = await checkExistingStudentAction(
+            excelStudentId,
+            selectedAcademicSession,
+            studentClass,
+            faculty,
+            registrationNoForDb // Pass the converted value
+        );
+
+        if (checkResult.error) {
+            currentFeedback.message = `Failed to check for existing student: ${checkResult.error}`;
             results.studentFeedback.push(currentFeedback);
             results.totalStudentsSkipped++;
-            continue; // Skip adding this student again, but marks can still map if ID was already mapped
+            continue;
         }
 
+        if (checkResult.exists) {
+            currentFeedback.message = `Student with Roll No ${excelStudentId}, Reg No ${registrationNo || '(empty)'} in Session ${selectedAcademicSession}, Class ${studentClass}, Faculty ${faculty} already exists in DB. Skipped.`;
+            results.studentFeedback.push(currentFeedback);
+            results.totalStudentsSkipped++;
+            excelStudentIdToSystemIdMap.set(excelStudentId, checkResult.studentId!); // Map to existing DB ID
+            continue;
+        }
 
         const systemGeneratedId = crypto.randomUUID();
         excelStudentIdToSystemIdMap.set(excelStudentId, systemGeneratedId); // Map Excel ID to new system ID
         currentFeedback.generatedSystemId = systemGeneratedId;
+
+        results.totalStudentsAdded++;
 
         studentDataToInsert.push({
           id: systemGeneratedId,
@@ -193,9 +148,9 @@ export async function importDataAction(
           name: studentName,
           fatherName: fatherName,
           motherName: motherName,
-          dob: new Date(dobFormatted), // Prisma expects Date object
+          dob: new Date(dobFormatted),
           gender: gender,
-          registrationNo: registrationNo,
+          registrationNo: registrationNoForDb, // Use the converted value
           faculty: faculty,
           class: studentClass,
           academicYear: selectedAcademicSession,
@@ -343,13 +298,13 @@ export async function importDataAction(
             results.summaryMessages.push({ type: 'success', message: `${creationResult.count} marks records successfully inserted.` });
             // Update feedback
             marksDataToInsert.forEach(mdi => {
-                const fb = results.marksFeedback.find(f => f.status === 'added' && excelStudentIdToSystemIdMap.get(f.excelStudentId) === mdi.studentDetailId && f.subjectName === mdi.subjectName);
+                const fb = results.marksFeedback.find(f => f.status === 'added' && excelStudentIdToSystemIdMap.get(f.excelStudentId as string) === mdi.studentDetailId && f.subjectName === mdi.subjectName);
                 if (fb) fb.message = 'Successfully added to database.';
             });
          } catch (e: any) {
             results.summaryMessages.push({ type: 'error', message: `Error inserting marks details: ${e.message}` });
             marksDataToInsert.forEach(mdi => {
-                const fb = results.marksFeedback.find(f => f.status === 'added' && excelStudentIdToSystemIdMap.get(f.excelStudentId) === mdi.studentDetailId && f.subjectName === mdi.subjectName);
+                const fb = results.marksFeedback.find(f => f.status === 'added' && excelStudentIdToSystemIdMap.get(f.excelStudentId as string) === mdi.studentDetailId && f.subjectName === mdi.subjectName);
                 if (fb) { fb.status = 'error'; fb.message = `DB insert failed: ${e.message}`; }
             });
          }
@@ -391,7 +346,6 @@ export interface DashboardStudentData {
 
 export async function loadStudentsForDashboardAction(): Promise<DashboardStudentData[]> {
   try {
-    // await getAuthenticatedUser(); // Authenticate
     const students = await prisma.studentDetail.findMany({
       select: {
         id: true,
@@ -425,7 +379,6 @@ export async function loadStudentsForDashboardAction(): Promise<DashboardStudent
 
 export async function deleteStudentAction(studentSystemId: string): Promise<{ success: boolean; message: string }> {
   try {
-    // await getAuthenticatedUser(); // Authenticate
     // Use a transaction to ensure atomicity
     await prisma.$transaction(async (tx) => {
       await tx.studentMarksDetail.deleteMany({
@@ -449,7 +402,6 @@ export interface StudentDataForExport extends StudentDetail {
 
 export async function fetchStudentsForExportAction(studentSystemIds: string[]): Promise<StudentDataForExport[]> {
   try {
-    // await getAuthenticatedUser(); // Authenticate
     const studentsWithMarks = await prisma.studentDetail.findMany({
       where: {
         id: {
@@ -472,19 +424,29 @@ export async function checkExistingStudentAction(
   rollNumber: string,
   academicYearString: string,
   studentClass: string, // Changed from academicYear to studentClass to match form data
-  faculty: string
+  faculty: string,
+  registrationNo: string | null
 ): Promise<{ exists: boolean; studentId?: string; error?: string }> {
   try {
-    // await getAuthenticatedUser(); // Authenticate
+
+    const whereClause: Prisma.StudentDetailWhereInput = {
+      rollNo: rollNumber,
+      academicYear: academicYearString,
+      class: studentClass,
+      faculty: faculty,
+    };
+
+    if (registrationNo !== null) { // If a non-null value was passed
+      whereClause.registrationNo = registrationNo;
+    } else { // If null was passed (meaning it was empty from input)
+      whereClause.registrationNo = null; // Specifically check for DB records where registrationNo is NULL
+    }
+
     const existingStudent = await prisma.studentDetail.findFirst({
-      where: {
-        rollNo: rollNumber,
-        academicYear: academicYearString,
-        class: studentClass,
-        faculty: faculty,
-      },
+      where: whereClause,
       select: { id: true },
     });
+
     return { exists: !!existingStudent, studentId: existingStudent?.id };
   } catch (error) {
     console.error("Error in checkExistingStudentAction:", error);
@@ -502,7 +464,6 @@ export interface SaveMarksheetResult {
 
 export async function saveMarksheetAction(formData: MarksheetFormData): Promise<SaveMarksheetResult> {
   try {
-    // await getAuthenticatedUser(); // Authenticate
   } catch (authError: any) {
     return { success: false, message: authError.message || 'Authentication failed.' };
   }
@@ -594,7 +555,6 @@ export interface FetchMarksheetForEditResult {
 
 export async function fetchMarksheetForEditAction(studentSystemId: string): Promise<FetchMarksheetForEditResult> {
   try {
-    // await getAuthenticatedUser(); // Authenticate
     const studentDetails = await prisma.studentDetail.findUnique({
       where: { id: studentSystemId },
       include: {
@@ -657,7 +617,6 @@ export interface UpdateMarksheetResult {
 
 export async function updateMarksheetAction(studentSystemId: string, formData: MarksheetFormData): Promise<UpdateMarksheetResult> {
   try {
-    // await getAuthenticatedUser(); // Authenticate
   } catch (authError: any) {
     return { success: false, message: authError.message || 'Authentication failed.' };
   }
@@ -735,13 +694,12 @@ const generateMarksheetNoServer = (faculty: string, rollNumber: string, sessionE
 
 // Define ACADEMIC_YEAR_OPTIONS for proper type inference in fetchMarksheetForEditAction
 // This should match your actual options defined elsewhere, e.g., in types.ts or a constants file
-const ACADEMIC_YEAR_OPTIONS = ['Intermediate Year 1', 'Intermediate Year 2', 'Degree Part 1', 'Degree Part 2', 'Degree Part 3'] as const;
-const SUBJECT_CATEGORIES_OPTIONS = ['Compulsory', 'Elective', 'Optional'] as const;
+const ACADEMIC_YEAR_OPTIONS = ['11th', '12th', '1st Year', '2nd Year', '3rd Year'] as const;
+const SUBJECT_CATEGORIES_OPTIONS = ['Compulsory', 'Elective', 'Additional'] as const;
 
 
 export async function fetchMarksheetForDisplayAction(studentSystemId: string): Promise<FetchMarksheetForDisplayResult> {
   try {
-    // await getAuthenticatedUser(); // Authenticate
     const studentDetails = await prisma.studentDetail.findUnique({
       where: { id: studentSystemId },
       include: {
@@ -774,7 +732,7 @@ export async function fetchMarksheetForDisplayAction(studentSystemId: string): P
         dateOfIssue: new Date(), // Date of issue for viewing will be current date by default
         gender: studentDetails.gender as MarksheetFormData['gender'] ?? 'Male',
         faculty: studentDetails.faculty as MarksheetFormData['faculty'] ?? 'Arts',
-        academicYear: studentDetails.class as typeof ACADEMIC_YEAR_OPTIONS[number] ?? 'Intermediate Year 1',
+        academicYear: studentDetails.class as typeof ACADEMIC_YEAR_OPTIONS[number] ?? '11th',
         sessionStartYear: sessionStartYear,
         sessionEndYear: sessionEndYear,
         overallPassingThresholdPercentage: 33, // Default
@@ -825,13 +783,11 @@ export async function fetchMarksheetForDisplayAction(studentSystemId: string): P
     }
     // --- End: Data processing logic ---
 
-    const marksheetNo = generateMarksheetNoServer(formDataFromDb.faculty, formDataFromDb.rollNumber, formDataFromDb.sessionEndYear);
 
     const processedDataForDisplay: MarksheetDisplayData = {
       ...formDataFromDb, // Spreads common fields
       system_id: studentDetails.id, // ensure this comes from the DB studentDetails
       collegeCode: "53010",
-      marksheetNo: marksheetNo, // Add generated marksheet number
       subjects: subjectsDisplay,
       sessionDisplay: `${formDataFromDb.sessionStartYear}-${formDataFromDb.sessionEndYear}`,
       classDisplay: `${formDataFromDb.academicYear}`,

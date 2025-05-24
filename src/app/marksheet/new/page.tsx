@@ -140,7 +140,8 @@ export default function NewMarksheetPage() {
         data.rollNumber,
         academicSessionString,
         data.academicYear, // Use data.academicYear for class
-        data.faculty
+        data.faculty,
+        data.registrationNo
       );
 
       if (checkResult.error) {
