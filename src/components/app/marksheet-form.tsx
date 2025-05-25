@@ -74,7 +74,6 @@ const SubjectRow: React.FC<SubjectRowProps> = ({ control, index, remove, form, w
                 const template = findSubjectTemplate(value, watchedFaculty, subjectCategory);
                 if (template) {
                   form.setValue(`subjects.${index}.totalMarks`, template.totalMarks, { shouldValidate: true });
-                  // passMarks removed from template
                 }
               }}
               value={field.value || undefined}
@@ -112,7 +111,6 @@ const SubjectRow: React.FC<SubjectRowProps> = ({ control, index, remove, form, w
                   form.setValue(`subjects.${index}.subjectName`, '', { shouldValidate: true });
                   const defaultTemplateForNewCategory = newSuggestions[0];
                   form.setValue(`subjects.${index}.totalMarks`, defaultTemplateForNewCategory?.totalMarks || 100, { shouldValidate: true });
-                  // passMarks removed
                 }
               }}
               value={field.value || undefined}
@@ -146,7 +144,6 @@ const SubjectRow: React.FC<SubjectRowProps> = ({ control, index, remove, form, w
           </FormItem>
         )}
       />
-      {/* Pass Marks field removed */}
       <FormField
         control={control}
         name={`subjects.${index}.theoryMarksObtained`}
@@ -222,13 +219,11 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
       academicYear: undefined,
       sessionStartYear: currentYear - 1,
       sessionEndYear: currentYear,
-      // overallPassingThresholdPercentage removed
       subjects: [{
         id: crypto.randomUUID(),
         subjectName: '',
         category: 'Compulsory',
         totalMarks: 100,
-        // passMarks: 33, // Removed
         theoryMarksObtained: 0,
         practicalMarksObtained: 0,
       }],
@@ -238,7 +233,7 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
   const { fields, append, remove, replace } = useFieldArray({
     control: form.control,
     name: 'subjects',
-    keyName: "id", // Make sure keyName is 'id' if your subject objects have an 'id' field
+    keyName: "id",
   });
 
   const watchedFaculty = form.watch('faculty');
@@ -248,13 +243,13 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
   const sessionEndYearOptions = useMemo(() => {
     if (watchedSessionStartYear) {
       const options = [];
-      const endYearLimit = currentYear + 2; // Allow selection up to current year + 2
+      const endYearLimit = currentYear + 2;
       for (let i = watchedSessionStartYear + 1; i <= endYearLimit; i++) {
         options.push(i);
       }
-      return options.length > 0 ? options : [watchedSessionStartYear + 1]; // Ensure at least one option
+      return options.length > 0 ? options : [watchedSessionStartYear + 1];
     }
-    return [currentYear]; // Default if start year not selected
+    return [currentYear];
   }, [watchedSessionStartYear]);
 
   useEffect(() => {
@@ -265,7 +260,7 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
         fatherName: initialData.fatherName || '',
         motherName: initialData.motherName || '',
         rollNumber: initialData.rollNumber || '',
-        registrationNo: initialData.registrationNo || null,
+        registrationNo: initialData.registrationNo ?? null,
         dateOfBirth: initialData.dateOfBirth ? toDate(initialData.dateOfBirth) : new Date(),
         dateOfIssue: initialData.dateOfIssue ? toDate(initialData.dateOfIssue) : new Date(),
         gender: initialData.gender || undefined,
@@ -273,14 +268,12 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
         academicYear: initialData.academicYear || undefined,
         sessionStartYear: initialData.sessionStartYear || currentYear -1,
         sessionEndYear: initialData.sessionEndYear || currentYear,
-        // overallPassingThresholdPercentage removed
         subjects: initialData.subjects?.map(s => ({
           ...s,
           id: s.id || crypto.randomUUID(),
           subjectName: s.subjectName || '',
           category: s.category || 'Compulsory',
           totalMarks: s.totalMarks !== undefined && s.totalMarks !== null ? Number(s.totalMarks) : 100,
-          // passMarks removed
           theoryMarksObtained: s.theoryMarksObtained !== undefined && s.theoryMarksObtained !== null ? Number(s.theoryMarksObtained) : 0,
           practicalMarksObtained: s.practicalMarksObtained !== undefined && s.practicalMarksObtained !== null ? Number(s.practicalMarksObtained) : 0,
         })) || [{
@@ -288,7 +281,6 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
           subjectName: '',
           category: 'Compulsory',
           totalMarks: 100,
-          // passMarks removed
           theoryMarksObtained: 0,
           practicalMarksObtained: 0,
         }],
@@ -300,10 +292,10 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
 
   useEffect(() => {
     if (watchedSessionStartYear) {
-      // Automatically set the default sessionEndYear when sessionStartYear changes
       form.setValue('sessionEndYear', watchedSessionStartYear + 1, { shouldValidate: true });
     }
-  }, [watchedSessionStartYear, form]);
+  }, [watchedSessionStartYear, form.setValue]);
+
 
   useEffect(() => {
     const newFaculty = watchedFaculty;
@@ -318,7 +310,6 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
             subjectName: def.subjectName,
             category: def.category,
             totalMarks: template?.totalMarks || 100,
-            // passMarks removed
             theoryMarksObtained: 0,
             practicalMarksObtained: 0,
           };
@@ -328,7 +319,6 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
             subjectName: '',
             category: 'Compulsory',
             totalMarks: 100,
-            // passMarks removed
             theoryMarksObtained: 0,
             practicalMarksObtained: 0,
         }]);
@@ -338,7 +328,6 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
             subjectName: '',
             category: 'Compulsory',
             totalMarks: 100,
-            // passMarks removed
             theoryMarksObtained: 0,
             practicalMarksObtained: 0,
         }]);
@@ -357,18 +346,19 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
       <form onSubmit={form.handleSubmit(handleFormSubmit)}>
         <div className="space-y-6 p-6 border rounded-lg shadow-lg bg-card mb-8">
           <h3 className="text-xl font-semibold text-primary border-b pb-2 mb-4">Student Information</h3>
-          <FormField
-            control={form.control}
-            name="studentName"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Student Name</FormLabel>
-                <FormControl><Input placeholder="Full Name" {...field} /></FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <FormField
+              control={form.control}
+              name="studentName"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Student Name</FormLabel>
+                  <FormControl><Input placeholder="Full Name" {...field} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             <FormField
               control={form.control}
               name="fatherName"
@@ -380,6 +370,9 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
                 </FormItem>
               )}
             />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <FormField
               control={form.control}
               name="motherName"
@@ -391,8 +384,6 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
                 </FormItem>
               )}
             />
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <FormField
               control={form.control}
               name="rollNumber"
@@ -404,19 +395,20 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
                 </FormItem>
               )}
             />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
              <FormField
               control={form.control}
               name="registrationNo"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Registration No. (Optional)</FormLabel>
-                  <FormControl><Input placeholder="e.g., REG12345" {...field} value={field.value ?? ''} /></FormControl>
+                  <FormLabel>Registration No.</FormLabel>
+                  <FormControl><Input placeholder="e.g., REG12345 (Optional)" {...field} value={field.value ?? ''} /></FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
-          </div>
-           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <FormField
               control={form.control}
               name="dateOfBirth"
@@ -462,6 +454,9 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
                 </FormItem>
               )}
             />
+          </div>
+
+           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <FormField
               control={form.control}
               name="dateOfIssue"
@@ -504,8 +499,6 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
                 </FormItem>
               )}
             />
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <FormField
               control={form.control}
               name="gender"
@@ -522,6 +515,9 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
                 </FormItem>
               )}
             />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <FormField
               control={form.control}
               name="faculty"
@@ -544,8 +540,6 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
                 </FormItem>
               )}
             />
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <FormField
               control={form.control}
               name="academicYear"
@@ -562,8 +556,8 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
                 </FormItem>
               )}
             />
-            {/* Overall Passing Threshold Percentage field removed */}
           </div>
+          
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <FormField
               control={form.control}
@@ -617,7 +611,6 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
             <Label className="font-semibold text-sm">Subject Name</Label>
             <Label className="font-semibold text-sm">Category</Label>
             <Label className="font-semibold text-sm text-center">Total Marks</Label>
-            {/* Pass Marks Label removed */}
             <Label className="font-semibold text-sm text-center">Theory Marks</Label>
             <Label className="font-semibold text-sm text-center">Practical Marks</Label>
             <Label className="font-semibold text-sm text-center">Action</Label>
@@ -642,7 +635,6 @@ export function MarksheetForm({ onSubmit, isLoading, initialData, isEditMode = f
               subjectName: '',
               category: 'Compulsory',
               totalMarks: 100,
-              // passMarks: 30, // Removed
               theoryMarksObtained: 0,
               practicalMarksObtained: 0
             })}
