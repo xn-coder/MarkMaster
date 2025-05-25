@@ -5,7 +5,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase/client';
 import { MarksheetDisplay } from '@/components/app/marksheet-display';
-import type { MarksheetFormData, MarksheetDisplayData, MarksheetSubjectDisplayEntry } from '@/types';
+import type { MarksheetFormData, MarksheetDisplayData, MarksheetSubjectDisplayEntry, SubjectEntryFormData } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Loader2, ArrowLeft, Edit } from 'lucide-react';
@@ -69,7 +69,7 @@ export default function ViewMarksheetPage() {
           if (studentError || !studentDetails) {
             toast({ title: 'Error', description: `Student data not found for ID: ${studentSystemId}. ${studentError?.message || ''}`, variant: 'destructive' });
             setMarksheetData(null);
-            setIsLoadingData(false);
+            setIsLoadingData(false); // Ensure loader stops
             return;
           }
 
@@ -80,6 +80,7 @@ export default function ViewMarksheetPage() {
 
           if (marksError) {
             toast({ title: 'Error Fetching Subjects', description: marksError.message, variant: 'destructive' });
+            // Continue to render student details even if marks fail
           }
 
           let sessionStartYearNum = new Date().getFullYear() - 1;
@@ -92,7 +93,7 @@ export default function ViewMarksheetPage() {
             }
           }
           
-          const formDataFromDb: Omit<MarksheetFormData, 'subjects'> & { subjects: Omit<SubjectEntryFormData, 'id'>[] } = {
+          const formDataFromDb: Omit<MarksheetFormData, 'subjects' | 'dateOfIssue'> & { subjects: Omit<SubjectEntryFormData, 'id'>[], dateOfIssue: Date } = {
             system_id: studentDetails.id,
             studentName: studentDetails.name,
             fatherName: studentDetails.father_name,
@@ -110,6 +111,7 @@ export default function ViewMarksheetPage() {
               subjectName: mark.subject_name,
               category: mark.category as SubjectEntryFormData['category'],
               totalMarks: mark.max_marks,
+              // passMarks removed
               theoryMarksObtained: mark.theory_marks_obtained ?? 0,
               practicalMarksObtained: mark.practical_marks_obtained ?? 0,
             })) || [],
@@ -126,7 +128,7 @@ export default function ViewMarksheetPage() {
             }
             return {
               ...s,
-              id: subjectMarks?.[idx]?.mark_id?.toString() || crypto.randomUUID(), // use actual mark_id if available
+              id: subjectMarks?.[idx]?.mark_id?.toString() || crypto.randomUUID(),
               obtainedTotal,
               isFailed: subjectFailed,
             };
@@ -190,8 +192,8 @@ export default function ViewMarksheetPage() {
         } finally {
           setIsLoadingData(false);
         }
-      };
-      fetchMarksheetData();
+      }; // End of fetchMarksheetData function
+      fetchMarksheetData(); // Call the function
     } else if (authStatus === 'authenticated' && !studentSystemId) {
         toast({ title: 'Error', description: 'No student ID provided for viewing.', variant: 'destructive' });
         setIsLoadingData(false);
@@ -268,4 +270,9 @@ export default function ViewMarksheetPage() {
       <footer className="py-4 border-t border-border mt-auto print:hidden">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 text-center text-xs text-muted-foreground max-w-screen-xl">
           {footerYear && <p>Copyright ©{footerYear} by Saryug College, Samastipur, Bihar. Design By Mantix.</p>}
-          {!footerYear && <p>Copyright by Saryug College,
+          {!footerYear && <p>Copyright by Saryug College, Samastipur, Bihar. Design By Mantix.</p>}
+        </div>
+      </footer>
+    </div>
+  );
+}

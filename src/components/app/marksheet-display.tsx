@@ -535,5 +535,3 @@ export function MarksheetDisplay({ data, onCreateNew, onEditBack, onNavigateToEd
     </div>
   );
 }
-
-in marksheet display, keep this code and add edit option
