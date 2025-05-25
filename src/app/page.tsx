@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase/client';
@@ -82,7 +82,7 @@ export default function AdminDashboardPage() {
   const [academicYearFilter, setAcademicYearFilter] = useState('All Academic Years');
   const [startYearFilter, setStartYearFilter] = useState('All Start Years');
   const [endYearFilter, setEndYearFilter] = useState('All End Years');
-  const [studentIdFilter, setStudentIdFilter] = useState(''); // This will filter by roll_no
+  const [studentRollNoFilter, setStudentRollNoFilter] = useState('');
   const [studentNameFilter, setStudentNameFilter] = useState('');
   const [classFilter, setClassFilter] = useState('All Classes');
 
@@ -109,22 +109,28 @@ export default function AdminDashboardPage() {
 
     const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_OUT' || !session) {
-        router.push('/login');
+        setAuthStatus('unauthenticated');
+      } else if (event === 'SIGNED_IN') {
+        setAuthStatus('authenticated');
       }
     });
 
     return () => {
       authListener.subscription.unsubscribe();
     };
-  }, [router]);
+  }, []);
 
  useEffect(() => {
     if (authStatus === 'unauthenticated') {
       router.push('/login');
-      hideLoader(); 
+      hideLoader();
     } else if (authStatus === 'authenticated') {
+      // Data is not auto-loaded here anymore; user must click "Load Student Data"
+      // Ensure loader is hidden if it was shown by navigation
       hideLoader();
     }
+    // Do not hide loader if authStatus is 'loading', as NavigationEventsManager might have shown it
+    // and we are waiting for auth check to complete.
   }, [authStatus, router, hideLoader]);
 
 
@@ -153,6 +159,7 @@ export default function AdminDashboardPage() {
   const handleLoadStudentData = async () => {
     setIsLoadingData(true);
     showLoader();
+    setSelectedStudents(new Set()); // Clear selection when reloading data
     try {
       const { data: studentsData, error } = await supabase
         .from('student_details')
@@ -187,7 +194,6 @@ export default function AdminDashboardPage() {
     } finally {
       setIsLoadingData(false);
       hideLoader();
-      setSelectedStudents(new Set());
     }
   };
 
@@ -229,8 +235,8 @@ export default function AdminDashboardPage() {
       });
     }
 
-    if (studentIdFilter) { 
-      filtered = filtered.filter(student => student.roll_no && student.roll_no.toLowerCase().includes(studentIdFilter.toLowerCase()));
+    if (studentRollNoFilter) { 
+      filtered = filtered.filter(student => student.roll_no && student.roll_no.toLowerCase().includes(studentRollNoFilter.toLowerCase()));
     }
     if (studentNameFilter) {
       filtered = filtered.filter(student => student.name && student.name.toLowerCase().includes(studentNameFilter.toLowerCase()));
@@ -239,7 +245,7 @@ export default function AdminDashboardPage() {
       filtered = filtered.filter(student => student.class === classFilter);
     }
     return filtered;
-  }, [allStudents, academicYearFilter, startYearFilter, endYearFilter, studentIdFilter, studentNameFilter, classFilter]);
+  }, [allStudents, academicYearFilter, startYearFilter, endYearFilter, studentRollNoFilter, studentNameFilter, classFilter]);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -265,6 +271,7 @@ export default function AdminDashboardPage() {
       return;
     }
     showLoader();
+    setIsDeletingSelected(true); // Use general deleting state
     try {
       const { error: marksError } = await supabase
         .from('student_marks_details')
@@ -289,8 +296,12 @@ export default function AdminDashboardPage() {
         description: `${student.name} (Roll No: ${student.roll_no}) and their marks have been deleted.`,
       });
 
+      // Refresh data and clear selection
+      const newSelected = new Set(selectedStudents);
+      newSelected.delete(student.system_id);
+      setSelectedStudents(newSelected);
       await handleLoadStudentData(); 
-      setSelectedStudents(new Set());
+      
     } catch (error: any) {
       toast({
         title: 'Deletion Failed',
@@ -298,6 +309,7 @@ export default function AdminDashboardPage() {
         variant: 'destructive',
       });
     } finally {
+      setIsDeletingSelected(false);
       hideLoader();
     }
   };
@@ -324,6 +336,7 @@ export default function AdminDashboardPage() {
 
     try {
       for (const displayedStudent of displayedStudents) {
+        // Fetch full details for each student to ensure all columns are populated
         const { data: studentDetails, error: studentError } = await supabase
           .from('student_details')
           .select('*')
@@ -332,12 +345,13 @@ export default function AdminDashboardPage() {
 
         if (studentError || !studentDetails) {
           console.error(`Error fetching details for student ${displayedStudent.system_id}:`, studentError);
+          // Add a placeholder row if details can't be fetched
           studentDetailsSheetData.push({
             "System ID": displayedStudent.system_id,
             "Roll No": displayedStudent.roll_no,
             "Registration No": displayedStudent.registrationNo || 'N/A',
             "Name": displayedStudent.name,
-            "Father Name": "Error fetching",
+            "Father Name": "Error fetching", // Placeholder
             "Mother Name": "Error fetching",
             "Date of Birth": "Error fetching",
             "Gender": "Error fetching",
@@ -345,7 +359,7 @@ export default function AdminDashboardPage() {
             "Class": "Error fetching",
             "Academic Session": "Error fetching",
           });
-          continue;
+          continue; // Skip marks for this student if details are missing
         }
 
         studentDetailsSheetData.push({
@@ -362,6 +376,7 @@ export default function AdminDashboardPage() {
           "Academic Session": studentDetails.academic_year,
         });
 
+        // Fetch marks for this student
         const { data: marksDetails, error: marksError } = await supabase
           .from('student_marks_details')
           .select('*')
@@ -369,12 +384,13 @@ export default function AdminDashboardPage() {
 
         if (marksError) {
           console.error(`Error fetching marks for student ${studentDetails.id}:`, marksError);
+          // Optionally, add a placeholder for marks if fetching fails
         }
 
         if (marksDetails && marksDetails.length > 0) {
           for (const mark of marksDetails) {
             studentMarksDataSheet.push({
-              "System ID": studentDetails.id,
+              "System ID": studentDetails.id, // Use the system_id from studentDetails for consistency
               "Roll No": studentDetails.roll_no,
               "Name": studentDetails.name,
               "Subject Name": mark.subject_name,
@@ -387,13 +403,14 @@ export default function AdminDashboardPage() {
             });
           }
         } else {
-          studentMarksDataSheet.push({
-            "System ID": studentDetails.id,
-            "Roll No": studentDetails.roll_no,
-            "Name": studentDetails.name,
-            "Subject Name": "N/A", "Subject Category": "N/A", "Max Marks": "N/A", "Pass Marks": "N/A",
-            "Theory Marks Obtained": "N/A", "Practical Marks Obtained": "N/A", "Obtained Total Marks": "N/A",
-          });
+            // Add a row indicating no marks if applicable, or skip
+             studentMarksDataSheet.push({
+              "System ID": studentDetails.id,
+              "Roll No": studentDetails.roll_no,
+              "Name": studentDetails.name,
+              "Subject Name": "N/A", "Subject Category": "N/A", "Max Marks": "N/A", "Pass Marks": "N/A",
+              "Theory Marks Obtained": "N/A", "Practical Marks Obtained": "N/A", "Obtained Total Marks": "N/A",
+            });
         }
       }
 
@@ -406,33 +423,36 @@ export default function AdminDashboardPage() {
 
       const workbook = XLSX.utils.book_new();
 
+      // Create Student Details Sheet
       if (studentDetailsSheetData.length > 0) {
         const wsStudentDetails = XLSX.utils.json_to_sheet(studentDetailsSheetData, { header: studentDetailHeaders, skipHeader: false });
         XLSX.utils.book_append_sheet(workbook, wsStudentDetails, "Student Details");
       }
 
+      // Create Student Marks Details Sheet
       if (studentMarksDataSheet.length > 0) {
         const wsStudentMarks = XLSX.utils.json_to_sheet(studentMarksDataSheet, { header: studentMarkHeaders, skipHeader: false });
         XLSX.utils.book_append_sheet(workbook, wsStudentMarks, "Student Marks Details");
       }
       
+      // Auto-size columns for all sheets
       Object.keys(workbook.Sheets).forEach(sheetName => {
         const sheet = workbook.Sheets[sheetName];
         if (!sheet['!cols']) sheet['!cols'] = [];
         const jsonSheet = XLSX.utils.sheet_to_json<any>(sheet, { header: 1 });
         if (jsonSheet.length > 0) {
-          const cols = jsonSheet[0] as any[];
+          const cols = jsonSheet[0] as any[]; // Get headers
           if (cols) {
             const colWidths = cols.map((_, i) => {
-              let maxLen = String(cols[i] || '').length;
-              jsonSheet.forEach((row: any) => {
+              let maxLen = String(cols[i] || '').length; // Header length
+              jsonSheet.forEach((row: any) => { // Iterate over all rows
                 const cellValue = row[i];
-                if (cellValue != null) {
+                if (cellValue != null) { // Check if cell is not empty
                   const len = String(cellValue).length;
                   if (len > maxLen) maxLen = len;
                 }
               });
-              return { wch: maxLen + 2 };
+              return { wch: maxLen + 2 }; // Add a little padding
             });
             sheet['!cols'] = colWidths;
           }
@@ -494,15 +514,19 @@ export default function AdminDashboardPage() {
 
     for (const studentSystemId of selectedStudents) {
       try {
+        // First, delete associated marks
         const { error: marksError } = await supabase
           .from('student_marks_details')
           .delete()
           .eq('student_detail_id', studentSystemId);
 
         if (marksError) {
-          throw new Error(`Failed to delete marks for student ID ${studentSystemId.substring(0,8)}...: ${marksError.message}`);
+          // Log the error but attempt to delete the student anyway, or handle as per your policy
+          console.error(`Failed to delete marks for student ID ${studentSystemId.substring(0,8)}...: ${marksError.message}`);
+          // Decide if this should stop the student deletion. For now, we'll proceed.
         }
 
+        // Then, delete the student
         const { error: studentError } = await supabase
           .from('student_details')
           .delete()
@@ -523,18 +547,27 @@ export default function AdminDashboardPage() {
       toast({ title: "Deletion Successful", description: `${deletedCount} student(s) deleted.` });
     }
     if (errorCount > 0) {
-      toast({ title: "Deletion Partially Failed", description: `${errorCount} student(s) could not be deleted. Check console for details.`, variant: "destructive" });
+      toast({ title: "Deletion Partially Failed", description: `${errorCount} student(s) could not be deleted or their marks could not be fully cleared. Check console for details.`, variant: "destructive" });
     }
 
-    await handleLoadStudentData();
+    // Refresh data and clear selection
     setSelectedStudents(new Set());
+    await handleLoadStudentData(); 
+    
     setIsDeletingSelected(false);
     hideLoader();
   };
 
 
   if (authStatus === 'loading') {
-    return null; // Global loader will handle this
+    // The global loader from LoadingProvider should be active here if shown by NavigationEventsManager
+    // This can be a fallback or removed if the global loader is sufficient.
+    // For now, let's keep it to ensure some feedback if global loader somehow isn't visible.
+    return (
+        <div className="flex items-center justify-center min-h-screen bg-background">
+            <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        </div>
+    );
   }
 
   return (
@@ -624,8 +657,8 @@ export default function AdminDashboardPage() {
                 </Select>
               </div>
               <div>
-                <Label htmlFor="studentCollegeId">Student Roll No</Label>
-                <Input id="studentCollegeId" placeholder="Roll No" value={studentIdFilter} onChange={e => setStudentIdFilter(e.target.value)} disabled={isDeletingSelected} />
+                <Label htmlFor="studentRollNo">Student Roll No</Label>
+                <Input id="studentRollNo" placeholder="Roll No" value={studentRollNoFilter} onChange={e => setStudentRollNoFilter(e.target.value)} disabled={isDeletingSelected} />
               </div>
               <div>
                 <Label htmlFor="studentName">Student Name</Label>

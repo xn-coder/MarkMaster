@@ -13,6 +13,7 @@ import { format, parseISO } from 'date-fns';
 import { AppHeader } from '@/components/app/app-header';
 import { numberToWords } from '@/lib/utils'
 import type { ACADEMIC_YEAR_OPTIONS } from '@/components/app/marksheet-form-schema';
+import { useLoadingIndicator } from '@/components/app/navigation-loader';
 
 const defaultPageSubtitle = `(Affiliated By Bihar School Examination Board, Patna)
 [Estd. - 1983] College Code: 53010
@@ -24,6 +25,7 @@ export default function ViewMarksheetPage() {
   const params = useParams();
   const studentSystemId = params.studentId as string; 
   const { toast } = useToast();
+  const { showLoader, hideLoader } = useLoadingIndicator();
 
   const [authStatus, setAuthStatus] = useState<'loading' | 'authenticated' | 'unauthenticated'>('loading');
   const [marksheetData, setMarksheetData] = useState<MarksheetDisplayData | null>(null);
@@ -50,11 +52,13 @@ export default function ViewMarksheetPage() {
   useEffect(() => {
     if (authStatus === 'unauthenticated') {
       router.push('/login');
+      hideLoader();
     } else if (authStatus === 'authenticated' && studentSystemId) {
       setFooterYear(new Date().getFullYear());
-      setIsLoadingData(true);
-
+      
       const fetchMarksheetData = async () => {
+        setIsLoadingData(true);
+        showLoader();
         try {
           const { data: studentDetails, error: studentError } = await supabase
             .from('student_details')
@@ -65,7 +69,6 @@ export default function ViewMarksheetPage() {
           if (studentError || !studentDetails) {
             toast({ title: 'Error', description: `Student data not found for ID: ${studentSystemId}. ${studentError?.message || ''}`, variant: 'destructive' });
             setMarksheetData(null);
-            setIsLoadingData(false);
             return;
           }
 
@@ -91,16 +94,16 @@ export default function ViewMarksheetPage() {
             studentName: studentDetails.name,
             fatherName: studentDetails.father_name,
             motherName: studentDetails.mother_name,
-            registrationNo: studentDetails.registration_no,
+            registrationNo: studentDetails.registration_no || '',
             rollNumber: studentDetails.roll_no,
             dateOfBirth: studentDetails.dob ? parseISO(studentDetails.dob) : new Date(),
-            dateOfIssue: new Date(), // Date of issue for viewing will be current date
+            dateOfIssue: new Date(), 
             gender: studentDetails.gender as MarksheetFormData['gender'],
             faculty: studentDetails.faculty as MarksheetFormData['faculty'],
             academicYear: studentDetails.class as typeof ACADEMIC_YEAR_OPTIONS[number],
             sessionStartYear: sessionStartYear,
             sessionEndYear: sessionEndYear,
-            overallPassingThresholdPercentage: 33, // Default, not stored in DB
+            overallPassingThresholdPercentage: 33, 
             subjects: subjectMarks?.map(mark => ({
               id: mark.mark_id?.toString() || crypto.randomUUID(),
               subjectName: mark.subject_name,
@@ -147,19 +150,12 @@ export default function ViewMarksheetPage() {
             }
           }
 
-          const generateMarksheetNo = (faculty: string, rollNumber: string, sessionEndYearNumber: number): string => {
-            const facultyCode = faculty.substring(0, 2).toUpperCase();
-            const month = format(new Date(), 'MMM').toUpperCase();
-            const sequence = String(Math.floor(Math.random() * 900) + 100);
-            return `${facultyCode}/${month}/${sessionEndYearNumber}/${rollNumber.slice(-3) || sequence}`;
-          };
-
           const processedData: MarksheetDisplayData = {
             ...formDataFromDb,
             subjects: subjectsDisplay,
             collegeCode: "53010",
             sessionDisplay: `${formDataFromDb.sessionStartYear}-${formDataFromDb.sessionEndYear}`,
-            classDisplay: `${formDataFromDb.academicYear}`, // Removed section
+            classDisplay: `${formDataFromDb.academicYear}`, 
             aggregateMarksCompulsoryElective,
             totalPossibleMarksCompulsoryElective,
             totalMarksInWords,
@@ -167,6 +163,7 @@ export default function ViewMarksheetPage() {
             overallPercentageDisplay,
             dateOfIssue: format(formDataFromDb.dateOfIssue, 'MMMM yyyy'),
             place: 'Samastipur',
+            registrationNo: formDataFromDb.registrationNo,
           };
           setMarksheetData(processedData);
 
@@ -176,14 +173,20 @@ export default function ViewMarksheetPage() {
           setMarksheetData(null);
         } finally {
           setIsLoadingData(false);
+          hideLoader();
         }
       };
-
       fetchMarksheetData();
+    } else if (authStatus === 'authenticated' && !studentSystemId) {
+        toast({ title: 'Error', description: 'No student ID provided for viewing.', variant: 'destructive' });
+        setIsLoadingData(false);
+        hideLoader();
+        router.push('/');
     }
-  }, [authStatus, studentSystemId, toast, router]);
+  }, [authStatus, studentSystemId, toast, router, showLoader, hideLoader]);
 
-  if (authStatus === 'loading' || (authStatus === 'authenticated' && isLoadingData)) {
+
+  if (authStatus === 'loading' || (authStatus === 'authenticated' && isLoadingData && !marksheetData)) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background print:hidden">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -191,8 +194,8 @@ export default function ViewMarksheetPage() {
       </div>
     );
   }
-
-  if (authStatus === 'authenticated' && !isLoadingData && !marksheetData) {
+  
+  if (authStatus === 'authenticated' && !isLoadingData && !marksheetData && studentSystemId) {
     return (
       <div className="min-h-screen bg-background text-foreground flex flex-col print:h-full print:bg-white">
         <div className="print:hidden">
@@ -235,6 +238,7 @@ export default function ViewMarksheetPage() {
           <MarksheetDisplay data={marksheetData} />
         ) : (
           <div className="flex items-center justify-center min-h-[calc(100vh-200px)] print:hidden">
+            {/* This fallback should ideally not be reached if isLoadingData is true and loader shows */}
             <p className="text-muted-foreground">No marksheet data to display.</p>
           </div>
         )}
@@ -249,3 +253,4 @@ export default function ViewMarksheetPage() {
     </div>
   );
 }
+

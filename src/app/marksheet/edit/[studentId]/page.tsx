@@ -14,6 +14,7 @@ import { format, parseISO } from 'date-fns';
 import { AppHeader } from '@/components/app/app-header';
 import { numberToWords } from '@/lib/utils';
 import type { ACADEMIC_YEAR_OPTIONS, SUBJECT_CATEGORIES_OPTIONS } from '@/components/app/marksheet-form-schema';
+import { useLoadingIndicator } from '@/components/app/navigation-loader';
 
 const defaultPageSubtitle = `(Affiliated By Bihar School Examination Board, Patna)
 [Estd. - 1983] College Code: 53010
@@ -26,6 +27,7 @@ export default function EditMarksheetPage() {
   const params = useParams();
   const studentSystemId = params.studentId as string;
   const { toast } = useToast();
+  const { showLoader, hideLoader } = useLoadingIndicator();
 
   const [authStatus, setAuthStatus] = useState<'loading' | 'authenticated' | 'unauthenticated'>('loading');
   const [initialData, setInitialData] = useState<MarksheetFormData | null>(null);
@@ -55,11 +57,13 @@ export default function EditMarksheetPage() {
   useEffect(() => {
     if (authStatus === 'unauthenticated') {
       router.push('/login');
+      hideLoader();
     } else if (authStatus === 'authenticated' && studentSystemId) {
       setFooterYear(new Date().getFullYear());
-      setIsLoadingData(true);
-
+      
       const fetchStudentData = async () => {
+        setIsLoadingData(true);
+        showLoader();
         try {
           const { data: studentDetails, error: studentError } = await supabase
             .from('student_details')
@@ -70,7 +74,6 @@ export default function EditMarksheetPage() {
           if (studentError || !studentDetails) {
             toast({ title: 'Error Fetching Student', description: `Student data not found for ID: ${studentSystemId}. ${studentError?.message || ''}`, variant: 'destructive' });
             setInitialData(null);
-            setIsLoadingData(false);
             return;
           }
 
@@ -97,7 +100,7 @@ export default function EditMarksheetPage() {
             fatherName: studentDetails.father_name,
             motherName: studentDetails.mother_name,
             rollNumber: studentDetails.roll_no,
-            registrationNo: studentDetails.registration_no || '', // Fetch registration_no
+            registrationNo: studentDetails.registration_no || '', 
             dateOfBirth: studentDetails.dob ? parseISO(studentDetails.dob) : new Date(),
             dateOfIssue: new Date(), 
             gender: studentDetails.gender as MarksheetFormData['gender'],
@@ -105,7 +108,7 @@ export default function EditMarksheetPage() {
             academicYear: studentDetails.class as typeof ACADEMIC_YEAR_OPTIONS[number],
             sessionStartYear: sessionStartYear,
             sessionEndYear: sessionEndYear,
-            overallPassingThresholdPercentage: 33, // Default, not stored in DB
+            overallPassingThresholdPercentage: 33,
             subjects: subjectMarks?.map(mark => ({
               id: mark.mark_id?.toString() || crypto.randomUUID(),
               subjectName: mark.subject_name,
@@ -116,28 +119,26 @@ export default function EditMarksheetPage() {
               practicalMarksObtained: mark.practical_marks_obtained ?? 0,
             })) || [],
           };
-
           setInitialData(transformedData);
-
         } catch (error) {
           console.error("Error fetching student data for edit:", error);
           toast({ title: 'Fetch Error', description: 'Could not load student data.', variant: 'destructive' });
           setInitialData(null);
         } finally {
           setIsLoadingData(false);
+          hideLoader();
         }
       };
-
       fetchStudentData();
+    } else if (authStatus === 'authenticated' && !studentSystemId) {
+        // Handle case where studentSystemId is missing but user is authenticated
+        toast({ title: 'Error', description: 'No student ID provided for editing.', variant: 'destructive' });
+        setIsLoadingData(false);
+        hideLoader();
+        router.push('/'); // Redirect to dashboard or an error page
     }
-  }, [authStatus, studentSystemId, toast, router]);
+  }, [authStatus, studentSystemId, toast, router, showLoader, hideLoader]);
 
-  const generateMarksheetNo = useCallback((faculty: string, rollNumber: string, sessionEndYearNumber: number): string => {
-    const facultyCode = faculty.substring(0, 2).toUpperCase();
-    const month = format(new Date(), 'MMM').toUpperCase();
-    const sequence = String(Math.floor(Math.random() * 900) + 100);
-    return `${facultyCode}/${month}/${sessionEndYearNumber}/${rollNumber.slice(-3) || sequence}`;
-  }, []);
 
   const processFormData = (data: MarksheetFormData): MarksheetDisplayData => {
     const subjectsDisplay: MarksheetSubjectDisplayEntry[] = data.subjects.map(s => ({
@@ -189,7 +190,7 @@ export default function EditMarksheetPage() {
       overallPercentageDisplay,
       dateOfIssue: format(data.dateOfIssue, 'MMMM yyyy'),
       place: 'Samastipur',
-      registrationNo: data.registrationNo,
+      registrationNo: data.registrationNo || '',
     };
   };
 
@@ -210,7 +211,7 @@ export default function EditMarksheetPage() {
           father_name: data.fatherName,
           mother_name: data.motherName,
           roll_no: data.rollNumber,
-          registration_no: data.registrationNo, // Added registrationNo to update
+          registration_no: data.registrationNo || null,
           dob: format(data.dateOfBirth, 'yyyy-MM-dd'),
           gender: data.gender,
           faculty: data.faculty,
@@ -266,7 +267,7 @@ export default function EditMarksheetPage() {
     setMarksheetData(null);
   }
 
-  if (authStatus === 'loading' || (authStatus === 'authenticated' && isLoadingData)) {
+  if (authStatus === 'loading' || (authStatus === 'authenticated' && isLoadingData && !initialData)) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background print:hidden">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -274,8 +275,8 @@ export default function EditMarksheetPage() {
       </div>
     );
   }
-
-  if (authStatus === 'authenticated' && !isLoadingData && !initialData) {
+  
+  if (authStatus === 'authenticated' && !isLoadingData && !initialData && studentSystemId) {
     return (
       <div className="min-h-screen bg-background text-foreground flex flex-col print:h-full print:bg-white">
         <div className="print:hidden">
@@ -338,3 +339,4 @@ export default function EditMarksheetPage() {
     </div>
   );
 }
+

@@ -13,6 +13,7 @@ import { Loader2, ArrowLeft } from 'lucide-react';
 import { format } from 'date-fns';
 import { AppHeader } from '@/components/app/app-header';
 import { numberToWords } from '@/lib/utils';
+import { useLoadingIndicator } from '@/components/app/navigation-loader';
 
 const defaultPageSubtitle = `(Affiliated By Bihar School Examination Board, Patna)
 [Estd. - 1983] College Code: 53010
@@ -22,6 +23,7 @@ www.saryugcollege.com`;
 export default function NewMarksheetPage() {
   const router = useRouter();
   const { toast } = useToast();
+  const { hideLoader } = useLoadingIndicator();
 
   const [authStatus, setAuthStatus] = useState<'loading' | 'authenticated' | 'unauthenticated'>('loading');
 
@@ -52,17 +54,13 @@ export default function NewMarksheetPage() {
   useEffect(() => {
     if (authStatus === 'unauthenticated') {
       router.push('/login');
+      hideLoader();
     } else if (authStatus === 'authenticated') {
       setFooterYear(new Date().getFullYear());
+      hideLoader();
     }
-  }, [authStatus, router]);
+  }, [authStatus, router, hideLoader]);
 
-  const generateMarksheetNo = (faculty: string, rollNumber: string, sessionEndYear: number): string => {
-    const facultyCode = faculty.substring(0, 2).toUpperCase();
-    const month = format(new Date(), 'MMM').toUpperCase();
-    const sequence = String(Math.floor(Math.random() * 900) + 100);
-    return `${facultyCode}/${month}/${sessionEndYear}/${rollNumber.slice(-3) || sequence}`;
-  };
 
   const processFormData = (data: MarksheetFormData, systemId: string): MarksheetDisplayData => {
     const subjectsDisplay: MarksheetSubjectDisplayEntry[] = data.subjects.map(s => ({
@@ -103,17 +101,18 @@ export default function NewMarksheetPage() {
     return {
       ...data,
       system_id: systemId,
-      collegeCode: "53010",
+      collegeCode: "53010", // Hardcoded as per previous logic
       subjects: subjectsDisplay,
       sessionDisplay: `${data.sessionStartYear}-${data.sessionEndYear}`,
-      classDisplay: `${data.academicYear}`, // Removed section
+      classDisplay: `${data.academicYear}`,
       aggregateMarksCompulsoryElective,
       totalPossibleMarksCompulsoryElective,
       totalMarksInWords,
       overallResult,
       overallPercentageDisplay,
       dateOfIssue: format(data.dateOfIssue, 'MMMM yyyy'), 
-      place: 'Samastipur',
+      place: 'Samastipur', // Hardcoded
+      registrationNo: data.registrationNo || '',
     };
   };
 
@@ -129,7 +128,7 @@ export default function NewMarksheetPage() {
       .eq('academic_year', academicSessionString)
       .eq('class', data.academicYear)
       .eq('faculty', data.faculty)
-      // Removed section from uniqueness check
+      .eq('registration_no', data.registrationNo || '') // Include registration_no in check
       .maybeSingle();
 
     if (checkError) {
@@ -145,7 +144,7 @@ export default function NewMarksheetPage() {
     if (existingStudentCheck) {
       toast({
         title: 'Student Already Exists',
-        description: 'A student with the same Roll No., Academic Session, Class, and Faculty already exists.',
+        description: 'A student with the same Roll No., Registration No., Academic Session, Class, and Faculty already exists.',
         variant: 'destructive',
       });
       setIsLoadingFormSubmission(false);
@@ -166,9 +165,9 @@ export default function NewMarksheetPage() {
         mother_name: data.motherName,
         dob: dobFormatted,
         gender: data.gender,
+        registration_no: data.registrationNo || null,
         faculty: data.faculty,
         class: data.academicYear,
-        // section: data.section, // Removed section
         academic_year: academicSessionString,
       };
 
@@ -207,7 +206,6 @@ export default function NewMarksheetPage() {
 
         if (subjectMarksError) {
           console.error('Error inserting subject marks:', subjectMarksError);
-
           await supabase.from('student_details').delete().eq('id', insertedStudentData.id);
           toast({
             title: 'Database Error',
@@ -297,3 +295,4 @@ export default function NewMarksheetPage() {
     </div>
   );
 }
+
