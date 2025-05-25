@@ -1,10 +1,12 @@
-import type {Metadata} from 'next';
-import { Inter } from 'next/font/google'; // Using Inter from Google Fonts
+
+import type { Metadata } from 'next';
+import { Inter } from 'next/font/google';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
+import { LoadingProvider, NavigationEventsManager } from '@/components/app/navigation-loader';
 
 const inter = Inter({
-  variable: '--font-inter', // Using a consistent variable name
+  variable: '--font-inter',
   subsets: ['latin'],
 });
 
@@ -20,9 +22,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${inter.variable} font-sans antialiased`}> {/* Use the new font variable */}
-        {children}
-        <Toaster />
+      <body className={`${inter.variable} font-sans antialiased`}>
+        <LoadingProvider>
+          {children}
+          <Toaster />
+          <NavigationEventsManager />
+        </LoadingProvider>
       </body>
     </html>
   );

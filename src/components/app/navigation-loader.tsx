@@ -42,7 +42,7 @@ export function useLoadingIndicator() {
 function NavigationEvents() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const { showLoader } // , hideLoader -> hideLoader is called by the page itself
+  const { showLoader } // hideLoader is called by the page itself
     = useLoadingIndicator();
 
   useEffect(() => {
