@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase/client';
 import { useToast } from "@/hooks/use-toast";
 import { Button } from '@/components/ui/button';
-import { Loader2, LogOut } from 'lucide-react';
+import { Loader2, LogOut, ArrowLeft } from 'lucide-react';
 import React, { useState } from 'react';
 
 interface AppHeaderProps {
@@ -67,7 +67,6 @@ export function AppHeader({
     <header className="bg-secondary text-secondary-foreground py-3 shadow-sm print:hidden">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between max-w-screen-xl">
         <div className="flex items-center gap-3 flex-shrink-0">
-          {/* Logo is always the leftmost item now */}
           <Image
             src="/college-logo.png"
             alt="College Logo"
@@ -79,7 +78,10 @@ export function AppHeader({
         </div>
 
         <div className="text-center mx-4 flex-grow">
-          <h1 className="text-lg sm:text-xl font-bold text-primary">
+          <h1 
+            className="text-lg sm:text-xl font-bold"
+            style={{ color: '#032781' }}
+          >
             {pageTitle}
           </h1>
           {renderSubtitle()}
