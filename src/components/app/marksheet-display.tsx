@@ -1,10 +1,11 @@
+
 'use client';
 
 import * as React from 'react';
-import type { MarksheetDisplayData } from '@/types'; // Keep MarksheetDisplayData import
+import type { MarksheetDisplayData } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Printer, FilePlus2, ArrowLeft, FileText, Edit } from 'lucide-react';
 import Image from 'next/image';
 import { format } from 'date-fns';
@@ -79,7 +80,6 @@ export function MarksheetDisplay({ data, onCreateNew, onEditBack, onNavigateToEd
           const yPosMm = marginMm + (usableHeightMm - finalImgHeightMm) / 2;
           
           pdf.addImage(dataUrl, 'PNG', xPosMm, yPosMm, finalImgWidthMm, finalImgHeightMm);
-          // Use rollNumber for filename
           pdf.save(`${data.rollNumber.replace(/\s+/g, '-')}-Marksheet.pdf`);
         };
 
@@ -101,6 +101,29 @@ export function MarksheetDisplay({ data, onCreateNew, onEditBack, onNavigateToEd
 
   return (
     <div className="marksheet-print-container bg-white print:bg-white py-8 print:py-0 flex justify-center items-center flex-col">
+      <div className="flex flex-col sm:flex-row justify-center items-center gap-3 p-4 print:hidden mb-4">
+        {onEditBack && (
+          <Button variant="outline" onClick={onEditBack}>
+            <ArrowLeft className="mr-2 h-4 w-4" /> Back to Edit Form
+          </Button>
+        )}
+        {onCreateNew && (
+          <Button variant="outline" onClick={onCreateNew}>
+            <FilePlus2 className="mr-2 h-4 w-4" /> Create New
+          </Button>
+        )}
+        {onNavigateToEdit && data.system_id && (
+          <Button variant="outline" onClick={() => onNavigateToEdit(data.system_id!)}>
+            <Edit className="mr-2 h-4 w-4" /> Edit Marksheet
+          </Button>
+        )}
+        <Button variant="outline" onClick={handleDownloadPDF}>
+          <FileText className="mr-2 h-4 w-4" /> Download PDF
+        </Button>
+        <Button onClick={handlePrint}>
+          <Printer className="mr-2 h-4 w-4" /> Print Marksheet
+        </Button>
+      </div>
       <Card ref={marksheetRef} className="marksheet-preview marksheet-card flex w-full max-w-[210mm] min-h-[297mm] shadow-lg print:shadow-none border-4 border-black print:border-4 print:border-black print:my-0 print:mx-0 bg-white p-1 print:p-0.5 relative">
         {/* Watermark */}
         <div className="absolute inset-0 flex items-center justify-center z-0 pointer-events-none">
@@ -240,7 +263,10 @@ export function MarksheetDisplay({ data, onCreateNew, onEditBack, onNavigateToEd
                                 <TableCell className="text-center border border-black p-1 text-sm print:text-sm print:p-0.5">{subject.passMarks}</TableCell>
                                 <TableCell className="text-center border border-black p-1 text-sm print:text-sm print:p-0.5">{subject.theoryMarksObtained}</TableCell>
                                 <TableCell className="text-center border border-black p-1 text-sm print:text-sm print:p-0.5">{subject.practicalMarksObtained}</TableCell>
-                                <TableCell className="text-center border border-black p-1 text-sm print:text-sm print:p-0.5 font-bold">{subject.obtainedTotal}</TableCell>
+                                <TableCell className="text-center border border-black p-1 text-sm print:text-sm print:p-0.5 font-bold">
+                                  {subject.obtainedTotal}
+                                  {subject.isFailed && <span className="text-red-600 print:text-red-600 ml-1">*</span>}
+                                </TableCell>
                             </TableRow>
                         ))}
 
@@ -262,7 +288,10 @@ export function MarksheetDisplay({ data, onCreateNew, onEditBack, onNavigateToEd
                                 <TableCell className="text-center border border-black p-1 text-sm print:text-sm print:p-0.5">{subject.passMarks}</TableCell>
                                 <TableCell className="text-center border border-black p-1 text-sm print:text-sm print:p-0.5">{subject.theoryMarksObtained}</TableCell>
                                 <TableCell className="text-center border border-black p-1 text-sm print:text-sm print:p-0.5">{subject.practicalMarksObtained}</TableCell>
-                                <TableCell className="text-center border border-black p-1 text-sm print:text-sm print:p-0.5 font-bold">{subject.obtainedTotal}</TableCell>
+                                <TableCell className="text-center border border-black p-1 text-sm print:text-sm print:p-0.5 font-bold">
+                                  {subject.obtainedTotal}
+                                  {subject.isFailed && <span className="text-red-600 print:text-red-600 ml-1">*</span>}
+                                </TableCell>
                             </TableRow>
                         ))}
 
@@ -284,7 +313,10 @@ export function MarksheetDisplay({ data, onCreateNew, onEditBack, onNavigateToEd
                                 <TableCell className="text-center border border-black p-1 text-sm print:text-sm print:p-0.5">{subject.passMarks}</TableCell>
                                 <TableCell className="text-center border border-black p-1 text-sm print:text-sm print:p-0.5">{subject.theoryMarksObtained}</TableCell>
                                 <TableCell className="text-center border border-black p-1 text-sm print:text-sm print:p-0.5">{subject.practicalMarksObtained}</TableCell>
-                                <TableCell className="text-center border border-black p-1 text-sm print:text-sm print:p-0.5 font-bold">{subject.obtainedTotal}</TableCell>
+                                <TableCell className="text-center border border-black p-1 text-sm print:text-sm print:p-0.5 font-bold">
+                                  {subject.obtainedTotal}
+                                  {subject.isFailed && <span className="text-red-600 print:text-red-600 ml-1">*</span>}
+                                </TableCell>
                             </TableRow>
                         ))}
                         <TableRow className="border-black h-[24px] print:h-[22px] hover:bg-transparent print:hover:bg-transparent dark:hover:bg-inherit"> 
@@ -339,11 +371,6 @@ export function MarksheetDisplay({ data, onCreateNew, onEditBack, onNavigateToEd
         {onCreateNew && (
           <Button variant="outline" onClick={onCreateNew}>
             <FilePlus2 className="mr-2 h-4 w-4" /> Create New
-          </Button>
-        )}
-        {onNavigateToEdit && data.system_id && (
-          <Button variant="outline" onClick={() => onNavigateToEdit(data.system_id!)}>
-            <Edit className="mr-2 h-4 w-4" /> Edit Marksheet
           </Button>
         )}
         <Button variant="outline" onClick={handleDownloadPDF}>
@@ -502,5 +529,6 @@ export function MarksheetDisplay({ data, onCreateNew, onEditBack, onNavigateToEd
     </div>
   );
 }
-used this code for changes
-- in login page keep logo and college name details in same row
+
+- marksheetNo to registrationNo
+- make pdf name same as roll no.

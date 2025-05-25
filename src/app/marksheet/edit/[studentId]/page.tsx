@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -13,8 +12,7 @@ import { Loader2, ArrowLeft } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { AppHeader } from '@/components/app/app-header';
 import { numberToWords } from '@/lib/utils';
-import type { ACADEMIC_YEAR_OPTIONS, SUBJECT_CATEGORIES_OPTIONS } from '@/components/app/marksheet-form-schema';
-// Removed import for useLoadingIndicator
+import type { ACADEMIC_YEAR_OPTIONS } from '@/components/app/marksheet-form-schema';
 
 const defaultPageSubtitle = `(Affiliated By Bihar School Examination Board, Patna)
 [Estd. - 1983] College Code: 53010
@@ -27,11 +25,10 @@ export default function EditMarksheetPage() {
   const params = useParams();
   const studentSystemId = params.studentId as string;
   const { toast } = useToast();
-  // Removed showLoader, hideLoader from useLoadingIndicator
 
   const [authStatus, setAuthStatus] = useState<'loading' | 'authenticated' | 'unauthenticated'>('loading');
   const [initialData, setInitialData] = useState<MarksheetFormData | null>(null);
-  const [isLoadingData, setIsLoadingData] = useState(true); // This state will control the page-specific loader
+  const [isLoadingData, setIsLoadingData] = useState(true);
 
   const [isLoadingFormSubmission, setIsLoadingFormSubmission] = useState(false);
   const [marksheetData, setMarksheetData] = useState<MarksheetDisplayData | null>(null);
@@ -57,13 +54,11 @@ export default function EditMarksheetPage() {
   useEffect(() => {
     if (authStatus === 'unauthenticated') {
       router.push('/login');
-      // hideLoader();
     } else if (authStatus === 'authenticated' && studentSystemId) {
       setFooterYear(new Date().getFullYear());
       
       const fetchStudentData = async () => {
         setIsLoadingData(true);
-        // showLoader();
         try {
           const { data: studentDetails, error: studentError } = await supabase
             .from('student_details')
@@ -100,19 +95,19 @@ export default function EditMarksheetPage() {
             fatherName: studentDetails.father_name,
             motherName: studentDetails.mother_name,
             rollNumber: studentDetails.roll_no,
-            registrationNo: studentDetails.registration_no || '', 
+            registrationNo: studentDetails.registration_no || null,
             dateOfBirth: studentDetails.dob ? parseISO(studentDetails.dob) : new Date(),
-            dateOfIssue: new Date(), 
+            dateOfIssue: new Date(), // This will default to current for edit, not stored
             gender: studentDetails.gender as MarksheetFormData['gender'],
             faculty: studentDetails.faculty as MarksheetFormData['faculty'],
             academicYear: studentDetails.class as typeof ACADEMIC_YEAR_OPTIONS[number],
             sessionStartYear: sessionStartYear,
             sessionEndYear: sessionEndYear,
-            overallPassingThresholdPercentage: 33,
+            overallPassingThresholdPercentage: 33, // Default, not stored
             subjects: subjectMarks?.map(mark => ({
               id: mark.mark_id?.toString() || crypto.randomUUID(),
               subjectName: mark.subject_name,
-              category: mark.category as typeof SUBJECT_CATEGORIES_OPTIONS[number],
+              category: mark.category as MarksheetFormData['subjects'][0]['category'],
               totalMarks: mark.max_marks,
               passMarks: mark.pass_marks,
               theoryMarksObtained: mark.theory_marks_obtained ?? 0,
@@ -126,24 +121,26 @@ export default function EditMarksheetPage() {
           setInitialData(null);
         } finally {
           setIsLoadingData(false);
-          // hideLoader();
         }
       };
       fetchStudentData();
     } else if (authStatus === 'authenticated' && !studentSystemId) {
         toast({ title: 'Error', description: 'No student ID provided for editing.', variant: 'destructive' });
         setIsLoadingData(false);
-        // hideLoader();
-        router.push('/'); 
+        router.push('/');
     }
   }, [authStatus, studentSystemId, toast, router]);
 
 
   const processFormData = (data: MarksheetFormData): MarksheetDisplayData => {
-    const subjectsDisplay: MarksheetSubjectDisplayEntry[] = data.subjects.map(s => ({
-      ...s,
-      obtainedTotal: (s.theoryMarksObtained || 0) + (s.practicalMarksObtained || 0),
-    }));
+    const subjectsDisplay: MarksheetSubjectDisplayEntry[] = data.subjects.map(s => {
+      const obtainedTotal = (s.theoryMarksObtained || 0) + (s.practicalMarksObtained || 0);
+      return {
+        ...s,
+        obtainedTotal,
+        isFailed: obtainedTotal < s.passMarks,
+      };
+    });
 
     const compulsoryElectiveSubjects = subjectsDisplay.filter(
       s => s.category === 'Compulsory' || s.category === 'Elective'
@@ -168,11 +165,8 @@ export default function EditMarksheetPage() {
     if (overallPercentageDisplay < data.overallPassingThresholdPercentage) {
       overallResult = 'Fail';
     }
-    for (const subject of subjectsDisplay) {
-      if (subject.obtainedTotal < subject.passMarks) {
-        overallResult = 'Fail';
-        break;
-      }
+    if (subjectsDisplay.some(subject => subject.isFailed)) {
+      overallResult = 'Fail';
     }
 
     return {
@@ -189,7 +183,7 @@ export default function EditMarksheetPage() {
       overallPercentageDisplay,
       dateOfIssue: format(data.dateOfIssue, 'MMMM yyyy'),
       place: 'Samastipur',
-      registrationNo: data.registrationNo || '',
+      registrationNo: data.registrationNo || null,
     };
   };
 
@@ -214,7 +208,7 @@ export default function EditMarksheetPage() {
           dob: format(data.dateOfBirth, 'yyyy-MM-dd'),
           gender: data.gender,
           faculty: data.faculty,
-          class: data.academicYear,
+          class: data.academicYear, // Form's academicYear is the class
           academic_year: `${data.sessionStartYear}-${data.sessionEndYear}`,
         })
         .eq('id', studentSystemId);

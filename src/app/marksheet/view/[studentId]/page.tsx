@@ -8,12 +8,11 @@ import { MarksheetDisplay } from '@/components/app/marksheet-display';
 import type { MarksheetFormData, MarksheetDisplayData, MarksheetSubjectDisplayEntry } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
-import { Loader2, ArrowLeft } from 'lucide-react';
+import { Loader2, ArrowLeft, Edit } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { AppHeader } from '@/components/app/app-header';
 import { numberToWords } from '@/lib/utils'
 import type { ACADEMIC_YEAR_OPTIONS } from '@/components/app/marksheet-form-schema';
-// Removed import for useLoadingIndicator
 
 const defaultPageSubtitle = `(Affiliated By Bihar School Examination Board, Patna)
 [Estd. - 1983] College Code: 53010
@@ -23,13 +22,12 @@ www.saryugcollege.com`;
 export default function ViewMarksheetPage() {
   const router = useRouter();
   const params = useParams();
-  const studentSystemId = params.studentId as string; 
+  const studentSystemId = params.studentId as string;
   const { toast } = useToast();
-  // Removed showLoader, hideLoader from useLoadingIndicator
 
   const [authStatus, setAuthStatus] = useState<'loading' | 'authenticated' | 'unauthenticated'>('loading');
   const [marksheetData, setMarksheetData] = useState<MarksheetDisplayData | null>(null);
-  const [isLoadingData, setIsLoadingData] = useState(true); // This state will control the page-specific loader
+  const [isLoadingData, setIsLoadingData] = useState(true);
   const [footerYear, setFooterYear] = useState<number | null>(null);
 
   useEffect(() => {
@@ -52,18 +50,16 @@ export default function ViewMarksheetPage() {
   useEffect(() => {
     if (authStatus === 'unauthenticated') {
       router.push('/login');
-      // hideLoader();
     } else if (authStatus === 'authenticated' && studentSystemId) {
       setFooterYear(new Date().getFullYear());
       
       const fetchMarksheetData = async () => {
         setIsLoadingData(true);
-        // showLoader();
         try {
           const { data: studentDetails, error: studentError } = await supabase
             .from('student_details')
             .select('*')
-            .eq('id', studentSystemId) 
+            .eq('id', studentSystemId)
             .single();
 
           if (studentError || !studentDetails) {
@@ -75,7 +71,7 @@ export default function ViewMarksheetPage() {
           const { data: subjectMarks, error: marksError } = await supabase
             .from('student_marks_details')
             .select('*')
-            .eq('student_detail_id', studentSystemId); 
+            .eq('student_detail_id', studentSystemId);
 
           if (marksError) {
             toast({ title: 'Error Fetching Subjects', description: marksError.message, variant: 'destructive' });
@@ -88,22 +84,22 @@ export default function ViewMarksheetPage() {
             sessionStartYear = parseInt(years[0], 10);
             sessionEndYear = parseInt(years[1], 10);
           }
-
+          
           const formDataFromDb: MarksheetFormData = {
             system_id: studentDetails.id,
             studentName: studentDetails.name,
             fatherName: studentDetails.father_name,
             motherName: studentDetails.mother_name,
-            registrationNo: studentDetails.registration_no || '',
+            registrationNo: studentDetails.registration_no || null,
             rollNumber: studentDetails.roll_no,
             dateOfBirth: studentDetails.dob ? parseISO(studentDetails.dob) : new Date(),
-            dateOfIssue: new Date(), 
+            dateOfIssue: new Date(), // Date of issue is dynamic for view
             gender: studentDetails.gender as MarksheetFormData['gender'],
             faculty: studentDetails.faculty as MarksheetFormData['faculty'],
-            academicYear: studentDetails.class as typeof ACADEMIC_YEAR_OPTIONS[number],
+            academicYear: studentDetails.class as typeof ACADEMIC_YEAR_OPTIONS[number], // class from DB is academicYear in form
             sessionStartYear: sessionStartYear,
             sessionEndYear: sessionEndYear,
-            overallPassingThresholdPercentage: 33, 
+            overallPassingThresholdPercentage: 33,
             subjects: subjectMarks?.map(mark => ({
               id: mark.mark_id?.toString() || crypto.randomUUID(),
               subjectName: mark.subject_name,
@@ -115,10 +111,14 @@ export default function ViewMarksheetPage() {
             })) || [],
           };
 
-          const subjectsDisplay: MarksheetSubjectDisplayEntry[] = formDataFromDb.subjects.map(s => ({
-            ...s,
-            obtainedTotal: (s.theoryMarksObtained || 0) + (s.practicalMarksObtained || 0),
-          }));
+          const subjectsDisplay: MarksheetSubjectDisplayEntry[] = formDataFromDb.subjects.map(s => {
+            const obtainedTotal = (s.theoryMarksObtained || 0) + (s.practicalMarksObtained || 0);
+            return {
+              ...s,
+              obtainedTotal,
+              isFailed: obtainedTotal < s.passMarks,
+            };
+          });
 
           const compulsoryElectiveSubjects = subjectsDisplay.filter(
             s => s.category === 'Compulsory' || s.category === 'Elective'
@@ -143,11 +143,8 @@ export default function ViewMarksheetPage() {
           if (overallPercentageDisplay < formDataFromDb.overallPassingThresholdPercentage) {
             overallResult = 'Fail';
           }
-          for (const subject of subjectsDisplay) {
-            if (subject.obtainedTotal < subject.passMarks) {
-              overallResult = 'Fail';
-              break;
-            }
+          if (subjectsDisplay.some(subject => subject.isFailed)) {
+            overallResult = 'Fail';
           }
 
           const processedData: MarksheetDisplayData = {
@@ -155,7 +152,7 @@ export default function ViewMarksheetPage() {
             subjects: subjectsDisplay,
             collegeCode: "53010",
             sessionDisplay: `${formDataFromDb.sessionStartYear}-${formDataFromDb.sessionEndYear}`,
-            classDisplay: `${formDataFromDb.academicYear}`, 
+            classDisplay: `${formDataFromDb.academicYear}`,
             aggregateMarksCompulsoryElective,
             totalPossibleMarksCompulsoryElective,
             totalMarksInWords,
@@ -163,7 +160,7 @@ export default function ViewMarksheetPage() {
             overallPercentageDisplay,
             dateOfIssue: format(formDataFromDb.dateOfIssue, 'MMMM yyyy'),
             place: 'Samastipur',
-            registrationNo: formDataFromDb.registrationNo || '',
+            registrationNo: formDataFromDb.registrationNo || null,
           };
           setMarksheetData(processedData);
 
@@ -173,18 +170,19 @@ export default function ViewMarksheetPage() {
           setMarksheetData(null);
         } finally {
           setIsLoadingData(false);
-          // hideLoader();
         }
       };
       fetchMarksheetData();
     } else if (authStatus === 'authenticated' && !studentSystemId) {
         toast({ title: 'Error', description: 'No student ID provided for viewing.', variant: 'destructive' });
         setIsLoadingData(false);
-        // hideLoader();
         router.push('/');
     }
   }, [authStatus, studentSystemId, toast, router]);
 
+  const handleNavigateToEdit = (studentId: string) => {
+    router.push(`/marksheet/edit/${studentId}`);
+  };
 
   if (authStatus === 'loading' || (authStatus === 'authenticated' && isLoadingData && !marksheetData)) {
     return (
@@ -235,7 +233,7 @@ export default function ViewMarksheetPage() {
             </Button>
         </div>
         {marksheetData ? (
-          <MarksheetDisplay data={marksheetData} />
+          <MarksheetDisplay data={marksheetData} onNavigateToEdit={handleNavigateToEdit} />
         ) : (
           <div className="flex items-center justify-center min-h-[calc(100vh-200px)] print:hidden">
             <p className="text-muted-foreground">No marksheet data to display.</p>
@@ -246,9 +244,4 @@ export default function ViewMarksheetPage() {
       <footer className="py-4 border-t border-border mt-auto print:hidden">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 text-center text-xs text-muted-foreground max-w-screen-xl">
           {footerYear && <p>Copyright ©{footerYear} by Saryug College, Samastipur, Bihar. Design By Mantix.</p>}
-          {!footerYear && <p>Copyright by Saryug College, Samastipur, Bihar. Design By Mantix.</p>}
-        </div>
-      </footer>
-    </div>
-  );
-}
+          {!footerYear && <p>Copyright by Saryug College, Sam

@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -13,7 +12,6 @@ import { Loader2, ArrowLeft } from 'lucide-react';
 import { format } from 'date-fns';
 import { AppHeader } from '@/components/app/app-header';
 import { numberToWords } from '@/lib/utils';
-// Removed import for useLoadingIndicator
 
 const defaultPageSubtitle = `(Affiliated By Bihar School Examination Board, Patna)
 [Estd. - 1983] College Code: 53010
@@ -23,7 +21,6 @@ www.saryugcollege.com`;
 export default function NewMarksheetPage() {
   const router = useRouter();
   const { toast } = useToast();
-  // Removed showLoader, hideLoader from useLoadingIndicator
 
   const [authStatus, setAuthStatus] = useState<'loading' | 'authenticated' | 'unauthenticated'>('loading');
   const [isLoadingFormSubmission, setIsLoadingFormSubmission] = useState(false);
@@ -53,19 +50,21 @@ export default function NewMarksheetPage() {
   useEffect(() => {
     if (authStatus === 'unauthenticated') {
       router.push('/login');
-      // hideLoader();
     } else if (authStatus === 'authenticated') {
       setFooterYear(new Date().getFullYear());
-      // hideLoader();
     }
   }, [authStatus, router]);
 
 
   const processFormData = (data: MarksheetFormData, systemId: string): MarksheetDisplayData => {
-    const subjectsDisplay: MarksheetSubjectDisplayEntry[] = data.subjects.map(s => ({
-      ...s,
-      obtainedTotal: (s.theoryMarksObtained || 0) + (s.practicalMarksObtained || 0),
-    }));
+    const subjectsDisplay: MarksheetSubjectDisplayEntry[] = data.subjects.map(s => {
+      const obtainedTotal = (s.theoryMarksObtained || 0) + (s.practicalMarksObtained || 0);
+      return {
+        ...s,
+        obtainedTotal,
+        isFailed: obtainedTotal < s.passMarks,
+      };
+    });
 
     const compulsoryElectiveSubjects = subjectsDisplay.filter(
       s => s.category === 'Compulsory' || s.category === 'Elective'
@@ -90,28 +89,27 @@ export default function NewMarksheetPage() {
     if (overallPercentageDisplay < data.overallPassingThresholdPercentage) {
       overallResult = 'Fail';
     }
-    for (const subject of subjectsDisplay) {
-      if (subject.obtainedTotal < subject.passMarks) {
-        overallResult = 'Fail';
-        break;
-      }
+    // Check if any subject is failed
+    if (subjectsDisplay.some(subject => subject.isFailed)) {
+      overallResult = 'Fail';
     }
+
 
     return {
       ...data,
       system_id: systemId,
-      collegeCode: "53010", 
+      collegeCode: "53010",
       subjects: subjectsDisplay,
       sessionDisplay: `${data.sessionStartYear}-${data.sessionEndYear}`,
-      classDisplay: `${data.academicYear}`,
+      classDisplay: `${data.academicYear}`, // No section
       aggregateMarksCompulsoryElective,
       totalPossibleMarksCompulsoryElective,
       totalMarksInWords,
       overallResult,
       overallPercentageDisplay,
-      dateOfIssue: format(data.dateOfIssue, 'MMMM yyyy'), 
-      place: 'Samastipur', 
-      registrationNo: data.registrationNo || '',
+      dateOfIssue: format(data.dateOfIssue, 'MMMM yyyy'),
+      place: 'Samastipur',
+      registrationNo: data.registrationNo || null,
     };
   };
 
@@ -121,6 +119,7 @@ export default function NewMarksheetPage() {
     const academicSessionString = `${data.sessionStartYear}-${data.sessionEndYear}`;
     const systemGeneratedId = crypto.randomUUID();
 
+    // Check for existing student
     const { data: existingStudentCheck, error: checkError } = await supabase
       .from('student_details')
       .select('id')
@@ -166,6 +165,7 @@ export default function NewMarksheetPage() {
         faculty: data.faculty,
         class: data.academicYear,
         academic_year: academicSessionString,
+        // section removed
       };
 
       const { data: insertedStudentData, error: studentError } = await supabase

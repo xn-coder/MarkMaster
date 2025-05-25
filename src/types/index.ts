@@ -5,13 +5,14 @@ import type { marksheetFormSchema, subjectEntrySchema, ACADEMIC_YEAR_OPTIONS, SU
 export type SubjectEntryFormData = z.infer<typeof subjectEntrySchema>;
 export interface MarksheetFormData extends z.infer<typeof marksheetFormSchema> {
   system_id?: string; // To hold the UUID when editing
-  registrationNo: string; // New field
+  registrationNo: string | null; // Can be optional
   dateOfIssue: Date;
 }
 
 // For displaying the processed marksheet
 export interface MarksheetSubjectDisplayEntry extends SubjectEntryFormData {
   obtainedTotal: number;
+  isFailed?: boolean; // New field to mark if failed in this subject
 }
 
 export interface MarksheetDisplayData {
@@ -20,11 +21,11 @@ export interface MarksheetDisplayData {
   fatherName: string;
   motherName: string;
   rollNumber: string;
-  registrationNo: string; // New field
+  registrationNo: string | null;
   dateOfBirth: Date;
   gender: 'Male' | 'Female' | 'Other';
   faculty: 'ARTS' | 'COMMERCE' | 'SCIENCE';
-  academicYear: typeof ACADEMIC_YEAR_OPTIONS[number];
+  academicYear: typeof ACADEMIC_YEAR_OPTIONS[number]; // This is the Class like "11th"
   sessionStartYear: number;
   sessionEndYear: number;
   overallPassingThresholdPercentage: number;
@@ -34,7 +35,7 @@ export interface MarksheetDisplayData {
 
   collegeCode: string;
   sessionDisplay: string;
-  classDisplay: string;
+  classDisplay: string; // This is the Class like "11th"
 
   aggregateMarksCompulsoryElective: number;
   totalPossibleMarksCompulsoryElective: number;
@@ -44,6 +45,7 @@ export interface MarksheetDisplayData {
   overallPercentageDisplay: number;
 
   place: string;
+  marksheetNo?: string; // Kept for backward compatibility if needed by display code you provide
 }
 
 export interface SubjectTemplateItem {
@@ -92,10 +94,11 @@ export interface ImportProcessingResults {
 }
 
 export interface StudentRowData {
-  system_id: string;
+  system_id: string; // UUID
   roll_no: string;
+  registrationNo: string | null;
   name: string;
-  academicYear: string;
-  studentClass: string;
+  academicYear: string; // Session like "2023-2024"
+  class: string; // Class like "11th"
   faculty: string;
 }
