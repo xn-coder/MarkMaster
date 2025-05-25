@@ -5,7 +5,7 @@ import type { MarksheetDisplayData } from '@/types'; // Keep MarksheetDisplayDat
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Printer, FilePlus2, ArrowLeft, FileText } from 'lucide-react';
+import { Printer, FilePlus2, ArrowLeft, FileText, Edit } from 'lucide-react';
 import Image from 'next/image';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -15,9 +15,10 @@ interface MarksheetDisplayProps {
   data: MarksheetDisplayData;
   onCreateNew?: () => void;
   onEditBack?: () => void;
+  onNavigateToEdit?: (studentId: string) => void;
 }
 
-export function MarksheetDisplay({ data, onCreateNew, onEditBack }: MarksheetDisplayProps) {
+export function MarksheetDisplay({ data, onCreateNew, onEditBack, onNavigateToEdit }: MarksheetDisplayProps) {
   const marksheetRef = React.useRef<HTMLDivElement>(null);
 
   const handlePrint = () => {
@@ -340,6 +341,11 @@ export function MarksheetDisplay({ data, onCreateNew, onEditBack }: MarksheetDis
             <FilePlus2 className="mr-2 h-4 w-4" /> Create New
           </Button>
         )}
+        {onNavigateToEdit && data.system_id && (
+          <Button variant="outline" onClick={() => onNavigateToEdit(data.system_id!)}>
+            <Edit className="mr-2 h-4 w-4" /> Edit Marksheet
+          </Button>
+        )}
         <Button variant="outline" onClick={handleDownloadPDF}>
           <FileText className="mr-2 h-4 w-4" /> Download PDF
         </Button>
@@ -496,3 +502,5 @@ export function MarksheetDisplay({ data, onCreateNew, onEditBack }: MarksheetDis
     </div>
   );
 }
+used this code for changes
+- in login page keep logo and college name details in same row
