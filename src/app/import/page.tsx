@@ -125,8 +125,8 @@ export default function ImportDataPage() {
     const studentDetailsHeaders = ["Student ID", "Registration No", "Student Name", "Father Name", "Mother Name", "Date of Birth", "Gender", "Faculty", "Class"];
     const sampleStudentRow = ["S001", "REG001", "John Doe", "Robert Doe", "Jane Doe", "15-07-2003", "Male", "SCIENCE", "12th"];
 
-    const studentMarksHeaders = ["Student ID", "Name", "Subject Name", "Subject Category", "Max Marks", "Theory Marks Obtained", "Practical Marks Obtained"]; // Pass Marks removed
-    const sampleMarkRow = ["S001", "John Doe", "Physics", "Elective", 100, 65, 25]; // Pass Marks removed
+    const studentMarksHeaders = ["Student ID", "Name", "Subject Name", "Subject Category", "Max Marks", "Theory Marks Obtained", "Practical Marks Obtained"];
+    const sampleMarkRow = ["S001", "John Doe", "Physics", "Elective", 100, 65, 25];
 
     const studentDetailsData = [studentDetailsHeaders, sampleStudentRow];
     const studentMarksData = [studentMarksHeaders, sampleMarkRow];
@@ -230,16 +230,23 @@ export default function ImportDataPage() {
               results.totalStudentsSkipped++;
               continue;
             }
-
-            const { data: existingStudent, error: checkError } = await supabase
+            
+            let query = supabase
               .from('student_details')
               .select('id')
               .eq('roll_no', excelStudentId)
               .eq('academic_year', selectedAcademicSession)
               .eq('class', studentClass)
-              .eq('faculty', faculty)
-              .(registrationNo ? 'eq' : 'is')('registration_no', registrationNo)
-              .maybeSingle();
+              .eq('faculty', faculty);
+
+            if (registrationNo) {
+              query = query.eq('registration_no', registrationNo);
+            } else {
+              query = query.is('registration_no', null);
+            }
+
+            const { data: existingStudent, error: checkError } = await query.maybeSingle();
+
 
             if (checkError) {
               currentFeedback.status = 'error';
@@ -340,7 +347,6 @@ export default function ImportDataPage() {
             const subjectName = String(row['Subject Name'] || '').trim();
             const subjectCategory = String(row['Subject Category'] || '').trim();
             const maxMarksRaw = row['Max Marks'];
-            // Pass Marks column removed
             const theoryMarksRaw = row['Theory Marks Obtained'];
             const practicalMarksRaw = row['Practical Marks Obtained'];
 
@@ -370,11 +376,10 @@ export default function ImportDataPage() {
             }
 
             const maxMarks = parseFloat(String(maxMarksRaw));
-            // Pass Marks parsing removed
             const theoryMarks = parseFloat(String(theoryMarksRaw));
             const practicalMarks = parseFloat(String(practicalMarksRaw));
 
-            if (isNaN(maxMarks)) { // Pass Marks check removed
+            if (isNaN(maxMarks)) {
               currentFeedback.message = "Invalid Max Marks. Must be a number.";
               results.marksFeedback.push(currentFeedback);
               results.totalMarksSkipped++;
@@ -390,14 +395,12 @@ export default function ImportDataPage() {
               results.totalMarksSkipped++;
               continue;
             }
-            // Pass Marks > Max Marks check removed
 
             marksInserts.push({
               student_detail_id: systemIdForMarks,
               subject_name: subjectName,
               category: subjectCategory,
               max_marks: maxMarks,
-              // pass_marks removed
               theory_marks_obtained: isNaN(theoryMarks) ? null : theoryMarks,
               practical_marks_obtained: isNaN(practicalMarks) ? null : practicalMarks,
               obtained_total_marks: obtainedTotalMarks,
@@ -640,4 +643,3 @@ export default function ImportDataPage() {
     </div>
   );
 }
-

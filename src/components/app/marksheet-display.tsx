@@ -101,29 +101,6 @@ export function MarksheetDisplay({ data, onCreateNew, onEditBack, onNavigateToEd
 
   return (
     <div className="marksheet-print-container bg-white print:bg-white py-8 print:py-0 flex justify-center items-center flex-col">
-      <div className="flex flex-col sm:flex-row justify-center items-center gap-3 p-4 print:hidden mb-4">
-        {onEditBack && (
-          <Button variant="outline" onClick={onEditBack}>
-            <ArrowLeft className="mr-2 h-4 w-4" /> Back to Edit Form
-          </Button>
-        )}
-        {onCreateNew && (
-          <Button variant="outline" onClick={onCreateNew}>
-            <FilePlus2 className="mr-2 h-4 w-4" /> Create New
-          </Button>
-        )}
-        {onNavigateToEdit && data.system_id && (
-           <Button variant="outline" onClick={() => onNavigateToEdit(data.system_id!)}>
-            <Edit className="mr-2 h-4 w-4" /> Edit Marksheet
-          </Button>
-        )}
-        <Button variant="outline" onClick={handleDownloadPDF}>
-          <FileText className="mr-2 h-4 w-4" /> Download PDF
-        </Button>
-        <Button onClick={handlePrint}>
-          <Printer className="mr-2 h-4 w-4" /> Print Marksheet
-        </Button>
-      </div>
       <Card ref={marksheetRef} className="marksheet-preview marksheet-card flex w-full max-w-[210mm] min-h-[297mm] shadow-lg print:shadow-none border-4 border-black print:border-4 print:border-black print:my-0 print:mx-0 bg-white p-1 print:p-0.5 relative">
         {/* Watermark */}
         <div className="absolute inset-0 flex items-center justify-center z-0 pointer-events-none">
