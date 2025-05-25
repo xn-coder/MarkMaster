@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase/client';
@@ -57,13 +57,11 @@ import {
   ChevronLeft,
   ChevronRight,
   Loader2,
-  Trash2,
-  ArrowLeft
+  Trash2
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { format, parseISO } from 'date-fns';
 import type { StudentRowData } from '@/types';
-
 
 const dashboardPageTitle = "SARYUG COLLEGE";
 const dashboardPageSubtitle = `(Affiliated By Bihar School Examination Board, Patna)
@@ -81,18 +79,15 @@ export default function AdminDashboardPage() {
   const [isDeletingSelected, setIsDeletingSelected] = useState(false);
   const [showDeleteConfirmDialog, setShowDeleteConfirmDialog] = useState(false);
 
-  const [allStudents, setAllStudents] = useState<StudentRowData[]>([]);
+  const [studentsOnPage, setStudentsOnPage] = useState<StudentRowData[]>([]);
   const [selectedStudents, setSelectedStudents] = useState<Set<string>>(new Set());
+  const [studentToDelete, setStudentToDelete] = useState<StudentRowData | null>(null);
 
   const [dynamicAcademicYearOptions, setDynamicAcademicYearOptions] = useState<string[]>(['All Academic Years']);
-  const [dynamicStartYearOptions, setDynamicStartYearOptions] = useState<string[]>(['All Start Years']);
-  const [dynamicEndYearOptions, setDynamicEndYearOptions] = useState<string[]>(['All End Years']);
   const [dynamicClassOptions, setDynamicClassOptions] = useState<string[]>(['All Classes']);
   const [dynamicFacultyOptions, setDynamicFacultyOptions] = useState<string[]>(['All Faculties']);
 
   const [academicYearFilter, setAcademicYearFilter] = useState('All Academic Years');
-  const [startYearFilter, setStartYearFilter] = useState('All Start Years');
-  const [endYearFilter, setEndYearFilter] = useState('All End Years');
   const [studentRollNoFilter, setStudentRollNoFilter] = useState('');
   const [studentNameFilter, setStudentNameFilter] = useState('');
   const [classFilter, setClassFilter] = useState('All Classes');
@@ -100,7 +95,10 @@ export default function AdminDashboardPage() {
 
   const [currentPage, setCurrentPage] = useState(1);
   const [entriesPerPage, setEntriesPerPage] = useState(10);
+  const [totalStudentsCount, setTotalStudentsCount] = useState(0);
   const [footerYear, setFooterYear] = useState<number | null>(null);
+
+  const [initialFiltersLoaded, setInitialFiltersLoaded] = useState(false);
 
   useEffect(() => {
     setFooterYear(new Date().getFullYear());
@@ -135,42 +133,67 @@ export default function AdminDashboardPage() {
   useEffect(() => {
     if (authStatus === 'unauthenticated') {
       router.push('/login');
+    } else if (authStatus === 'authenticated' && !initialFiltersLoaded) {
+      fetchDistinctFilterValues();
     }
-  }, [authStatus, router]);
+  }, [authStatus, router, initialFiltersLoaded]);
 
-  const populateDynamicFilterOptions = (students: StudentRowData[]) => {
-    if (!students || students.length === 0) {
-      setDynamicAcademicYearOptions(['All Academic Years']);
-      setDynamicStartYearOptions(['All Start Years']);
-      setDynamicEndYearOptions(['All End Years']);
-      setDynamicClassOptions(['All Classes']);
-      setDynamicFacultyOptions(['All Faculties']);
-      return;
-    }
-
-    const academicYears = [...new Set(students.map(s => s.academic_year).filter(Boolean) as string[])].sort();
-    setDynamicAcademicYearOptions(['All Academic Years', ...academicYears]);
-
-    const startYears = [...new Set(students.map(s => s.academic_year?.split('-')[0]).filter(Boolean) as string[])].sort((a, b) => parseInt(b) - parseInt(a));
-    setDynamicStartYearOptions(['All Start Years', ...startYears]);
-
-    const endYears = [...new Set(students.map(s => s.academic_year?.split('-')[1]).filter(Boolean) as string[])].sort((a, b) => parseInt(b) - parseInt(a));
-    setDynamicEndYearOptions(['All End Years', ...endYears]);
-
-    const classes = [...new Set(students.map(s => s.class).filter(Boolean) as string[])].sort();
-    setDynamicClassOptions(['All Classes', ...classes]);
-    
-    const faculties = [...new Set(students.map(s => s.faculty).filter(Boolean) as string[])].sort();
-    setDynamicFacultyOptions(['All Faculties', ...faculties]);
-  };
-
-  const handleLoadStudentData = async () => {
-    setIsLoadingData(true);
-    setSelectedStudents(new Set()); 
+  const fetchDistinctFilterValues = async () => {
     try {
-      const { data: studentsData, error } = await supabase
+      const [academicYearsRes, classesRes, facultiesRes] = await Promise.all([
+        supabase.from('student_details').select('academic_year', { count: 'exact', head: false }).then(res => ({ ...res, data: [...new Set(res.data?.map(item => item.academic_year).filter(Boolean) as string[])].sort() })),
+        supabase.from('student_details').select('class', { count: 'exact', head: false }).then(res => ({ ...res, data: [...new Set(res.data?.map(item => item.class).filter(Boolean) as string[])].sort() })),
+        supabase.from('student_details').select('faculty', { count: 'exact', head: false }).then(res => ({ ...res, data: [...new Set(res.data?.map(item => item.faculty).filter(Boolean) as string[])].sort() })),
+      ]);
+
+      if (academicYearsRes.error) throw academicYearsRes.error;
+      if (classesRes.error) throw classesRes.error;
+      if (facultiesRes.error) throw facultiesRes.error;
+
+      setDynamicAcademicYearOptions(['All Academic Years', ...academicYearsRes.data!]);
+      setDynamicClassOptions(['All Classes', ...classesRes.data!]);
+      setDynamicFacultyOptions(['All Faculties', ...facultiesRes.data!]);
+      
+      setInitialFiltersLoaded(true);
+    } catch (error: any) {
+      toast({ title: "Error Loading Filter Options", description: error.message || "Could not fetch distinct values for filters.", variant: "destructive" });
+    }
+  };
+  
+  const handleLoadStudentData = useCallback(async (pageToLoad = 1) => {
+    setIsLoadingData(true);
+    setSelectedStudents(new Set());
+    setCurrentPage(pageToLoad);
+
+    try {
+      let query = supabase
         .from('student_details')
-        .select('id, roll_no, name, faculty, class, academic_year, registration_no'); 
+        .select('id, roll_no, name, faculty, class, academic_year, registration_no', { count: 'exact' });
+
+      if (academicYearFilter !== 'All Academic Years') {
+        query = query.eq('academic_year', academicYearFilter);
+      }
+      if (studentRollNoFilter) {
+        query = query.ilike('roll_no', `%${studentRollNoFilter}%`);
+      }
+      if (studentNameFilter) {
+        query = query.ilike('name', `%${studentNameFilter}%`);
+      }
+      if (classFilter !== 'All Classes') {
+        query = query.eq('class', classFilter);
+      }
+      if (facultyFilter !== 'All Faculties') {
+        query = query.eq('faculty', facultyFilter);
+      }
+
+      const from = (pageToLoad - 1) * entriesPerPage;
+      const to = from + entriesPerPage - 1;
+      query = query.range(from, to);
+      // Add ordering if desired, e.g., .order('name', { ascending: true })
+      query = query.order('created_at', { ascending: false });
+
+
+      const { data: studentsData, error, count } = await query;
 
       if (error) {
         throw error;
@@ -186,82 +209,42 @@ export default function AdminDashboardPage() {
           class: s.class || '',
           faculty: s.faculty || '',
         }));
-        setAllStudents(formattedStudents);
-        populateDynamicFilterOptions(formattedStudents);
-        toast({ title: "Student Data Loaded", description: `${formattedStudents.length} records fetched.` });
+        setStudentsOnPage(formattedStudents);
+        setTotalStudentsCount(count || 0);
+        if (pageToLoad === 1) { // Only show toast for initial load/refresh, not every pagination click
+            toast({ title: "Student Data Loaded", description: `${formattedStudents.length} records fetched for this page. Total: ${count || 0}` });
+        }
       } else {
-        setAllStudents([]);
-        populateDynamicFilterOptions([]);
-        toast({ title: "No Students Found", description: "No student records were returned from the database." });
+        setStudentsOnPage([]);
+        setTotalStudentsCount(0);
+        toast({ title: "No Students Found", description: "No student records match your criteria." });
       }
     } catch (error: any) {
       toast({ title: "Error Loading Students", description: error.message || "Could not fetch student data.", variant: "destructive" });
-      setAllStudents([]);
-      populateDynamicFilterOptions([]);
+      setStudentsOnPage([]);
+      setTotalStudentsCount(0);
     } finally {
       setIsLoadingData(false);
     }
-  };
+  }, [academicYearFilter, studentRollNoFilter, studentNameFilter, classFilter, facultyFilter, entriesPerPage, toast]);
 
-  const displayedStudents = useMemo(() => {
-    let filtered = allStudents;
-
-    if (academicYearFilter !== 'All Academic Years') {
-      filtered = filtered.filter(student => student.academic_year === academicYearFilter);
-    }
-
-    const filterStartYearNum = startYearFilter !== 'All Start Years' ? parseInt(startYearFilter, 10) : null;
-    const filterEndYearNum = endYearFilter !== 'All End Years' ? parseInt(endYearFilter, 10) : null;
-
-    if (filterStartYearNum !== null || filterEndYearNum !== null) {
-      filtered = filtered.filter(student => {
-        if (!student.academic_year || !student.academic_year.includes('-')) {
-          return false;
-        }
-        const [studentSessionStartStr, studentSessionEndStr] = student.academic_year.split('-');
-        const studentSessionStartYear = parseInt(studentSessionStartStr, 10);
-        const studentSessionEndYear = parseInt(studentSessionEndStr, 10);
-
-        if (isNaN(studentSessionStartYear) || isNaN(studentSessionEndYear)) {
-          return false;
-        }
-
-        let include = true;
-        if (filterStartYearNum !== null && studentSessionEndYear < filterStartYearNum) {
-          include = false;
-        }
-        if (filterEndYearNum !== null && studentSessionStartYear > filterEndYearNum) {
-          include = false;
-        }
-        return include;
-      });
-    }
-
-    if (studentRollNoFilter) { 
-      filtered = filtered.filter(student => student.roll_no && student.roll_no.toLowerCase().includes(studentRollNoFilter.toLowerCase()));
-    }
-    if (studentNameFilter) {
-      filtered = filtered.filter(student => student.name && student.name.toLowerCase().includes(studentNameFilter.toLowerCase()));
-    }
-    if (classFilter !== 'All Classes') {
-      filtered = filtered.filter(student => student.class === classFilter);
-    }
-    if (facultyFilter !== 'All Faculties') {
-      filtered = filtered.filter(student => student.faculty === facultyFilter);
-    }
-    return filtered;
-  }, [allStudents, academicYearFilter, startYearFilter, endYearFilter, studentRollNoFilter, studentNameFilter, classFilter, facultyFilter]);
-
+  // Effect for initial load and when filters change
   useEffect(() => {
-    setCurrentPage(1);
-  }, [displayedStudents, entriesPerPage]);
+    if (authStatus === 'authenticated' && initialFiltersLoaded) {
+      handleLoadStudentData(1); // Load page 1 when filters change or on initial authenticated load
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authStatus, initialFiltersLoaded, academicYearFilter, studentRollNoFilter, studentNameFilter, classFilter, facultyFilter, entriesPerPage, handleLoadStudentData]); // handleLoadStudentData is memoized
 
-  const paginatedStudents = useMemo(() => {
-    const startIndex = (currentPage - 1) * entriesPerPage;
-    return displayedStudents.slice(startIndex, startIndex + entriesPerPage);
-  }, [displayedStudents, currentPage, entriesPerPage]);
+  // Effect for pagination
+  useEffect(() => {
+    if (authStatus === 'authenticated' && initialFiltersLoaded) {
+      handleLoadStudentData(currentPage);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPage]); // Do not add handleLoadStudentData here to avoid loop with its own setCurrentPage
 
-  const totalPages = Math.ceil(displayedStudents.length / entriesPerPage);
+  const totalPages = Math.ceil(totalStudentsCount / entriesPerPage);
 
   const handleViewMarksheet = (student: StudentRowData) => {
     router.push(`/marksheet/view/${student.system_id}`);
@@ -271,23 +254,125 @@ export default function AdminDashboardPage() {
     router.push(`/marksheet/edit/${student.system_id}`);
   };
 
-  const handleDeleteStudent = async (student: StudentRowData) => {
-     setSelectedStudents(new Set([student.system_id]));
+  const handleDeleteStudent = (student: StudentRowData) => {
+     setStudentToDelete(student); // Set student to delete for single deletion
      setShowDeleteConfirmDialog(true);
+  };
+  
+  const confirmDelete = () => {
+    if (studentToDelete) { // Single delete
+        executeDeleteStudents([studentToDelete.system_id]);
+        setStudentToDelete(null);
+    } else if (selectedStudents.size > 0) { // Multi delete
+        executeDeleteStudents(Array.from(selectedStudents));
+    }
+  };
+
+  const executeDeleteStudents = async (studentSystemIds: string[]) => {
+    if (studentSystemIds.length === 0) return;
+
+    setIsDeletingSelected(true);
+    setShowDeleteConfirmDialog(false);
+    let deletedCount = 0;
+    let errorCount = 0;
+
+    for (const studentSystemId of studentSystemIds) {
+      console.log(`Attempting to delete student with system_id: ${studentSystemId}`);
+      try {
+        console.log(`Deleting marks for student_detail_id: ${studentSystemId}`);
+        const { error: marksError } = await supabase
+          .from('student_marks_details')
+          .delete()
+          .eq('student_detail_id', studentSystemId);
+        console.log('Marks deletion response:', { marksError });
+
+        if (marksError) {
+          const errMsg = `Could not delete marks for student ID ${studentSystemId.substring(0,8)}... Details: ${marksError.message}`;
+          console.error(errMsg);
+          toast({ 
+            title: "Marks Deletion Error", 
+            description: errMsg, 
+            variant: "destructive" 
+          });
+          errorCount++;
+          continue; 
+        }
+        
+        console.log(`Deleting student details for id: ${studentSystemId}`);
+        const { error: studentError } = await supabase
+          .from('student_details')
+          .delete()
+          .eq('id', studentSystemId);
+        console.log('Student deletion response:', { studentError });
+
+        if (studentError) {
+          const errMsg = `Failed to delete student ID ${studentSystemId.substring(0,8)}... Details: ${studentError.message}`;
+          console.error(errMsg);
+          throw new Error(errMsg);
+        }
+        deletedCount++;
+      } catch (error: any) {
+        console.error(`Overall deletion error for student ID ${studentSystemId}:`, error);
+        toast({ 
+            title: "Deletion Error", 
+            description: error.message || `An unexpected error occurred while deleting student ID ${studentSystemId.substring(0,8)}...`, 
+            variant: "destructive" 
+        });
+        errorCount++;
+      }
+    }
+
+    if (deletedCount > 0) toast({ title: "Deletion Processed", description: `${deletedCount} student(s) successfully deleted.` });
+    if (errorCount > 0) toast({ title: "Deletion Partially Failed", description: `${errorCount} student(s) could not be fully deleted. Check console for details.`, variant: "destructive" });
+    
+    setSelectedStudents(new Set()); 
+    await handleLoadStudentData(currentPage); // Reload current page data
+    
+    setIsDeletingSelected(false);
   };
 
   const handleExportToExcel = async () => {
-    if (displayedStudents.length === 0) {
+    if (totalStudentsCount === 0 && studentsOnPage.length === 0) {
       toast({
         title: "No Data to Export",
-        description: "There are no students currently displayed to export.",
+        description: "There are no students currently available to export.",
         variant: "destructive"
       });
       return;
     }
 
     setIsExporting(true);
-    toast({ title: "Exporting Data", description: "Fetching student details and marks, please wait..." });
+    toast({ title: "Exporting Data", description: "Fetching ALL student details and marks, please wait..." });
+
+    // Fetch ALL students matching current filters for export, not just the current page
+    let query = supabase
+      .from('student_details')
+      .select('*, student_marks_details(*)', { count: 'exact' });
+
+    if (academicYearFilter !== 'All Academic Years') {
+      query = query.eq('academic_year', academicYearFilter);
+    }
+    if (studentRollNoFilter) {
+      query = query.ilike('roll_no', `%${studentRollNoFilter}%`);
+    }
+    if (studentNameFilter) {
+      query = query.ilike('name', `%${studentNameFilter}%`);
+    }
+    if (classFilter !== 'All Classes') {
+      query = query.eq('class', classFilter);
+    }
+    if (facultyFilter !== 'All Faculties') {
+      query = query.eq('faculty', facultyFilter);
+    }
+    query = query.order('created_at', { ascending: false });
+
+    const { data: allFilteredStudents, error: exportError } = await query;
+
+    if (exportError || !allFilteredStudents || allFilteredStudents.length === 0) {
+      toast({ title: "Export Failed", description: exportError?.message || "No students found for export with current filters.", variant: "destructive" });
+      setIsExporting(false);
+      return;
+    }
 
     const studentDetailsSheetData: any[] = [];
     const studentMarksDataSheet: any[] = [];
@@ -296,24 +381,7 @@ export default function AdminDashboardPage() {
     const studentMarkHeaders = ["System ID", "Roll No", "Registration No", "Name", "Subject Name", "Subject Category", "Max Marks", "Theory Marks Obtained", "Practical Marks Obtained", "Obtained Total Marks"]; 
 
     try {
-      for (const displayedStudent of displayedStudents) {
-        const { data: studentDetails, error: studentError } = await supabase
-          .from('student_details')
-          .select('*')
-          .eq('id', displayedStudent.system_id)
-          .single();
-
-        if (studentError || !studentDetails) {
-          console.error(`Error fetching details for student ${displayedStudent.system_id}:`, studentError);
-          studentDetailsSheetData.push({
-            "System ID": displayedStudent.system_id, "Roll No": displayedStudent.roll_no, "Registration No": displayedStudent.registrationNo || 'N/A',
-            "Name": displayedStudent.name, "Father Name": "Error fetching", "Mother Name": "Error fetching",
-            "Date of Birth": "Error fetching", "Gender": "Error fetching", "Faculty": "Error fetching",
-            "Class": "Error fetching", "Academic Session": "Error fetching",
-          });
-          continue;
-        }
-
+      for (const studentDetails of allFilteredStudents) {
         studentDetailsSheetData.push({
           "System ID": studentDetails.id, "Roll No": studentDetails.roll_no, "Registration No": studentDetails.registration_no || '',
           "Name": studentDetails.name, "Father Name": studentDetails.father_name, "Mother Name": studentDetails.mother_name,
@@ -322,12 +390,7 @@ export default function AdminDashboardPage() {
           "Academic Session": studentDetails.academic_year,
         });
 
-        const { data: marksDetails, error: marksError } = await supabase
-          .from('student_marks_details')
-          .select('*')
-          .eq('student_detail_id', studentDetails.id);
-
-        if (marksError) console.error(`Error fetching marks for student ${studentDetails.id}:`, marksError);
+        const marksDetails = studentDetails.student_marks_details;
 
         if (marksDetails && marksDetails.length > 0) {
           for (const mark of marksDetails) {
@@ -345,12 +408,6 @@ export default function AdminDashboardPage() {
               "Theory Marks Obtained": "N/A", "Practical Marks Obtained": "N/A", "Obtained Total Marks": "N/A",
             });
         }
-      }
-
-      if (studentDetailsSheetData.length === 0 && studentMarksDataSheet.length === 0) {
-        toast({ title: "No Detailed Data", description: "Could not fetch detailed data for the selected students.", variant: "destructive" });
-        setIsExporting(false);
-        return;
       }
 
       const workbook = XLSX.utils.book_new();
@@ -387,10 +444,10 @@ export default function AdminDashboardPage() {
       });
 
       XLSX.writeFile(workbook, "students_and_marks_export.xlsx");
-      toast({ title: "Export Successful", description: "Student details and marks exported." });
+      toast({ title: "Export Successful", description: `Exported ${allFilteredStudents.length} students and their marks.` });
     } catch (error: any) {
-      console.error("Error during Excel export:", error);
-      toast({ title: "Export Failed", description: error.message || "An unknown error occurred.", variant: "destructive" });
+      console.error("Error during Excel export generation:", error);
+      toast({ title: "Export Failed", description: error.message || "An unknown error occurred during file generation.", variant: "destructive" });
     } finally {
       setIsExporting(false);
     }
@@ -399,7 +456,7 @@ export default function AdminDashboardPage() {
   const handleSelectAllClick = (event: React.ChangeEvent<HTMLInputElement> | boolean) => {
     const isChecked = typeof event === 'boolean' ? event : event.target.checked;
     if (isChecked) {
-      const newSelected = new Set(paginatedStudents.map(student => student.system_id));
+      const newSelected = new Set(studentsOnPage.map(student => student.system_id));
       setSelectedStudents(newSelected);
     } else {
       setSelectedStudents(new Set());
@@ -416,81 +473,20 @@ export default function AdminDashboardPage() {
     setSelectedStudents(newSelected);
   };
 
-  const numSelectedOnPage = paginatedStudents.filter(s => selectedStudents.has(s.system_id)).length;
-  const isAllSelectedOnPage = paginatedStudents.length > 0 && numSelectedOnPage === paginatedStudents.length;
+  const numSelectedOnPage = studentsOnPage.filter(s => selectedStudents.has(s.system_id)).length;
+  const isAllSelectedOnPage = studentsOnPage.length > 0 && numSelectedOnPage === studentsOnPage.length;
 
-  const confirmDeleteSelected = () => {
-    if (selectedStudents.size === 0) {
-      toast({ title: "No Students Selected", description: "Please select students to delete.", variant: "destructive" });
-      return;
+  const handleConfirmDelete = () => {
+    if (selectedStudents.size > 0) {
+        setStudentToDelete(null); // Clear single student delete if multi-select is active
+        setShowDeleteConfirmDialog(true);
+    } else if (studentToDelete) {
+        setShowDeleteConfirmDialog(true);
+    } else {
+        toast({ title: "No Students Selected", description: "Please select students to delete.", variant: "destructive" });
     }
-    setShowDeleteConfirmDialog(true);
   };
   
-  const executeDeleteSelectedStudents = async () => {
-    if (selectedStudents.size === 0) return;
-
-    setIsDeletingSelected(true);
-    let deletedCount = 0;
-    let errorCount = 0;
-    const studentsToDelete = Array.from(selectedStudents); 
-
-    for (const studentSystemId of studentsToDelete) {
-      console.log(`Attempting to delete student with system_id: ${studentSystemId}`);
-      try {
-        console.log(`Deleting marks for student_detail_id: ${studentSystemId}`);
-        const { data: marksData, error: marksError } = await supabase
-          .from('student_marks_details')
-          .delete()
-          .eq('student_detail_id', studentSystemId); 
-        console.log('Marks deletion response:', { marksData, marksError });
-
-        if (marksError) {
-          const errMsg = `Could not delete marks for student ID ${studentSystemId.substring(0,8)}... Details: ${marksError.message}`;
-          console.error(errMsg);
-          toast({ 
-            title: "Marks Deletion Error", 
-            description: errMsg, 
-            variant: "destructive" 
-          });
-          errorCount++;
-          continue; 
-        }
-        
-        console.log(`Deleting student details for id: ${studentSystemId}`);
-        const { data: studentData, error: studentError } = await supabase
-          .from('student_details')
-          .delete()
-          .eq('id', studentSystemId);
-        console.log('Student deletion response:', { studentData, studentError });
-
-        if (studentError) {
-          const errMsg = `Failed to delete student ID ${studentSystemId.substring(0,8)}... Details: ${studentError.message}`;
-          console.error(errMsg);
-          throw new Error(errMsg);
-        }
-        deletedCount++;
-      } catch (error: any) {
-        console.error(`Overall deletion error for student ID ${studentSystemId}:`, error);
-        toast({ 
-            title: "Deletion Error", 
-            description: error.message || `An unexpected error occurred while deleting student ID ${studentSystemId.substring(0,8)}...`, 
-            variant: "destructive" 
-        });
-        errorCount++;
-      }
-    }
-
-    if (deletedCount > 0) toast({ title: "Deletion Processed", description: `${deletedCount} student(s) successfully deleted.` });
-    if (errorCount > 0) toast({ title: "Deletion Partially Failed", description: `${errorCount} student(s) could not be fully deleted. Check console for details.`, variant: "destructive" });
-    
-    setSelectedStudents(new Set()); 
-    await handleLoadStudentData(); 
-    
-    setIsDeletingSelected(false);
-    setShowDeleteConfirmDialog(false);
-  };
-
   if (authStatus === 'loading') {
     return (
         <div className="flex items-center justify-center min-h-screen bg-background">
@@ -516,10 +512,10 @@ export default function AdminDashboardPage() {
                   variant="ghost"
                   size="sm"
                   className="text-primary-foreground hover:bg-accent hover:text-accent-foreground"
-                  onClick={handleLoadStudentData}
+                  onClick={() => handleLoadStudentData(1)}
                   disabled={isLoadingData || isDeletingSelected || isExporting}
                 >
-                  {isLoadingData ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />} Load Student Data
+                  {isLoadingData && !isDeletingSelected && !isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />} Load Student Data
                 </Button>
                 <Link href="/marksheet/new" passHref>
                   <Button variant="ghost" size="sm" className="text-primary-foreground hover:bg-accent hover:text-accent-foreground" disabled={isDeletingSelected || isLoadingData || isExporting}>
@@ -536,18 +532,18 @@ export default function AdminDashboardPage() {
                     <Download className="mr-2 h-4 w-4" /> Import Data 
                   </Button>
                 </Link>
-                <Button variant="ghost" size="sm" className="text-primary-foreground hover:bg-accent hover:text-accent-foreground" onClick={handleExportToExcel} disabled={isExporting || isDeletingSelected || allStudents.length === 0 || isLoadingData}>
+                <Button variant="ghost" size="sm" className="text-primary-foreground hover:bg-accent hover:text-accent-foreground" onClick={handleExportToExcel} disabled={isExporting || isDeletingSelected || (totalStudentsCount === 0 && studentsOnPage.length === 0) || isLoadingData}>
                   {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />} Export to Excel
                 </Button>
-                 {selectedStudents.size > 0 && (
+                 {(selectedStudents.size > 0 || studentToDelete) && (
                   <Button
                     variant="destructive"
                     size="sm"
-                    onClick={confirmDeleteSelected}
+                    onClick={handleConfirmDelete}
                     disabled={isDeletingSelected || isLoadingData || isExporting}
-                    className="bg-red-600 hover:bg-red-700 text-white"
                   >
-                    {isDeletingSelected ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />} Delete Selected ({selectedStudents.size})
+                    {isDeletingSelected ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />} 
+                    Delete {studentToDelete ? 'Student' : `Selected (${selectedStudents.size})`}
                   </Button>
                 )}
               </div>
@@ -557,31 +553,13 @@ export default function AdminDashboardPage() {
 
         <Card className="mb-6 shadow-md">
           <CardContent className="pt-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 items-end">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-4 items-end">
               <div>
                 <Label htmlFor="academicYear">Academic Session</Label>
                 <Select value={academicYearFilter} onValueChange={setAcademicYearFilter} disabled={isDeletingSelected || isLoadingData || isExporting}>
                   <SelectTrigger id="academicYear"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {dynamicAcademicYearOptions.map(year => <SelectItem key={year} value={year} disabled={year === 'All Academic Years' && dynamicAcademicYearOptions.length === 1}>{year}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="startYear">Start Year</Label>
-                <Select value={startYearFilter} onValueChange={setStartYearFilter} disabled={isDeletingSelected || isLoadingData || isExporting}>
-                  <SelectTrigger id="startYear"><SelectValue placeholder="Start Year" /></SelectTrigger>
-                  <SelectContent>
-                    {dynamicStartYearOptions.map(year => <SelectItem key={year} value={year} disabled={year === 'All Start Years' && dynamicStartYearOptions.length === 1}>{year}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="endYear">End Year</Label>
-                <Select value={endYearFilter} onValueChange={setEndYearFilter} disabled={isDeletingSelected || isLoadingData || isExporting}>
-                  <SelectTrigger id="endYear"><SelectValue placeholder="End Year" /></SelectTrigger>
-                  <SelectContent>
-                    {dynamicEndYearOptions.map(year => <SelectItem key={year} value={year} disabled={year === 'All End Years' && dynamicEndYearOptions.length === 1}>{year}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
@@ -618,7 +596,7 @@ export default function AdminDashboardPage() {
         <Card className="shadow-md">
           <CardHeader className="flex flex-row items-center gap-2">
             <Label htmlFor="showEntries" className="text-sm whitespace-nowrap">Show</Label>
-            <Select value={String(entriesPerPage)} onValueChange={(value) => { setEntriesPerPage(Number(value)); setCurrentPage(1); }} disabled={isDeletingSelected || isLoadingData || isExporting}>
+            <Select value={String(entriesPerPage)} onValueChange={(value) => { setEntriesPerPage(Number(value));}} disabled={isDeletingSelected || isLoadingData || isExporting}>
               <SelectTrigger id="showEntries" className="w-20 h-8 text-sm">
                 <SelectValue />
               </SelectTrigger>
@@ -640,7 +618,7 @@ export default function AdminDashboardPage() {
                         onCheckedChange={handleSelectAllClick}
                         aria-label="Select all students on this page"
                         className="border-primary-foreground data-[state=checked]:bg-primary-foreground data-[state=checked]:text-primary"
-                        disabled={isLoadingData || isDeletingSelected || isExporting}
+                        disabled={isLoadingData || isDeletingSelected || isExporting || studentsOnPage.length === 0}
                       />
                     </TableHead>
                     <TableHead className="text-white">Roll No</TableHead>
@@ -660,7 +638,7 @@ export default function AdminDashboardPage() {
                         <p className="text-muted-foreground mt-2">Loading student data...</p>
                       </TableCell>
                     </TableRow>
-                  ) : paginatedStudents.length > 0 ? paginatedStudents.map((student) => (
+                  ) : studentsOnPage.length > 0 ? studentsOnPage.map((student) => (
                     <TableRow key={student.system_id} data-state={selectedStudents.has(student.system_id) ? "selected" : ""}>
                       <TableCell className="text-center">
                         <Checkbox
@@ -670,14 +648,7 @@ export default function AdminDashboardPage() {
                           aria-label={`Select student ${student.name}`}
                           disabled={isLoadingData || isDeletingSelected || isExporting}
                         />
-                      </TableCell>
-                      <TableCell>{student.roll_no}</TableCell>
-                      <TableCell>{student.registrationNo || 'N/A'}</TableCell>
-                      <TableCell>{student.name}</TableCell>
-                      <TableCell>{student.academic_year}</TableCell>
-                      <TableCell>{student.class}</TableCell>
-                      <TableCell>{student.faculty}</TableCell>
-                      <TableCell className="text-center">
+                      </TableCell><TableCell>{student.roll_no}</TableCell><TableCell>{student.registrationNo || 'N/A'}</TableCell><TableCell>{student.name}</TableCell><TableCell>{student.academic_year}</TableCell><TableCell>{student.class}</TableCell><TableCell>{student.faculty}</TableCell><TableCell className="text-center">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="icon" className="h-8 w-8" disabled={isDeletingSelected || isLoadingData || isExporting}>
@@ -695,9 +666,8 @@ export default function AdminDashboardPage() {
                   )) : (
                     <TableRow>
                       <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
-                        {allStudents.length === 0 && !isLoadingData ? 'Click "Load Student Data" above to view student records, or "Import Data".' :
-                          (displayedStudents.length === 0) ? 'No students found matching your filters.' :
-                            'No student data available. Try loading or adding students.'}
+                        {initialFiltersLoaded ? 'No students found matching your filters. Try adjusting or clearing filters.' :
+                          'Click "Load Student Data" or apply filters to view student records.'}
                       </TableCell>
                     </TableRow>
                   )}
@@ -707,10 +677,10 @@ export default function AdminDashboardPage() {
           </CardContent>
           <CardFooter className="flex flex-col sm:flex-row items-center justify-between pt-4 gap-2">
             <p className="text-sm text-muted-foreground text-center sm:text-left">
-              Showing {paginatedStudents.length > 0 ? (currentPage - 1) * entriesPerPage + 1 : 0} to {Math.min(currentPage * entriesPerPage, displayedStudents.length)} of {displayedStudents.length} entries
+              Showing {studentsOnPage.length > 0 ? (currentPage - 1) * entriesPerPage + 1 : 0} to {Math.min(currentPage * entriesPerPage, totalStudentsCount)} of {totalStudentsCount} entries
             </p>
             <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1 || isDeletingSelected || isLoadingData || isExporting}>
+              <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1 || totalPages === 0 || isDeletingSelected || isLoadingData || isExporting}>
                 <ChevronLeft className="h-4 w-4 mr-1" /> Previous
               </Button>
               <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages || totalPages === 0 || isDeletingSelected || isLoadingData || isExporting}>
@@ -726,14 +696,15 @@ export default function AdminDashboardPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete {selectedStudents.size} student(s)
-              and all their associated marks.
+              This action cannot be undone. This will permanently delete {' '}
+              {studentToDelete ? `student ${studentToDelete.name} (Roll: ${studentToDelete.roll_no})` : `${selectedStudents.size} student(s)`}
+              {' '}and all their associated marks.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => setStudentToDelete(null)}>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              onClick={executeDeleteSelectedStudents}
+              onClick={confirmDelete}
               className={buttonVariants({ variant: "destructive" })}
               disabled={isDeletingSelected}
             >
@@ -754,3 +725,4 @@ export default function AdminDashboardPage() {
   );
 }
 
+    
