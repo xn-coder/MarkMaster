@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase/client';
 import { MarksheetDisplay } from '@/components/app/marksheet-display';
@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Loader2, ArrowLeft, Edit } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { AppHeader } from '@/components/app/app-header';
-import { numberToWords } from '@/lib/utils'
+import { numberToWords } from '@/lib/utils';
 import type { ACADEMIC_YEAR_OPTIONS } from '@/components/app/marksheet-form-schema';
 
 const defaultPageSubtitle = `(Affiliated By Bihar School Examination Board, Patna)
@@ -39,13 +39,14 @@ export default function ViewMarksheetPage() {
         } else {
           setAuthStatus('authenticated');
         }
-      } catch (e) {
+      } catch (e: any) {
         console.error("Exception during auth check:", e);
+        toast({ title: 'Authentication Error', description: e.message || 'Failed to check session.', variant: 'destructive' });
         setAuthStatus('unauthenticated');
       }
     };
     checkAuthentication();
-  }, []);
+  }, [toast]);
 
   useEffect(() => {
     if (authStatus === 'unauthenticated') {
@@ -65,6 +66,7 @@ export default function ViewMarksheetPage() {
           if (studentError || !studentDetails) {
             toast({ title: 'Error', description: `Student data not found for ID: ${studentSystemId}. ${studentError?.message || ''}`, variant: 'destructive' });
             setMarksheetData(null);
+            setIsLoadingData(false); // Ensure loading stops
             return;
           }
 
@@ -75,17 +77,20 @@ export default function ViewMarksheetPage() {
 
           if (marksError) {
             toast({ title: 'Error Fetching Subjects', description: marksError.message, variant: 'destructive' });
+            // Continue processing with potentially empty marks
           }
 
-          let sessionStartYear = new Date().getFullYear() - 1;
-          let sessionEndYear = new Date().getFullYear();
+          let sessionStartYearNum = new Date().getFullYear() - 1;
+          let sessionEndYearNum = new Date().getFullYear();
           if (studentDetails.academic_year && studentDetails.academic_year.includes('-')) {
             const years = studentDetails.academic_year.split('-');
-            sessionStartYear = parseInt(years[0], 10);
-            sessionEndYear = parseInt(years[1], 10);
+            if (years.length === 2 && !isNaN(parseInt(years[0])) && !isNaN(parseInt(years[1]))) {
+                sessionStartYearNum = parseInt(years[0], 10);
+                sessionEndYearNum = parseInt(years[1], 10);
+            }
           }
           
-          const formDataFromDb: MarksheetFormData = {
+          const formDataFromDb: MarksheetFormData = { // Use MarksheetFormData for consistent structure
             system_id: studentDetails.id,
             studentName: studentDetails.name,
             fatherName: studentDetails.father_name,
@@ -96,10 +101,10 @@ export default function ViewMarksheetPage() {
             dateOfIssue: new Date(), // Date of issue is dynamic for view
             gender: studentDetails.gender as MarksheetFormData['gender'],
             faculty: studentDetails.faculty as MarksheetFormData['faculty'],
-            academicYear: studentDetails.class as typeof ACADEMIC_YEAR_OPTIONS[number], // class from DB is academicYear in form
-            sessionStartYear: sessionStartYear,
-            sessionEndYear: sessionEndYear,
-            overallPassingThresholdPercentage: 33,
+            academicYear: studentDetails.class as typeof ACADEMIC_YEAR_OPTIONS[number],
+            sessionStartYear: sessionStartYearNum,
+            sessionEndYear: sessionEndYearNum,
+            overallPassingThresholdPercentage: 33, // Default
             subjects: subjectMarks?.map(mark => ({
               id: mark.mark_id?.toString() || crypto.randomUUID(),
               subjectName: mark.subject_name,
@@ -160,13 +165,12 @@ export default function ViewMarksheetPage() {
             overallPercentageDisplay,
             dateOfIssue: format(formDataFromDb.dateOfIssue, 'MMMM yyyy'),
             place: 'Samastipur',
-            registrationNo: formDataFromDb.registrationNo || null,
           };
           setMarksheetData(processedData);
 
-        } catch (error) {
+        } catch (error: any) {
           console.error("Error fetching marksheet data for view:", error);
-          toast({ title: 'Fetch Error', description: 'Could not load marksheet data.', variant: 'destructive' });
+          toast({ title: 'Fetch Error', description: `Could not load marksheet data: ${error.message || 'Unknown error'}`, variant: 'destructive' });
           setMarksheetData(null);
         } finally {
           setIsLoadingData(false);
@@ -180,9 +184,10 @@ export default function ViewMarksheetPage() {
     }
   }, [authStatus, studentSystemId, toast, router]);
 
-  const handleNavigateToEdit = (studentId: string) => {
-    router.push(`/marksheet/edit/${studentId}`);
-  };
+  const handleNavigateToEdit = useCallback((id: string) => {
+    router.push(`/marksheet/edit/${id}`);
+  }, [router]);
+
 
   if (authStatus === 'loading' || (authStatus === 'authenticated' && isLoadingData && !marksheetData)) {
     return (
@@ -214,6 +219,7 @@ export default function ViewMarksheetPage() {
         <footer className="py-4 border-t border-border mt-auto print:hidden">
           <div className="container mx-auto px-4 sm:px-6 lg:px-8 text-center text-xs text-muted-foreground max-w-screen-xl">
             {footerYear && <p>Copyright ©{footerYear} by Saryug College, Samastipur, Bihar. Design By Mantix.</p>}
+            {!footerYear && <p>Copyright by Saryug College, Samastipur, Bihar. Design By Mantix.</p>}
           </div>
         </footer>
       </div>
@@ -227,13 +233,16 @@ export default function ViewMarksheetPage() {
       </div>
 
       <main className="flex-grow container mx-auto px-4 py-8 sm:px-6 lg:px-8 print:p-0 print:m-0 print:h-full print:container-none print:max-w-none max-w-screen-xl">
-        <div className="flex justify-start mb-6 print:hidden">
+        <div className="flex justify-start w-full mb-6 print:hidden">
             <Button variant="outline" onClick={() => router.back()}>
               <ArrowLeft className="mr-2 h-4 w-4" /> Back
             </Button>
         </div>
         {marksheetData ? (
-          <MarksheetDisplay data={marksheetData} onNavigateToEdit={handleNavigateToEdit} />
+          <MarksheetDisplay 
+            data={marksheetData} 
+            onNavigateToEdit={studentSystemId ? () => handleNavigateToEdit(studentSystemId) : undefined}
+          />
         ) : (
           <div className="flex items-center justify-center min-h-[calc(100vh-200px)] print:hidden">
             <p className="text-muted-foreground">No marksheet data to display.</p>
@@ -244,4 +253,9 @@ export default function ViewMarksheetPage() {
       <footer className="py-4 border-t border-border mt-auto print:hidden">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 text-center text-xs text-muted-foreground max-w-screen-xl">
           {footerYear && <p>Copyright ©{footerYear} by Saryug College, Samastipur, Bihar. Design By Mantix.</p>}
-          {!footerYear && <p>Copyright by Saryug College, Sam
+          {!footerYear && <p>Copyright by Saryug College, Samastipur, Bihar. Design By Mantix.</p>}
+        </div>
+      </footer>
+    </div>
+  );
+}
