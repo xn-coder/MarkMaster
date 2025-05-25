@@ -41,14 +41,13 @@ import { Checkbox } from "@/components/ui/checkbox";
 import {
   RefreshCw,
   FilePlus2,
-  Download, // Swapped from Upload
-  Upload,   // Swapped from Download
+  Download,
+  Upload,
   MoreHorizontal,
   ChevronLeft,
   ChevronRight,
   Loader2,
   Trash2,
-  ArrowLeft,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { format, parseISO } from 'date-fns';
@@ -78,7 +77,6 @@ export default function AdminDashboardPage() {
   const [dynamicClassOptions, setDynamicClassOptions] = useState<string[]>(['All Classes']);
   const [dynamicFacultyOptions, setDynamicFacultyOptions] = useState<string[]>(['All Faculties']);
 
-
   const [academicYearFilter, setAcademicYearFilter] = useState('All Academic Years');
   const [startYearFilter, setStartYearFilter] = useState('All Start Years');
   const [endYearFilter, setEndYearFilter] = useState('All End Years');
@@ -86,7 +84,6 @@ export default function AdminDashboardPage() {
   const [studentNameFilter, setStudentNameFilter] = useState('');
   const [classFilter, setClassFilter] = useState('All Classes');
   const [facultyFilter, setFacultyFilter] = useState('All Faculties');
-
 
   const [currentPage, setCurrentPage] = useState(1);
   const [entriesPerPage, setEntriesPerPage] = useState(10);
@@ -122,12 +119,11 @@ export default function AdminDashboardPage() {
     };
   }, []);
 
- useEffect(() => {
+  useEffect(() => {
     if (authStatus === 'unauthenticated') {
       router.push('/login');
     }
   }, [authStatus, router]);
-
 
   const populateDynamicFilterOptions = (students: StudentRowData[]) => {
     if (!students || students.length === 0) {
@@ -157,7 +153,7 @@ export default function AdminDashboardPage() {
 
   const handleLoadStudentData = async () => {
     setIsLoadingData(true);
-    setSelectedStudents(new Set());
+    setSelectedStudents(new Set()); 
     try {
       const { data: studentsData, error } = await supabase
         .from('student_details')
@@ -169,7 +165,7 @@ export default function AdminDashboardPage() {
 
       if (studentsData) {
         const formattedStudents: StudentRowData[] = studentsData.map(s => ({
-          system_id: s.id, // This is the UUID
+          system_id: s.id,
           roll_no: s.roll_no || '',
           registrationNo: s.registration_no || '',
           name: s.name,
@@ -218,15 +214,11 @@ export default function AdminDashboardPage() {
         }
 
         let include = true;
-        if (filterStartYearNum !== null) {
-          if (studentSessionEndYear < filterStartYearNum) { 
-            include = false;
-          }
+        if (filterStartYearNum !== null && studentSessionEndYear < filterStartYearNum) {
+          include = false;
         }
-        if (filterEndYearNum !== null) {
-          if (studentSessionStartYear > filterEndYearNum) { 
-            include = false;
-          }
+        if (filterEndYearNum !== null && studentSessionStartYear > filterEndYearNum) {
+          include = false;
         }
         return include;
       });
@@ -251,7 +243,6 @@ export default function AdminDashboardPage() {
     setCurrentPage(1);
   }, [displayedStudents, entriesPerPage]);
 
-
   const paginatedStudents = useMemo(() => {
     const startIndex = (currentPage - 1) * entriesPerPage;
     return displayedStudents.slice(startIndex, startIndex + entriesPerPage);
@@ -271,41 +262,32 @@ export default function AdminDashboardPage() {
     if (!confirm(`Are you sure you want to delete student ${student.name} (Roll No: ${student.roll_no}) and all their marks? This action cannot be undone.`)) {
       return;
     }
-    setIsLoadingData(true); 
+    setIsLoadingData(true);
     try {
-      // First, delete associated marks
       const { error: marksError } = await supabase
         .from('student_marks_details')
         .delete()
-        .eq('student_detail_id', student.system_id); 
+        .eq('student_detail_id', student.system_id);
 
-      if (marksError) {
-         console.error(`Failed to delete marks for student ${student.name} (System ID: ${student.system_id}): ${marksError.message}`);
-        // Decide if you want to throw or just warn. For now, we'll throw to stop student deletion if marks fail.
-        throw new Error(`Could not delete marks for ${student.name}: ${marksError.message}`);
-      }
+      if (marksError) throw marksError;
 
-      // Then, delete the student
       const { error: studentError } = await supabase
         .from('student_details')
         .delete()
         .eq('id', student.system_id);
 
-      if (studentError) {
-        console.error(`Failed to delete student ${student.name} (System ID: ${student.system_id}): ${studentError.message}`);
-        throw new Error(`Could not delete student ${student.name}. Their marks might have been deleted if the previous step succeeded. Error: ${studentError.message}`);
-      }
+      if (studentError) throw studentError;
 
       toast({
         title: 'Student Deleted',
         description: `${student.name} (Roll No: ${student.roll_no}) and their marks have been deleted.`,
       });
-
+      
       const newSelected = new Set(selectedStudents);
       newSelected.delete(student.system_id);
       setSelectedStudents(newSelected);
-      await handleLoadStudentData(); 
-      
+
+      await handleLoadStudentData();
     } catch (error: any) {
       toast({
         title: 'Deletion Failed',
@@ -352,7 +334,7 @@ export default function AdminDashboardPage() {
             "Date of Birth": "Error fetching", "Gender": "Error fetching", "Faculty": "Error fetching",
             "Class": "Error fetching", "Academic Session": "Error fetching",
           });
-          continue; 
+          continue;
         }
 
         studentDetailsSheetData.push({
@@ -478,10 +460,12 @@ export default function AdminDashboardPage() {
       console.log(`Attempting to delete student with system_id: ${studentSystemId}`);
       try {
         // First, delete associated marks
-        const { error: marksError } = await supabase
+        console.log(`Deleting marks for student_detail_id: ${studentSystemId}`);
+        const { data: marksData, error: marksError } = await supabase
           .from('student_marks_details')
           .delete()
           .eq('student_detail_id', studentSystemId); 
+        console.log('Marks deletion response:', { marksData, marksError });
 
         if (marksError) {
           console.error(`Failed to delete marks for student ID ${studentSystemId}: ${marksError.message}`);
@@ -491,14 +475,16 @@ export default function AdminDashboardPage() {
             variant: "destructive" 
           });
           errorCount++;
-          continue; // Skip deleting this student if marks deletion failed
+          continue; 
         }
         
         // Then, delete the student
-        const { error: studentError } = await supabase
+        console.log(`Deleting student details for id: ${studentSystemId}`);
+        const { data: studentData, error: studentError } = await supabase
           .from('student_details')
           .delete()
           .eq('id', studentSystemId);
+        console.log('Student deletion response:', { studentData, studentError });
 
         if (studentError) {
           console.error(`Failed to delete student ID ${studentSystemId}: ${studentError.message}`);
@@ -506,7 +492,6 @@ export default function AdminDashboardPage() {
         }
         deletedCount++;
       } catch (error: any) {
-        // This catch block will now primarily catch errors from student deletion or re-thrown mark deletion errors
         console.error(`Overall deletion error for student ID ${studentSystemId}:`, error);
         toast({ 
             title: "Deletion Error", 
@@ -520,12 +505,11 @@ export default function AdminDashboardPage() {
     if (deletedCount > 0) toast({ title: "Deletion Processed", description: `${deletedCount} student(s) successfully deleted.` });
     if (errorCount > 0) toast({ title: "Deletion Partially Failed", description: `${errorCount} student(s) could not be fully deleted. Check console for details.`, variant: "destructive" });
     
-    setSelectedStudents(new Set()); // Clear selection
-    await handleLoadStudentData(); // Refresh the data
+    setSelectedStudents(new Set()); 
+    await handleLoadStudentData(); 
     
     setIsDeletingSelected(false);
   };
-
 
   if (authStatus === 'loading') {
     return (
