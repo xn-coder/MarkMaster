@@ -14,7 +14,7 @@ import { format, parseISO } from 'date-fns';
 import { AppHeader } from '@/components/app/app-header';
 import { numberToWords } from '@/lib/utils';
 import type { ACADEMIC_YEAR_OPTIONS, SUBJECT_CATEGORIES_OPTIONS } from '@/components/app/marksheet-form-schema';
-import { useLoadingIndicator } from '@/components/app/navigation-loader';
+// Removed import for useLoadingIndicator
 
 const defaultPageSubtitle = `(Affiliated By Bihar School Examination Board, Patna)
 [Estd. - 1983] College Code: 53010
@@ -27,11 +27,11 @@ export default function EditMarksheetPage() {
   const params = useParams();
   const studentSystemId = params.studentId as string;
   const { toast } = useToast();
-  const { showLoader, hideLoader } = useLoadingIndicator();
+  // Removed showLoader, hideLoader from useLoadingIndicator
 
   const [authStatus, setAuthStatus] = useState<'loading' | 'authenticated' | 'unauthenticated'>('loading');
   const [initialData, setInitialData] = useState<MarksheetFormData | null>(null);
-  const [isLoadingData, setIsLoadingData] = useState(true);
+  const [isLoadingData, setIsLoadingData] = useState(true); // This state will control the page-specific loader
 
   const [isLoadingFormSubmission, setIsLoadingFormSubmission] = useState(false);
   const [marksheetData, setMarksheetData] = useState<MarksheetDisplayData | null>(null);
@@ -57,13 +57,13 @@ export default function EditMarksheetPage() {
   useEffect(() => {
     if (authStatus === 'unauthenticated') {
       router.push('/login');
-      hideLoader();
+      // hideLoader();
     } else if (authStatus === 'authenticated' && studentSystemId) {
       setFooterYear(new Date().getFullYear());
       
       const fetchStudentData = async () => {
         setIsLoadingData(true);
-        showLoader();
+        // showLoader();
         try {
           const { data: studentDetails, error: studentError } = await supabase
             .from('student_details')
@@ -126,18 +126,17 @@ export default function EditMarksheetPage() {
           setInitialData(null);
         } finally {
           setIsLoadingData(false);
-          hideLoader();
+          // hideLoader();
         }
       };
       fetchStudentData();
     } else if (authStatus === 'authenticated' && !studentSystemId) {
-        // Handle case where studentSystemId is missing but user is authenticated
         toast({ title: 'Error', description: 'No student ID provided for editing.', variant: 'destructive' });
         setIsLoadingData(false);
-        hideLoader();
-        router.push('/'); // Redirect to dashboard or an error page
+        // hideLoader();
+        router.push('/'); 
     }
-  }, [authStatus, studentSystemId, toast, router, showLoader, hideLoader]);
+  }, [authStatus, studentSystemId, toast, router]);
 
 
   const processFormData = (data: MarksheetFormData): MarksheetDisplayData => {
@@ -339,4 +338,3 @@ export default function EditMarksheetPage() {
     </div>
   );
 }
-

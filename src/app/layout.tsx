@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
-import { LoadingProvider, NavigationEventsManager } from '@/components/app/navigation-loader';
+// Removed LoadingProvider and NavigationEventsManager imports
 
 const inter = Inter({
   variable: '--font-inter',
@@ -23,11 +23,10 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${inter.variable} font-sans antialiased`}>
-        <LoadingProvider>
-          {children}
-          <Toaster />
-          <NavigationEventsManager />
-        </LoadingProvider>
+        {/* Removed LoadingProvider wrapper */}
+        {children}
+        <Toaster />
+        {/* Removed NavigationEventsManager */}
       </body>
     </html>
   );

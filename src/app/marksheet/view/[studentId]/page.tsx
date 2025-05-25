@@ -13,7 +13,7 @@ import { format, parseISO } from 'date-fns';
 import { AppHeader } from '@/components/app/app-header';
 import { numberToWords } from '@/lib/utils'
 import type { ACADEMIC_YEAR_OPTIONS } from '@/components/app/marksheet-form-schema';
-import { useLoadingIndicator } from '@/components/app/navigation-loader';
+// Removed import for useLoadingIndicator
 
 const defaultPageSubtitle = `(Affiliated By Bihar School Examination Board, Patna)
 [Estd. - 1983] College Code: 53010
@@ -25,11 +25,11 @@ export default function ViewMarksheetPage() {
   const params = useParams();
   const studentSystemId = params.studentId as string; 
   const { toast } = useToast();
-  const { showLoader, hideLoader } = useLoadingIndicator();
+  // Removed showLoader, hideLoader from useLoadingIndicator
 
   const [authStatus, setAuthStatus] = useState<'loading' | 'authenticated' | 'unauthenticated'>('loading');
   const [marksheetData, setMarksheetData] = useState<MarksheetDisplayData | null>(null);
-  const [isLoadingData, setIsLoadingData] = useState(true);
+  const [isLoadingData, setIsLoadingData] = useState(true); // This state will control the page-specific loader
   const [footerYear, setFooterYear] = useState<number | null>(null);
 
   useEffect(() => {
@@ -52,13 +52,13 @@ export default function ViewMarksheetPage() {
   useEffect(() => {
     if (authStatus === 'unauthenticated') {
       router.push('/login');
-      hideLoader();
+      // hideLoader();
     } else if (authStatus === 'authenticated' && studentSystemId) {
       setFooterYear(new Date().getFullYear());
       
       const fetchMarksheetData = async () => {
         setIsLoadingData(true);
-        showLoader();
+        // showLoader();
         try {
           const { data: studentDetails, error: studentError } = await supabase
             .from('student_details')
@@ -163,7 +163,7 @@ export default function ViewMarksheetPage() {
             overallPercentageDisplay,
             dateOfIssue: format(formDataFromDb.dateOfIssue, 'MMMM yyyy'),
             place: 'Samastipur',
-            registrationNo: formDataFromDb.registrationNo,
+            registrationNo: formDataFromDb.registrationNo || '',
           };
           setMarksheetData(processedData);
 
@@ -173,17 +173,17 @@ export default function ViewMarksheetPage() {
           setMarksheetData(null);
         } finally {
           setIsLoadingData(false);
-          hideLoader();
+          // hideLoader();
         }
       };
       fetchMarksheetData();
     } else if (authStatus === 'authenticated' && !studentSystemId) {
         toast({ title: 'Error', description: 'No student ID provided for viewing.', variant: 'destructive' });
         setIsLoadingData(false);
-        hideLoader();
+        // hideLoader();
         router.push('/');
     }
-  }, [authStatus, studentSystemId, toast, router, showLoader, hideLoader]);
+  }, [authStatus, studentSystemId, toast, router]);
 
 
   if (authStatus === 'loading' || (authStatus === 'authenticated' && isLoadingData && !marksheetData)) {
@@ -238,7 +238,6 @@ export default function ViewMarksheetPage() {
           <MarksheetDisplay data={marksheetData} />
         ) : (
           <div className="flex items-center justify-center min-h-[calc(100vh-200px)] print:hidden">
-            {/* This fallback should ideally not be reached if isLoadingData is true and loader shows */}
             <p className="text-muted-foreground">No marksheet data to display.</p>
           </div>
         )}
@@ -253,4 +252,3 @@ export default function ViewMarksheetPage() {
     </div>
   );
 }
-

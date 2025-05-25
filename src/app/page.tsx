@@ -52,8 +52,7 @@ import {
 import * as XLSX from 'xlsx';
 import { format, parseISO } from 'date-fns';
 import type { StudentRowData } from '@/types';
-import { useLoadingIndicator } from '@/components/app/navigation-loader';
-
+// Removed import for useLoadingIndicator
 
 const dashboardPageTitle = "SARYUG COLLEGE";
 const dashboardPageSubtitle = `(Affiliated By Bihar School Examination Board, Patna)
@@ -64,7 +63,7 @@ www.saryugcollege.com`;
 export default function AdminDashboardPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const { showLoader, hideLoader } = useLoadingIndicator();
+  // Removed showLoader, hideLoader from useLoadingIndicator
 
   const [authStatus, setAuthStatus] = useState<'loading' | 'authenticated' | 'unauthenticated'>('loading');
   const [isLoadingData, setIsLoadingData] = useState(false);
@@ -123,15 +122,11 @@ export default function AdminDashboardPage() {
  useEffect(() => {
     if (authStatus === 'unauthenticated') {
       router.push('/login');
-      hideLoader();
+      // hideLoader();
     } else if (authStatus === 'authenticated') {
-      // Data is not auto-loaded here anymore; user must click "Load Student Data"
-      // Ensure loader is hidden if it was shown by navigation
-      hideLoader();
+      // hideLoader();
     }
-    // Do not hide loader if authStatus is 'loading', as NavigationEventsManager might have shown it
-    // and we are waiting for auth check to complete.
-  }, [authStatus, router, hideLoader]);
+  }, [authStatus, router]);
 
 
   const populateDynamicFilterOptions = (students: StudentRowData[]) => {
@@ -158,8 +153,8 @@ export default function AdminDashboardPage() {
 
   const handleLoadStudentData = async () => {
     setIsLoadingData(true);
-    showLoader();
-    setSelectedStudents(new Set()); // Clear selection when reloading data
+    // showLoader();
+    setSelectedStudents(new Set());
     try {
       const { data: studentsData, error } = await supabase
         .from('student_details')
@@ -172,12 +167,12 @@ export default function AdminDashboardPage() {
       if (studentsData) {
         const formattedStudents: StudentRowData[] = studentsData.map(s => ({
           system_id: s.id,
-          roll_no: s.roll_no,
+          roll_no: s.roll_no || '',
           name: s.name,
           academicYear: s.academic_year,
           class: s.class,
           faculty: s.faculty,
-          registrationNo: s.registration_no,
+          registrationNo: s.registration_no || '',
         }));
         setAllStudents(formattedStudents);
         populateDynamicFilterOptions(formattedStudents);
@@ -193,7 +188,7 @@ export default function AdminDashboardPage() {
       populateDynamicFilterOptions([]);
     } finally {
       setIsLoadingData(false);
-      hideLoader();
+      // hideLoader();
     }
   };
 
@@ -270,8 +265,8 @@ export default function AdminDashboardPage() {
     if (!confirm(`Are you sure you want to delete student ${student.name} (Roll No: ${student.roll_no}) and all their marks? This action cannot be undone.`)) {
       return;
     }
-    showLoader();
-    setIsDeletingSelected(true); // Use general deleting state
+    // showLoader();
+    setIsLoadingData(true); // Using isLoadingData for general loading feedback
     try {
       const { error: marksError } = await supabase
         .from('student_marks_details')
@@ -296,7 +291,6 @@ export default function AdminDashboardPage() {
         description: `${student.name} (Roll No: ${student.roll_no}) and their marks have been deleted.`,
       });
 
-      // Refresh data and clear selection
       const newSelected = new Set(selectedStudents);
       newSelected.delete(student.system_id);
       setSelectedStudents(newSelected);
@@ -309,8 +303,8 @@ export default function AdminDashboardPage() {
         variant: 'destructive',
       });
     } finally {
-      setIsDeletingSelected(false);
-      hideLoader();
+      setIsLoadingData(false);
+      // hideLoader();
     }
   };
 
@@ -325,7 +319,7 @@ export default function AdminDashboardPage() {
     }
 
     setIsExporting(true);
-    showLoader();
+    // showLoader();
     toast({ title: "Exporting Data", description: "Fetching student details and marks, please wait..." });
 
     const studentDetailsSheetData: any[] = [];
@@ -336,7 +330,6 @@ export default function AdminDashboardPage() {
 
     try {
       for (const displayedStudent of displayedStudents) {
-        // Fetch full details for each student to ensure all columns are populated
         const { data: studentDetails, error: studentError } = await supabase
           .from('student_details')
           .select('*')
@@ -345,69 +338,42 @@ export default function AdminDashboardPage() {
 
         if (studentError || !studentDetails) {
           console.error(`Error fetching details for student ${displayedStudent.system_id}:`, studentError);
-          // Add a placeholder row if details can't be fetched
           studentDetailsSheetData.push({
-            "System ID": displayedStudent.system_id,
-            "Roll No": displayedStudent.roll_no,
-            "Registration No": displayedStudent.registrationNo || 'N/A',
-            "Name": displayedStudent.name,
-            "Father Name": "Error fetching", // Placeholder
-            "Mother Name": "Error fetching",
-            "Date of Birth": "Error fetching",
-            "Gender": "Error fetching",
-            "Faculty": "Error fetching",
-            "Class": "Error fetching",
-            "Academic Session": "Error fetching",
+            "System ID": displayedStudent.system_id, "Roll No": displayedStudent.roll_no, "Registration No": displayedStudent.registrationNo || 'N/A',
+            "Name": displayedStudent.name, "Father Name": "Error fetching", "Mother Name": "Error fetching",
+            "Date of Birth": "Error fetching", "Gender": "Error fetching", "Faculty": "Error fetching",
+            "Class": "Error fetching", "Academic Session": "Error fetching",
           });
-          continue; // Skip marks for this student if details are missing
+          continue; 
         }
 
         studentDetailsSheetData.push({
-          "System ID": studentDetails.id,
-          "Roll No": studentDetails.roll_no,
-          "Registration No": studentDetails.registration_no || '',
-          "Name": studentDetails.name,
-          "Father Name": studentDetails.father_name,
-          "Mother Name": studentDetails.mother_name,
+          "System ID": studentDetails.id, "Roll No": studentDetails.roll_no, "Registration No": studentDetails.registration_no || '',
+          "Name": studentDetails.name, "Father Name": studentDetails.father_name, "Mother Name": studentDetails.mother_name,
           "Date of Birth": studentDetails.dob ? format(parseISO(studentDetails.dob), 'dd-MM-yyyy') : '',
-          "Gender": studentDetails.gender,
-          "Faculty": studentDetails.faculty,
-          "Class": studentDetails.class,
+          "Gender": studentDetails.gender, "Faculty": studentDetails.faculty, "Class": studentDetails.class,
           "Academic Session": studentDetails.academic_year,
         });
 
-        // Fetch marks for this student
         const { data: marksDetails, error: marksError } = await supabase
           .from('student_marks_details')
           .select('*')
           .eq('student_detail_id', studentDetails.id);
 
-        if (marksError) {
-          console.error(`Error fetching marks for student ${studentDetails.id}:`, marksError);
-          // Optionally, add a placeholder for marks if fetching fails
-        }
+        if (marksError) console.error(`Error fetching marks for student ${studentDetails.id}:`, marksError);
 
         if (marksDetails && marksDetails.length > 0) {
           for (const mark of marksDetails) {
             studentMarksDataSheet.push({
-              "System ID": studentDetails.id, // Use the system_id from studentDetails for consistency
-              "Roll No": studentDetails.roll_no,
-              "Name": studentDetails.name,
-              "Subject Name": mark.subject_name,
-              "Subject Category": mark.category,
-              "Max Marks": mark.max_marks,
-              "Pass Marks": mark.pass_marks,
-              "Theory Marks Obtained": mark.theory_marks_obtained,
-              "Practical Marks Obtained": mark.practical_marks_obtained,
-              "Obtained Total Marks": mark.obtained_total_marks,
+              "System ID": studentDetails.id, "Roll No": studentDetails.roll_no, "Name": studentDetails.name,
+              "Subject Name": mark.subject_name, "Subject Category": mark.category, "Max Marks": mark.max_marks,
+              "Pass Marks": mark.pass_marks, "Theory Marks Obtained": mark.theory_marks_obtained,
+              "Practical Marks Obtained": mark.practical_marks_obtained, "Obtained Total Marks": mark.obtained_total_marks,
             });
           }
         } else {
-            // Add a row indicating no marks if applicable, or skip
              studentMarksDataSheet.push({
-              "System ID": studentDetails.id,
-              "Roll No": studentDetails.roll_no,
-              "Name": studentDetails.name,
+              "System ID": studentDetails.id, "Roll No": studentDetails.roll_no, "Name": studentDetails.name,
               "Subject Name": "N/A", "Subject Category": "N/A", "Max Marks": "N/A", "Pass Marks": "N/A",
               "Theory Marks Obtained": "N/A", "Practical Marks Obtained": "N/A", "Obtained Total Marks": "N/A",
             });
@@ -417,60 +383,51 @@ export default function AdminDashboardPage() {
       if (studentDetailsSheetData.length === 0 && studentMarksDataSheet.length === 0) {
         toast({ title: "No Detailed Data", description: "Could not fetch detailed data for the selected students.", variant: "destructive" });
         setIsExporting(false);
-        hideLoader();
+        // hideLoader();
         return;
       }
 
       const workbook = XLSX.utils.book_new();
-
-      // Create Student Details Sheet
       if (studentDetailsSheetData.length > 0) {
         const wsStudentDetails = XLSX.utils.json_to_sheet(studentDetailsSheetData, { header: studentDetailHeaders, skipHeader: false });
         XLSX.utils.book_append_sheet(workbook, wsStudentDetails, "Student Details");
       }
-
-      // Create Student Marks Details Sheet
       if (studentMarksDataSheet.length > 0) {
         const wsStudentMarks = XLSX.utils.json_to_sheet(studentMarksDataSheet, { header: studentMarkHeaders, skipHeader: false });
         XLSX.utils.book_append_sheet(workbook, wsStudentMarks, "Student Marks Details");
       }
       
-      // Auto-size columns for all sheets
       Object.keys(workbook.Sheets).forEach(sheetName => {
         const sheet = workbook.Sheets[sheetName];
         if (!sheet['!cols']) sheet['!cols'] = [];
         const jsonSheet = XLSX.utils.sheet_to_json<any>(sheet, { header: 1 });
         if (jsonSheet.length > 0) {
-          const cols = jsonSheet[0] as any[]; // Get headers
+          const cols = jsonSheet[0] as any[]; 
           if (cols) {
             const colWidths = cols.map((_, i) => {
-              let maxLen = String(cols[i] || '').length; // Header length
-              jsonSheet.forEach((row: any) => { // Iterate over all rows
+              let maxLen = String(cols[i] || '').length; 
+              jsonSheet.forEach((row: any) => { 
                 const cellValue = row[i];
-                if (cellValue != null) { // Check if cell is not empty
+                if (cellValue != null) { 
                   const len = String(cellValue).length;
                   if (len > maxLen) maxLen = len;
                 }
               });
-              return { wch: maxLen + 2 }; // Add a little padding
+              return { wch: maxLen + 2 }; 
             });
             sheet['!cols'] = colWidths;
           }
         }
       });
 
-
       XLSX.writeFile(workbook, "students_and_marks_export.xlsx");
-      toast({
-        title: "Export Successful",
-        description: "Student details and marks exported to students_and_marks_export.xlsx",
-      });
+      toast({ title: "Export Successful", description: "Student details and marks exported." });
     } catch (error: any) {
       console.error("Error during Excel export:", error);
       toast({ title: "Export Failed", description: error.message || "An unknown error occurred.", variant: "destructive" });
     } finally {
       setIsExporting(false);
-      hideLoader();
+      // hideLoader();
     }
   };
 
@@ -497,7 +454,6 @@ export default function AdminDashboardPage() {
   const numSelectedOnPage = paginatedStudents.filter(s => selectedStudents.has(s.system_id)).length;
   const isAllSelectedOnPage = paginatedStudents.length > 0 && numSelectedOnPage === paginatedStudents.length;
 
-
   const handleDeleteSelectedStudents = async () => {
     if (selectedStudents.size === 0) {
       toast({ title: "No Students Selected", description: "Please select students to delete.", variant: "destructive" });
@@ -508,33 +464,25 @@ export default function AdminDashboardPage() {
     }
 
     setIsDeletingSelected(true);
-    showLoader();
+    // showLoader();
     let deletedCount = 0;
     let errorCount = 0;
 
     for (const studentSystemId of selectedStudents) {
       try {
-        // First, delete associated marks
         const { error: marksError } = await supabase
           .from('student_marks_details')
           .delete()
           .eq('student_detail_id', studentSystemId);
 
-        if (marksError) {
-          // Log the error but attempt to delete the student anyway, or handle as per your policy
-          console.error(`Failed to delete marks for student ID ${studentSystemId.substring(0,8)}...: ${marksError.message}`);
-          // Decide if this should stop the student deletion. For now, we'll proceed.
-        }
-
-        // Then, delete the student
+        if (marksError) console.error(`Failed to delete marks for student ID ${studentSystemId.substring(0,8)}...: ${marksError.message}`);
+        
         const { error: studentError } = await supabase
           .from('student_details')
           .delete()
           .eq('id', studentSystemId);
 
-        if (studentError) {
-          throw new Error(`Failed to delete student ID ${studentSystemId.substring(0,8)}...: ${studentError.message}`);
-        }
+        if (studentError) throw new Error(`Failed to delete student ID ${studentSystemId.substring(0,8)}...: ${studentError.message}`);
         deletedCount++;
       } catch (error: any) {
         console.error(error);
@@ -543,26 +491,17 @@ export default function AdminDashboardPage() {
       }
     }
 
-    if (deletedCount > 0) {
-      toast({ title: "Deletion Successful", description: `${deletedCount} student(s) deleted.` });
-    }
-    if (errorCount > 0) {
-      toast({ title: "Deletion Partially Failed", description: `${errorCount} student(s) could not be deleted or their marks could not be fully cleared. Check console for details.`, variant: "destructive" });
-    }
-
-    // Refresh data and clear selection
+    if (deletedCount > 0) toast({ title: "Deletion Successful", description: `${deletedCount} student(s) deleted.` });
+    if (errorCount > 0) toast({ title: "Deletion Partially Failed", description: `${errorCount} student(s) could not be deleted. Check console.`, variant: "destructive" });
+    
     setSelectedStudents(new Set());
     await handleLoadStudentData(); 
     
     setIsDeletingSelected(false);
-    hideLoader();
+    // hideLoader();
   };
 
-
   if (authStatus === 'loading') {
-    // The global loader from LoadingProvider should be active here if shown by NavigationEventsManager
-    // This can be a fallback or removed if the global loader is sufficient.
-    // For now, let's keep it to ensure some feedback if global loader somehow isn't visible.
     return (
         <div className="flex items-center justify-center min-h-screen bg-background">
             <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -588,12 +527,12 @@ export default function AdminDashboardPage() {
                   size="sm"
                   className="text-primary-foreground hover:bg-accent hover:text-accent-foreground"
                   onClick={handleLoadStudentData}
-                  disabled={isLoadingData || isDeletingSelected}
+                  disabled={isLoadingData || isDeletingSelected || isExporting}
                 >
                   {isLoadingData ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />} Load Student Data
                 </Button>
                 <Link href="/marksheet/new" passHref>
-                  <Button variant="ghost" size="sm" className="text-primary-foreground hover:bg-accent hover:text-accent-foreground" disabled={isDeletingSelected}>
+                  <Button variant="ghost" size="sm" className="text-primary-foreground hover:bg-accent hover:text-accent-foreground" disabled={isDeletingSelected || isLoadingData || isExporting}>
                     <FilePlus2 className="mr-2 h-4 w-4" /> Create New
                   </Button>
                 </Link>
@@ -602,12 +541,12 @@ export default function AdminDashboardPage() {
                     variant="ghost"
                     size="sm"
                     className="text-primary-foreground hover:bg-accent hover:text-accent-foreground"
-                    disabled={isDeletingSelected}
+                    disabled={isDeletingSelected || isLoadingData || isExporting}
                   >
                     <Download className="mr-2 h-4 w-4" /> Import Data
                   </Button>
                 </Link>
-                <Button variant="ghost" size="sm" className="text-primary-foreground hover:bg-accent hover:text-accent-foreground" onClick={handleExportToExcel} disabled={isExporting || isDeletingSelected || allStudents.length === 0}>
+                <Button variant="ghost" size="sm" className="text-primary-foreground hover:bg-accent hover:text-accent-foreground" onClick={handleExportToExcel} disabled={isExporting || isDeletingSelected || allStudents.length === 0 || isLoadingData}>
                   {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />} Export to Excel
                 </Button>
                  {selectedStudents.size > 0 && (
@@ -615,7 +554,7 @@ export default function AdminDashboardPage() {
                     variant="destructive"
                     size="sm"
                     onClick={handleDeleteSelectedStudents}
-                    disabled={isDeletingSelected || isLoadingData}
+                    disabled={isDeletingSelected || isLoadingData || isExporting}
                     className="bg-red-600 hover:bg-red-700 text-white"
                   >
                     {isDeletingSelected ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />} Delete Selected ({selectedStudents.size})
@@ -631,7 +570,7 @@ export default function AdminDashboardPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 items-end">
               <div>
                 <Label htmlFor="academicYear">Academic Session</Label>
-                <Select value={academicYearFilter} onValueChange={setAcademicYearFilter} disabled={isDeletingSelected}>
+                <Select value={academicYearFilter} onValueChange={setAcademicYearFilter} disabled={isDeletingSelected || isLoadingData || isExporting}>
                   <SelectTrigger id="academicYear"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {dynamicAcademicYearOptions.map(year => <SelectItem key={year} value={year} disabled={year === 'All Academic Years' && dynamicAcademicYearOptions.length === 1}>{year}</SelectItem>)}
@@ -640,7 +579,7 @@ export default function AdminDashboardPage() {
               </div>
               <div>
                 <Label htmlFor="startYear">Start Year</Label>
-                <Select value={startYearFilter} onValueChange={setStartYearFilter} disabled={isDeletingSelected}>
+                <Select value={startYearFilter} onValueChange={setStartYearFilter} disabled={isDeletingSelected || isLoadingData || isExporting}>
                   <SelectTrigger id="startYear"><SelectValue placeholder="Start Year" /></SelectTrigger>
                   <SelectContent>
                     {dynamicStartYearOptions.map(year => <SelectItem key={year} value={year} disabled={year === 'All Start Years' && dynamicStartYearOptions.length === 1}>{year}</SelectItem>)}
@@ -649,7 +588,7 @@ export default function AdminDashboardPage() {
               </div>
               <div>
                 <Label htmlFor="endYear">End Year</Label>
-                <Select value={endYearFilter} onValueChange={setEndYearFilter} disabled={isDeletingSelected}>
+                <Select value={endYearFilter} onValueChange={setEndYearFilter} disabled={isDeletingSelected || isLoadingData || isExporting}>
                   <SelectTrigger id="endYear"><SelectValue placeholder="End Year" /></SelectTrigger>
                   <SelectContent>
                     {dynamicEndYearOptions.map(year => <SelectItem key={year} value={year} disabled={year === 'All End Years' && dynamicEndYearOptions.length === 1}>{year}</SelectItem>)}
@@ -658,15 +597,15 @@ export default function AdminDashboardPage() {
               </div>
               <div>
                 <Label htmlFor="studentRollNo">Student Roll No</Label>
-                <Input id="studentRollNo" placeholder="Roll No" value={studentRollNoFilter} onChange={e => setStudentRollNoFilter(e.target.value)} disabled={isDeletingSelected} />
+                <Input id="studentRollNo" placeholder="Roll No" value={studentRollNoFilter} onChange={e => setStudentRollNoFilter(e.target.value)} disabled={isDeletingSelected || isLoadingData || isExporting} />
               </div>
               <div>
                 <Label htmlFor="studentName">Student Name</Label>
-                <Input id="studentName" placeholder="Student Name" value={studentNameFilter} onChange={e => setStudentNameFilter(e.target.value)} disabled={isDeletingSelected} />
+                <Input id="studentName" placeholder="Student Name" value={studentNameFilter} onChange={e => setStudentNameFilter(e.target.value)} disabled={isDeletingSelected || isLoadingData || isExporting} />
               </div>
               <div>
                 <Label htmlFor="class">Class</Label>
-                <Select value={classFilter} onValueChange={setClassFilter} disabled={isDeletingSelected}>
+                <Select value={classFilter} onValueChange={setClassFilter} disabled={isDeletingSelected || isLoadingData || isExporting}>
                   <SelectTrigger id="class"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {dynamicClassOptions.map(cls => <SelectItem key={cls} value={cls} disabled={cls === 'All Classes' && dynamicClassOptions.length === 1}>{cls}</SelectItem>)}
@@ -680,7 +619,7 @@ export default function AdminDashboardPage() {
         <Card className="shadow-md">
           <CardHeader className="flex flex-row items-center gap-2">
             <Label htmlFor="showEntries" className="text-sm whitespace-nowrap">Show</Label>
-            <Select value={String(entriesPerPage)} onValueChange={(value) => { setEntriesPerPage(Number(value)); setCurrentPage(1); }} disabled={isDeletingSelected}>
+            <Select value={String(entriesPerPage)} onValueChange={(value) => { setEntriesPerPage(Number(value)); setCurrentPage(1); }} disabled={isDeletingSelected || isLoadingData || isExporting}>
               <SelectTrigger id="showEntries" className="w-20 h-8 text-sm">
                 <SelectValue />
               </SelectTrigger>
@@ -702,6 +641,7 @@ export default function AdminDashboardPage() {
                         onCheckedChange={handleSelectAllClick}
                         aria-label="Select all students on this page"
                         className="border-primary-foreground data-[state=checked]:bg-primary-foreground data-[state=checked]:text-primary"
+                        disabled={isLoadingData || isDeletingSelected || isExporting}
                       />
                     </TableHead>
                     <TableHead className="text-white">Roll No</TableHead>
@@ -714,7 +654,7 @@ export default function AdminDashboardPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {isLoadingData ? (
+                  {isLoadingData && !isDeletingSelected && !isExporting ? ( // Show loader only if it's initial data loading
                     <TableRow>
                       <TableCell colSpan={8} className="text-center py-8">
                         <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto" />
@@ -729,6 +669,7 @@ export default function AdminDashboardPage() {
                           checked={selectedStudents.has(student.system_id)}
                           onCheckedChange={() => handleRowSelectClick(student.system_id)}
                           aria-label={`Select student ${student.name}`}
+                          disabled={isLoadingData || isDeletingSelected || isExporting}
                         />
                       </TableCell>
                       <TableCell>{student.roll_no}</TableCell>
@@ -740,7 +681,7 @@ export default function AdminDashboardPage() {
                       <TableCell className="text-center">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8" disabled={isDeletingSelected}>
+                            <Button variant="ghost" size="icon" className="h-8 w-8" disabled={isDeletingSelected || isLoadingData || isExporting}>
                               <MoreHorizontal className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>
@@ -770,10 +711,10 @@ export default function AdminDashboardPage() {
               Showing {paginatedStudents.length > 0 ? (currentPage - 1) * entriesPerPage + 1 : 0} to {Math.min(currentPage * entriesPerPage, displayedStudents.length)} of {displayedStudents.length} entries
             </p>
             <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1 || isDeletingSelected}>
+              <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1 || isDeletingSelected || isLoadingData || isExporting}>
                 <ChevronLeft className="h-4 w-4 mr-1" /> Previous
               </Button>
-              <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages || totalPages === 0 || isDeletingSelected}>
+              <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages || totalPages === 0 || isDeletingSelected || isLoadingData || isExporting}>
                 Next <ChevronRight className="h-4 w-4 ml-1" />
               </Button>
             </div>
@@ -790,4 +731,3 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
-

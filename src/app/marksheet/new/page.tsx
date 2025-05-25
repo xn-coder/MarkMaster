@@ -13,7 +13,7 @@ import { Loader2, ArrowLeft } from 'lucide-react';
 import { format } from 'date-fns';
 import { AppHeader } from '@/components/app/app-header';
 import { numberToWords } from '@/lib/utils';
-import { useLoadingIndicator } from '@/components/app/navigation-loader';
+// Removed import for useLoadingIndicator
 
 const defaultPageSubtitle = `(Affiliated By Bihar School Examination Board, Patna)
 [Estd. - 1983] College Code: 53010
@@ -23,10 +23,9 @@ www.saryugcollege.com`;
 export default function NewMarksheetPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const { hideLoader } = useLoadingIndicator();
+  // Removed showLoader, hideLoader from useLoadingIndicator
 
   const [authStatus, setAuthStatus] = useState<'loading' | 'authenticated' | 'unauthenticated'>('loading');
-
   const [isLoadingFormSubmission, setIsLoadingFormSubmission] = useState(false);
   const [marksheetData, setMarksheetData] = useState<MarksheetDisplayData | null>(null);
   const [footerYear, setFooterYear] = useState<number | null>(null);
@@ -54,12 +53,12 @@ export default function NewMarksheetPage() {
   useEffect(() => {
     if (authStatus === 'unauthenticated') {
       router.push('/login');
-      hideLoader();
+      // hideLoader();
     } else if (authStatus === 'authenticated') {
       setFooterYear(new Date().getFullYear());
-      hideLoader();
+      // hideLoader();
     }
-  }, [authStatus, router, hideLoader]);
+  }, [authStatus, router]);
 
 
   const processFormData = (data: MarksheetFormData, systemId: string): MarksheetDisplayData => {
@@ -101,7 +100,7 @@ export default function NewMarksheetPage() {
     return {
       ...data,
       system_id: systemId,
-      collegeCode: "53010", // Hardcoded as per previous logic
+      collegeCode: "53010", 
       subjects: subjectsDisplay,
       sessionDisplay: `${data.sessionStartYear}-${data.sessionEndYear}`,
       classDisplay: `${data.academicYear}`,
@@ -111,7 +110,7 @@ export default function NewMarksheetPage() {
       overallResult,
       overallPercentageDisplay,
       dateOfIssue: format(data.dateOfIssue, 'MMMM yyyy'), 
-      place: 'Samastipur', // Hardcoded
+      place: 'Samastipur', 
       registrationNo: data.registrationNo || '',
     };
   };
@@ -120,6 +119,7 @@ export default function NewMarksheetPage() {
     setIsLoadingFormSubmission(true);
 
     const academicSessionString = `${data.sessionStartYear}-${data.sessionEndYear}`;
+    const systemGeneratedId = crypto.randomUUID();
 
     const { data: existingStudentCheck, error: checkError } = await supabase
       .from('student_details')
@@ -128,7 +128,7 @@ export default function NewMarksheetPage() {
       .eq('academic_year', academicSessionString)
       .eq('class', data.academicYear)
       .eq('faculty', data.faculty)
-      .eq('registration_no', data.registrationNo || '') // Include registration_no in check
+      .eq('registration_no', data.registrationNo || null)
       .maybeSingle();
 
     if (checkError) {
@@ -150,9 +150,6 @@ export default function NewMarksheetPage() {
       setIsLoadingFormSubmission(false);
       return;
     }
-
-
-    const systemGeneratedId = crypto.randomUUID();
 
     try {
       const dobFormatted = format(data.dateOfBirth, 'yyyy-MM-dd');
@@ -295,4 +292,3 @@ export default function NewMarksheetPage() {
     </div>
   );
 }
-

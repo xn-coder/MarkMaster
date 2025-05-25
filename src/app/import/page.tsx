@@ -23,8 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from '@/components/ui/label';
-import { useLoadingIndicator } from '@/components/app/navigation-loader';
-
+// Removed import for useLoadingIndicator
 
 const pageSubtitle = `(Affiliated By Bihar School Examination Board, Patna)
 [Estd. - 1983] College Code: 53010
@@ -73,9 +72,9 @@ const parseExcelDate = (excelDate: any): string | null => {
 export default function ImportDataPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const { showLoader, hideLoader } = useLoadingIndicator();
+  // Removed showLoader, hideLoader from useLoadingIndicator
   const [file, setFile] = useState<File | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(false); // This state will now control the import button's loader
   const [importResults, setImportResults] = useState<ImportProcessingResults | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [authStatus, setAuthStatus] = useState<'loading' | 'authenticated' | 'unauthenticated'>('loading');
@@ -101,11 +100,11 @@ export default function ImportDataPage() {
   useEffect(() => {
     if (authStatus === 'unauthenticated') {
       router.push('/login');
-      hideLoader(); // Ensure loader is hidden on redirect
+      // hideLoader(); 
     } else if (authStatus === 'authenticated') {
-      hideLoader(); // Ensure loader is hidden once auth is confirmed
+      // hideLoader(); 
     }
-  }, [authStatus, router, hideLoader]);
+  }, [authStatus, router]);
 
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -126,8 +125,8 @@ export default function ImportDataPage() {
   };
 
   const handleDownloadSampleFile = () => {
-    const studentDetailsHeaders = ["Student ID", "Student Name", "Father Name", "Mother Name", "Date of Birth", "Gender", "Registration No", "Faculty", "Class"];
-    const sampleStudentRow = ["S001", "John Doe", "Robert Doe", "Jane Doe", "15-07-2003", "Male", "REG001", "SCIENCE", "12th"];
+    const studentDetailsHeaders = ["Student ID", "Registration No", "Student Name", "Father Name", "Mother Name", "Date of Birth", "Gender", "Faculty", "Class"];
+    const sampleStudentRow = ["S001", "REG001", "John Doe", "Robert Doe", "Jane Doe", "15-07-2003", "Male", "SCIENCE", "12th"];
 
     const studentMarksHeaders = ["Student ID", "Name", "Subject Name", "Subject Category", "Max Marks", "Pass Marks", "Theory Marks Obtained", "Practical Marks Obtained"];
     const sampleMarkRow = ["S001", "John Doe", "Physics", "Elective", 100, 33, 65, 25];
@@ -163,7 +162,7 @@ export default function ImportDataPage() {
     }
 
     setIsLoading(true);
-    showLoader();
+    // showLoader();
     setImportResults(null);
     toast({ title: "Import Started", description: "Processing your Excel file..." });
 
@@ -173,7 +172,7 @@ export default function ImportDataPage() {
       if (!data) {
         toast({ title: "File Read Error", description: "Could not read the file content.", variant: "destructive" });
         setIsLoading(false);
-        hideLoader();
+        // hideLoader();
         return;
       }
 
@@ -206,7 +205,7 @@ export default function ImportDataPage() {
 
           for (let i = 0; i < studentDetailsJson.length; i++) {
             const row = studentDetailsJson[i];
-            const rowNum = i + 2; // Excel row number (1-based for headers)
+            const rowNum = i + 2; 
 
             const excelStudentId = String(row['Student ID'] || '').trim();
             const studentName = String(row['Student Name'] || '').trim();
@@ -214,14 +213,14 @@ export default function ImportDataPage() {
             const motherName = String(row['Mother Name'] || '').trim();
             const dobRaw = row['Date of Birth'];
             const gender = String(row['Gender'] || '').trim();
-            const registrationNo = String(row['Registration No'] || '').trim(); // Optional field
+            const registrationNo = String(row['Registration No'] || '').trim(); 
             const faculty = String(row['Faculty'] || '').trim();
             const studentClass = String(row['Class'] || '').trim();
             
-            const currentFeedback: StudentImportFeedbackItem = { rowNumber: rowNum, excelStudentId: excelStudentId, name: studentName, status: 'skipped', message: '' };
+            const currentFeedback: StudentImportFeedbackItem = { rowNumber: rowNum, excelStudentId: excelStudentId, name: studentName, status: 'skipped', message: '', registrationNo: registrationNo };
 
             if (!excelStudentId || !studentName || !fatherName || !motherName || !dobRaw || !gender || !faculty || !studentClass ) {
-              currentFeedback.message = "Missing one or more required fields (Student ID, Student Name, Father Name, Mother Name, DOB, Gender, Faculty, Class).";
+              currentFeedback.message = "Missing one or more required fields (Student ID, Student Name, Father Name, Mother Name, DOB, Gender, Faculty, Class). Registration No. is optional.";
               results.studentFeedback.push(currentFeedback);
               results.totalStudentsSkipped++;
               continue;
@@ -242,8 +241,7 @@ export default function ImportDataPage() {
               .eq('academic_year', selectedAcademicSession)
               .eq('class', studentClass)
               .eq('faculty', faculty)
-              // If registrationNo is truly part of uniqueness, add it. Otherwise, consider its role.
-              // For now, assuming roll_no + session + class + faculty is the key for "exists"
+              .eq('registration_no', registrationNo || null) // Ensure registration_no is part of the uniqueness check
               .maybeSingle();
 
             if (checkError) {
@@ -255,23 +253,22 @@ export default function ImportDataPage() {
             }
 
             if (existingStudent) {
-              currentFeedback.message = `Student with Roll No ${excelStudentId} in Session ${selectedAcademicSession}, Class ${studentClass}, Faculty ${faculty} already exists. Skipped.`;
+              currentFeedback.message = `Student with Roll No ${excelStudentId}, Reg No ${registrationNo || 'N/A'} in Session ${selectedAcademicSession}, Class ${studentClass}, Faculty ${faculty} already exists. Skipped.`;
               results.studentFeedback.push(currentFeedback);
               results.totalStudentsSkipped++;
               excelStudentIdToSystemIdMap.set(excelStudentId, existingStudent.id); 
               continue;
             }
 
-            // Check for duplicates within the current Excel file's "Student Details" sheet based on excelStudentId
             if (excelStudentIdToSystemIdMap.has(excelStudentId)) {
                 currentFeedback.message = `Duplicate Student ID "${excelStudentId}" found within the 'Student Details' sheet. Only the first instance will be processed for mapping marks.`;
                 results.studentFeedback.push(currentFeedback);
                 results.totalStudentsSkipped++;
-                continue; // Skip this duplicate row for student insertion
+                continue; 
             }
 
             const systemGeneratedId = crypto.randomUUID();
-            excelStudentIdToSystemIdMap.set(excelStudentId, systemGeneratedId); // Map Excel Student ID to new system ID
+            excelStudentIdToSystemIdMap.set(excelStudentId, systemGeneratedId);
             currentFeedback.generatedSystemId = systemGeneratedId;
 
             studentInserts.push({
@@ -282,7 +279,7 @@ export default function ImportDataPage() {
               mother_name: motherName,
               dob: dobFormatted,
               gender: gender,
-              registration_no: registrationNo || null, // Store null if empty
+              registration_no: registrationNo || null,
               faculty: faculty,
               class: studentClass,
               academic_year: selectedAcademicSession,
@@ -307,7 +304,6 @@ export default function ImportDataPage() {
                   feedback.message = `Database insert failed: ${studentInsertError.message}`;
                 }
               });
-              results.totalStudentsAdded = 0; // Or count successful ones if it's not all-or-nothing
             } else {
               results.totalStudentsAdded = insertedStudents?.length || 0;
               results.summaryMessages.push({ type: 'success', message: `${results.totalStudentsAdded} student(s) details successfully prepared for insertion or inserted.` });
@@ -329,7 +325,6 @@ export default function ImportDataPage() {
           }
         }
 
-        // Process Student Marks Details
         const studentMarksSheetName = 'Student Marks Details';
         const studentMarksSheet = workbook.Sheets[studentMarksSheetName];
         if (!studentMarksSheet) {
@@ -341,10 +336,10 @@ export default function ImportDataPage() {
 
           for (let i = 0; i < studentMarksJson.length; i++) {
             const row = studentMarksJson[i];
-            const rowNum = i + 2; // Excel row number
+            const rowNum = i + 2; 
 
             const excelStudentIdForMarks = String(row['Student ID'] || '').trim();
-            const studentNameForFeedback = String(row['Name'] || '').trim(); // For feedback display only
+            const studentNameForFeedback = String(row['Name'] || '').trim(); 
             const subjectName = String(row['Subject Name'] || '').trim();
             const subjectCategory = String(row['Subject Category'] || '').trim();
             const maxMarksRaw = row['Max Marks'];
@@ -369,7 +364,6 @@ export default function ImportDataPage() {
               continue;
             }
 
-            // Check for duplicate subjects for the same student within this import
             const subjectKey = `${systemIdForMarks}_${subjectName.trim().toLowerCase()}`;
             if (processedSubjectKeysForImport.has(subjectKey)) {
               currentFeedback.message = `Duplicate subject "${subjectName}" for Student ID "${excelStudentIdForMarks}" (System ID: ${systemIdForMarks}) in this file. Skipped.`;
@@ -389,7 +383,7 @@ export default function ImportDataPage() {
               results.totalMarksSkipped++;
               continue;
             }
-            processedSubjectKeysForImport.add(subjectKey); // Add after validation of numbers
+            processedSubjectKeysForImport.add(subjectKey);
 
             const obtainedTotalMarks = (isNaN(theoryMarks) ? 0 : theoryMarks) + (isNaN(practicalMarks) ? 0 : practicalMarks);
 
@@ -430,7 +424,6 @@ export default function ImportDataPage() {
             if (marksInsertError) {
               results.summaryMessages.push({ type: 'error', message: `Error inserting marks details: ${marksInsertError.message}` });
               marksInserts.forEach(mi => {
-                // Find the corresponding feedback item to update its status
                 const feedback = results.marksFeedback.find(f =>
                   Array.from(excelStudentIdToSystemIdMap.entries()).find(([, sysId]) => sysId === mi.student_detail_id)?.[0] === f.excelStudentId &&
                   f.subjectName === mi.subject_name &&
@@ -441,16 +434,14 @@ export default function ImportDataPage() {
                   feedback.message = `Database insert failed: ${marksInsertError.message}`;
                 }
               });
-              results.totalMarksAdded = 0; // Or count successful ones
             } else {
               results.totalMarksAdded = insertedMarks?.length || 0;
               results.summaryMessages.push({ type: 'success', message: `${results.totalMarksAdded} marks records successfully inserted.` });
               insertedMarks?.forEach(im => {
                  const feedback = results.marksFeedback.find(f =>
-                    // Match based on the system ID (which was mapped from excelStudentId) and subject name
                     Array.from(excelStudentIdToSystemIdMap.entries()).some(([excelId, sysId]) =>
-                        sysId === im.student_detail_id && // Compare system ID of inserted mark with map
-                        f.excelStudentId === excelId &&      // Compare Excel ID in feedback with map
+                        sysId === im.student_detail_id && 
+                        f.excelStudentId === excelId &&      
                         f.subjectName === im.subject_name &&
                         f.status === 'added'
                     )
@@ -477,16 +468,16 @@ export default function ImportDataPage() {
         setImportResults(results);
         setIsLoading(false);
         if (fileInputRef.current) {
-          fileInputRef.current.value = ''; // Clear the file input
+          fileInputRef.current.value = ''; 
         }
-        setFile(null); // Reset file state
-        hideLoader();
+        setFile(null); 
+        // hideLoader();
       }
     };
     reader.onerror = () => {
       toast({ title: "File Read Error", description: "Could not read the file.", variant: "destructive" });
       setIsLoading(false);
-      hideLoader();
+      // hideLoader();
     };
     reader.readAsArrayBuffer(file);
   };
@@ -605,7 +596,7 @@ export default function ImportDataPage() {
                             {item.status === 'skipped' && <AlertTriangle className="h-3.5 w-3.5 text-yellow-600 mr-1.5 flex-shrink-0" />}
                             {item.status === 'error' && <XCircle className="h-3.5 w-3.5 text-red-600 mr-1.5 flex-shrink-0" />}
                             <span className="font-semibold">Row {item.rowNumber}:</span>&nbsp;
-                            <span className="font-medium">Excel ID: {item.excelStudentId || 'N/A'}, Name: {item.name}</span>&nbsp;-&nbsp;
+                            <span className="font-medium">Excel ID: {item.excelStudentId || 'N/A'}, Reg No: {item.registrationNo || 'N/A'}, Name: {item.name}</span>&nbsp;-&nbsp;
                             <span className={`font-medium ${item.status === 'added' ? 'text-green-600' :
                               item.status === 'skipped' ? 'text-yellow-600' :
                                 'text-red-600'
@@ -659,4 +650,3 @@ export default function ImportDataPage() {
     </div>
   );
 }
-
