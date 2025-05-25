@@ -63,7 +63,7 @@ export default function ViewMarksheetPage() {
           const { data: studentDetails, error: studentError } = await supabase
             .from('student_details')
             .select('*')
-            .eq('id', studentSystemId) // Use 'id' for UUID
+            .eq('id', studentSystemId) 
             .single();
 
           if (studentError || !studentDetails) {
@@ -76,7 +76,7 @@ export default function ViewMarksheetPage() {
           const { data: subjectMarks, error: marksError } = await supabase
             .from('student_marks_details')
             .select('*')
-            .eq('student_detail_id', studentSystemId); // Use 'student_detail_id'
+            .eq('student_detail_id', studentSystemId); 
 
           if (marksError) {
             toast({ title: 'Error Fetching Subjects', description: marksError.message, variant: 'destructive' });
@@ -92,7 +92,7 @@ export default function ViewMarksheetPage() {
             }
           }
           
-          const formDataFromDb: Omit<MarksheetFormData, 'overallPassingThresholdPercentage' | 'subjects'> & { subjects: Omit<SubjectEntryFormData, 'passMarks'>[] } = {
+          const formDataFromDb: Omit<MarksheetFormData, 'subjects'> & { subjects: Omit<SubjectEntryFormData, 'id'>[] } = {
             system_id: studentDetails.id,
             studentName: studentDetails.name,
             fatherName: studentDetails.father_name,
@@ -107,28 +107,26 @@ export default function ViewMarksheetPage() {
             sessionStartYear: sessionStartYearNum,
             sessionEndYear: sessionEndYearNum,
             subjects: subjectMarks?.map(mark => ({
-              id: mark.mark_id?.toString() || crypto.randomUUID(),
               subjectName: mark.subject_name,
               category: mark.category as SubjectEntryFormData['category'],
               totalMarks: mark.max_marks,
-              // passMarks removed
               theoryMarksObtained: mark.theory_marks_obtained ?? 0,
               practicalMarksObtained: mark.practical_marks_obtained ?? 0,
             })) || [],
           };
 
-          const subjectsDisplay: MarksheetSubjectDisplayEntry[] = formDataFromDb.subjects.map(s => {
+          const subjectsDisplay: MarksheetSubjectDisplayEntry[] = formDataFromDb.subjects.map((s, idx) => {
             const obtainedTotal = (s.theoryMarksObtained || 0) + (s.practicalMarksObtained || 0);
             let subjectFailed = false;
-            if ((s.theoryMarksObtained ?? 0) > 0 && (s.theoryMarksObtained ?? 0) < THEORY_PASS_THRESHOLD) {
+            if (typeof s.theoryMarksObtained === 'number' && s.theoryMarksObtained < THEORY_PASS_THRESHOLD) {
                 subjectFailed = true;
             }
-            if (!subjectFailed && (s.practicalMarksObtained ?? 0) > 0 && (s.practicalMarksObtained ?? 0) < PRACTICAL_PASS_THRESHOLD) {
+            if (!subjectFailed && typeof s.practicalMarksObtained === 'number' && s.practicalMarksObtained < PRACTICAL_PASS_THRESHOLD) {
                 subjectFailed = true;
             }
             return {
               ...s,
-              id: s.id || crypto.randomUUID(),
+              id: subjectMarks?.[idx]?.mark_id?.toString() || crypto.randomUUID(), // use actual mark_id if available
               obtainedTotal,
               isFailed: subjectFailed,
             };
@@ -270,9 +268,4 @@ export default function ViewMarksheetPage() {
       <footer className="py-4 border-t border-border mt-auto print:hidden">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 text-center text-xs text-muted-foreground max-w-screen-xl">
           {footerYear && <p>Copyright ©{footerYear} by Saryug College, Samastipur, Bihar. Design By Mantix.</p>}
-          {!footerYear && <p>Copyright by Saryug College, Samastipur, Bihar. Design By Mantix.</p>}
-        </div>
-      </footer>
-    </div>
-  );
-}
+          {!footerYear && <p>Copyright by Saryug College,

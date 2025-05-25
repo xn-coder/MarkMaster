@@ -6,7 +6,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase/client';
 import { MarksheetForm } from '@/components/app/marksheet-form';
 import { MarksheetDisplay } from '@/components/app/marksheet-display';
-import type { MarksheetFormData, MarksheetDisplayData, MarksheetSubjectDisplayEntry } from '@/types';
+import type { MarksheetFormData, MarksheetDisplayData, MarksheetSubjectDisplayEntry, SubjectEntryFormData } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Loader2, ArrowLeft } from 'lucide-react';
@@ -66,7 +66,7 @@ export default function EditMarksheetPage() {
           const { data: studentDetails, error: studentError } = await supabase
             .from('student_details')
             .select('*')
-            .eq('id', studentSystemId) // Use 'id' for UUID
+            .eq('id', studentSystemId)
             .single();
 
           if (studentError || !studentDetails) {
@@ -78,7 +78,7 @@ export default function EditMarksheetPage() {
           const { data: subjectMarks, error: marksError } = await supabase
             .from('student_marks_details')
             .select('*')
-            .eq('student_detail_id', studentSystemId); // Use 'student_detail_id'
+            .eq('student_detail_id', studentSystemId); 
 
           if (marksError) {
             toast({ title: 'Error Fetching Subjects', description: marksError.message, variant: 'destructive' });
@@ -102,19 +102,17 @@ export default function EditMarksheetPage() {
             rollNumber: studentDetails.roll_no,
             registrationNo: studentDetails.registration_no || null,
             dateOfBirth: studentDetails.dob ? parseISO(studentDetails.dob) : new Date(),
-            dateOfIssue: new Date(), // Default to current for edit, user can change
+            dateOfIssue: new Date(), 
             gender: studentDetails.gender as MarksheetFormData['gender'],
             faculty: studentDetails.faculty as MarksheetFormData['faculty'],
             academicYear: studentDetails.class as typeof ACADEMIC_YEAR_OPTIONS[number],
             sessionStartYear: sessionStartYearNum,
             sessionEndYear: sessionEndYearNum,
-            // overallPassingThresholdPercentage removed
             subjects: subjectMarks?.map(mark => ({
               id: mark.mark_id?.toString() || crypto.randomUUID(),
               subjectName: mark.subject_name,
               category: mark.category as SubjectEntryFormData['category'],
               totalMarks: mark.max_marks,
-              // passMarks removed
               theoryMarksObtained: mark.theory_marks_obtained ?? 0,
               practicalMarksObtained: mark.practical_marks_obtained ?? 0,
             })) || [],
@@ -141,10 +139,10 @@ export default function EditMarksheetPage() {
     const subjectsDisplay: MarksheetSubjectDisplayEntry[] = data.subjects.map(s => {
       const obtainedTotal = (s.theoryMarksObtained || 0) + (s.practicalMarksObtained || 0);
       let subjectFailed = false;
-      if ((s.theoryMarksObtained ?? 0) > 0 && (s.theoryMarksObtained ?? 0) < THEORY_PASS_THRESHOLD) {
+      if (typeof s.theoryMarksObtained === 'number' && s.theoryMarksObtained < THEORY_PASS_THRESHOLD) {
         subjectFailed = true;
       }
-      if (!subjectFailed && (s.practicalMarksObtained ?? 0) > 0 && (s.practicalMarksObtained ?? 0) < PRACTICAL_PASS_THRESHOLD) {
+      if (!subjectFailed && typeof s.practicalMarksObtained === 'number' && s.practicalMarksObtained < PRACTICAL_PASS_THRESHOLD) {
         subjectFailed = true;
       }
       
@@ -222,24 +220,23 @@ export default function EditMarksheetPage() {
           class: data.academicYear,
           academic_year: `${data.sessionStartYear}-${data.sessionEndYear}`,
         })
-        .eq('id', studentSystemId); // Use 'id' for UUID
+        .eq('id', studentSystemId); 
 
       if (studentUpdateError) throw studentUpdateError;
 
       const { error: deleteMarksError } = await supabase
         .from('student_marks_details')
         .delete()
-        .eq('student_detail_id', studentSystemId); // Use 'student_detail_id'
+        .eq('student_detail_id', studentSystemId); 
 
       if (deleteMarksError) throw deleteMarksError;
 
       if (data.subjects && data.subjects.length > 0) {
         const marksToInsert = data.subjects.map(subject => ({
-          student_detail_id: studentSystemId, // Use UUID
+          student_detail_id: studentSystemId, 
           subject_name: subject.subjectName,
           category: subject.category,
           max_marks: subject.totalMarks,
-          // pass_marks removed
           theory_marks_obtained: subject.theoryMarksObtained,
           practical_marks_obtained: subject.practicalMarksObtained,
           obtained_total_marks: (subject.theoryMarksObtained || 0) + (subject.practicalMarksObtained || 0),
@@ -338,9 +335,4 @@ export default function EditMarksheetPage() {
       <footer className="py-4 border-t border-border mt-auto print:hidden">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 text-center text-xs text-muted-foreground max-w-screen-xl">
           {footerYear && <p>Copyright ©{footerYear} by Saryug College, Samastipur, Bihar. Design By Mantix.</p>}
-          {!footerYear && <p>Copyright by Saryug College, Samastipur, Bihar. Design By Mantix.</p>}
-        </div>
-      </footer>
-    </div>
-  );
-}
+          {!footerYear && <p>Copyright by Saryug College, Samastipur,

@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -64,24 +63,16 @@ export default function NewMarksheetPage() {
     const subjectsDisplay: MarksheetSubjectDisplayEntry[] = data.subjects.map(s => {
       const obtainedTotal = (s.theoryMarksObtained || 0) + (s.practicalMarksObtained || 0);
       let subjectFailed = false;
-      if ((s.theoryMarksObtained ?? 0) > 0 && (s.theoryMarksObtained ?? 0) < THEORY_PASS_THRESHOLD) {
+      if (typeof s.theoryMarksObtained === 'number' && s.theoryMarksObtained < THEORY_PASS_THRESHOLD) {
         subjectFailed = true;
       }
-      if (!subjectFailed && (s.practicalMarksObtained ?? 0) > 0 && (s.practicalMarksObtained ?? 0) < PRACTICAL_PASS_THRESHOLD) {
+      if (!subjectFailed && typeof s.practicalMarksObtained === 'number' && s.practicalMarksObtained < PRACTICAL_PASS_THRESHOLD) {
         subjectFailed = true;
       }
-      // If both theory and practical are zero or null, it's not considered failed by these criteria alone
-      // unless the obtainedTotal is less than some overall subject pass mark (which we removed).
-      // For now, failure is only triggered if marks are entered and below threshold.
-      if (s.theoryMarksObtained === 0 && s.practicalMarksObtained === 0 && s.totalMarks > 0) {
-        // if total marks is >0 and student got 0, they failed this subject by default.
-        // This might need refinement if 0 is a valid obtained mark sometimes.
-      }
-
-
+      
       return {
         ...s,
-        id: s.id || crypto.randomUUID(), // ensure id is present
+        id: s.id || crypto.randomUUID(),
         obtainedTotal,
         isFailed: subjectFailed,
       };
@@ -107,7 +98,6 @@ export default function NewMarksheetPage() {
     const totalMarksInWords = numberToWords(aggregateMarksCompulsoryElective);
 
     let overallResult: 'Pass' | 'Fail' = 'Pass';
-    // Overall result is fail if any subject is failed
     if (subjectsDisplay.some(subject => subject.isFailed)) {
       overallResult = 'Fail';
     }
@@ -136,7 +126,6 @@ export default function NewMarksheetPage() {
     const academicSessionString = `${data.sessionStartYear}-${data.sessionEndYear}`;
     const systemGeneratedId = crypto.randomUUID();
 
-    // Check for existing student
     const { data: existingStudentCheck, error: checkError } = await supabase
       .from('student_details')
       .select('id')
@@ -144,7 +133,7 @@ export default function NewMarksheetPage() {
       .eq('academic_year', academicSessionString)
       .eq('class', data.academicYear)
       .eq('faculty', data.faculty)
-      .eq('registration_no', data.registrationNo || null)
+      .eq('registration_no', data.registrationNo || null) 
       .maybeSingle();
 
     if (checkError) {
@@ -171,7 +160,7 @@ export default function NewMarksheetPage() {
       const dobFormatted = format(data.dateOfBirth, 'yyyy-MM-dd');
 
       const studentToInsert = {
-        id: systemGeneratedId, // New UUID
+        id: systemGeneratedId, 
         roll_no: data.rollNumber,
         name: data.studentName,
         father_name: data.fatherName,
@@ -202,11 +191,10 @@ export default function NewMarksheetPage() {
       }
 
       const subjectMarksToInsert = data.subjects.map(subject => ({
-        student_detail_id: insertedStudentData.id, // Link to the new UUID
+        student_detail_id: insertedStudentData.id, 
         subject_name: subject.subjectName,
         category: subject.category,
         max_marks: subject.totalMarks,
-        // pass_marks removed
         theory_marks_obtained: subject.theoryMarksObtained,
         practical_marks_obtained: subject.practicalMarksObtained,
         obtained_total_marks: (subject.theoryMarksObtained || 0) + (subject.practicalMarksObtained || 0),
