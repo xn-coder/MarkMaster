@@ -41,18 +41,18 @@ import { Checkbox } from "@/components/ui/checkbox";
 import {
   RefreshCw,
   FilePlus2,
-  Download,
-  Upload,
+  Download, // Swapped from Upload
+  Upload,   // Swapped from Download
   MoreHorizontal,
   ChevronLeft,
   ChevronRight,
   Loader2,
   Trash2,
+  ArrowLeft,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { format, parseISO } from 'date-fns';
 import type { StudentRowData } from '@/types';
-// Removed import for useLoadingIndicator
 
 const dashboardPageTitle = "SARYUG COLLEGE";
 const dashboardPageSubtitle = `(Affiliated By Bihar School Examination Board, Patna)
@@ -63,7 +63,6 @@ www.saryugcollege.com`;
 export default function AdminDashboardPage() {
   const router = useRouter();
   const { toast } = useToast();
-  // Removed showLoader, hideLoader from useLoadingIndicator
 
   const [authStatus, setAuthStatus] = useState<'loading' | 'authenticated' | 'unauthenticated'>('loading');
   const [isLoadingData, setIsLoadingData] = useState(false);
@@ -77,6 +76,8 @@ export default function AdminDashboardPage() {
   const [dynamicStartYearOptions, setDynamicStartYearOptions] = useState<string[]>(['All Start Years']);
   const [dynamicEndYearOptions, setDynamicEndYearOptions] = useState<string[]>(['All End Years']);
   const [dynamicClassOptions, setDynamicClassOptions] = useState<string[]>(['All Classes']);
+  const [dynamicFacultyOptions, setDynamicFacultyOptions] = useState<string[]>(['All Faculties']);
+
 
   const [academicYearFilter, setAcademicYearFilter] = useState('All Academic Years');
   const [startYearFilter, setStartYearFilter] = useState('All Start Years');
@@ -84,6 +85,8 @@ export default function AdminDashboardPage() {
   const [studentRollNoFilter, setStudentRollNoFilter] = useState('');
   const [studentNameFilter, setStudentNameFilter] = useState('');
   const [classFilter, setClassFilter] = useState('All Classes');
+  const [facultyFilter, setFacultyFilter] = useState('All Faculties');
+
 
   const [currentPage, setCurrentPage] = useState(1);
   const [entriesPerPage, setEntriesPerPage] = useState(10);
@@ -122,9 +125,6 @@ export default function AdminDashboardPage() {
  useEffect(() => {
     if (authStatus === 'unauthenticated') {
       router.push('/login');
-      // hideLoader();
-    } else if (authStatus === 'authenticated') {
-      // hideLoader();
     }
   }, [authStatus, router]);
 
@@ -135,6 +135,7 @@ export default function AdminDashboardPage() {
       setDynamicStartYearOptions(['All Start Years']);
       setDynamicEndYearOptions(['All End Years']);
       setDynamicClassOptions(['All Classes']);
+      setDynamicFacultyOptions(['All Faculties']);
       return;
     }
 
@@ -149,11 +150,13 @@ export default function AdminDashboardPage() {
 
     const classes = [...new Set(students.map(s => s.class).filter(Boolean) as string[])].sort();
     setDynamicClassOptions(['All Classes', ...classes]);
+    
+    const faculties = [...new Set(students.map(s => s.faculty).filter(Boolean) as string[])].sort();
+    setDynamicFacultyOptions(['All Faculties', ...faculties]);
   };
 
   const handleLoadStudentData = async () => {
     setIsLoadingData(true);
-    // showLoader();
     setSelectedStudents(new Set());
     try {
       const { data: studentsData, error } = await supabase
@@ -166,13 +169,13 @@ export default function AdminDashboardPage() {
 
       if (studentsData) {
         const formattedStudents: StudentRowData[] = studentsData.map(s => ({
-          system_id: s.id,
+          system_id: s.id, // This is the UUID
           roll_no: s.roll_no || '',
+          registrationNo: s.registration_no || '',
           name: s.name,
           academicYear: s.academic_year,
           class: s.class,
           faculty: s.faculty,
-          registrationNo: s.registration_no || '',
         }));
         setAllStudents(formattedStudents);
         populateDynamicFilterOptions(formattedStudents);
@@ -188,7 +191,6 @@ export default function AdminDashboardPage() {
       populateDynamicFilterOptions([]);
     } finally {
       setIsLoadingData(false);
-      // hideLoader();
     }
   };
 
@@ -239,12 +241,16 @@ export default function AdminDashboardPage() {
     if (classFilter !== 'All Classes') {
       filtered = filtered.filter(student => student.class === classFilter);
     }
+    if (facultyFilter !== 'All Faculties') {
+      filtered = filtered.filter(student => student.faculty === facultyFilter);
+    }
     return filtered;
-  }, [allStudents, academicYearFilter, startYearFilter, endYearFilter, studentRollNoFilter, studentNameFilter, classFilter]);
+  }, [allStudents, academicYearFilter, startYearFilter, endYearFilter, studentRollNoFilter, studentNameFilter, classFilter, facultyFilter]);
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [displayedStudents]);
+  }, [displayedStudents, entriesPerPage]);
+
 
   const paginatedStudents = useMemo(() => {
     const startIndex = (currentPage - 1) * entriesPerPage;
@@ -265,25 +271,29 @@ export default function AdminDashboardPage() {
     if (!confirm(`Are you sure you want to delete student ${student.name} (Roll No: ${student.roll_no}) and all their marks? This action cannot be undone.`)) {
       return;
     }
-    // showLoader();
-    setIsLoadingData(true); // Using isLoadingData for general loading feedback
+    setIsLoadingData(true); 
     try {
+      // First, delete associated marks
       const { error: marksError } = await supabase
         .from('student_marks_details')
         .delete()
-        .eq('student_detail_id', student.system_id);
+        .eq('student_detail_id', student.system_id); 
 
       if (marksError) {
+         console.error(`Failed to delete marks for student ${student.name} (System ID: ${student.system_id}): ${marksError.message}`);
+        // Decide if you want to throw or just warn. For now, we'll throw to stop student deletion if marks fail.
         throw new Error(`Could not delete marks for ${student.name}: ${marksError.message}`);
       }
 
+      // Then, delete the student
       const { error: studentError } = await supabase
         .from('student_details')
         .delete()
         .eq('id', student.system_id);
 
       if (studentError) {
-        throw new Error(`Could not delete student ${student.name}: ${studentError.message}. Their marks might have been deleted.`);
+        console.error(`Failed to delete student ${student.name} (System ID: ${student.system_id}): ${studentError.message}`);
+        throw new Error(`Could not delete student ${student.name}. Their marks might have been deleted if the previous step succeeded. Error: ${studentError.message}`);
       }
 
       toast({
@@ -299,12 +309,11 @@ export default function AdminDashboardPage() {
     } catch (error: any) {
       toast({
         title: 'Deletion Failed',
-        description: error.message || 'An unexpected error occurred.',
+        description: error.message || 'An unexpected error occurred during deletion.',
         variant: 'destructive',
       });
     } finally {
       setIsLoadingData(false);
-      // hideLoader();
     }
   };
 
@@ -319,14 +328,13 @@ export default function AdminDashboardPage() {
     }
 
     setIsExporting(true);
-    // showLoader();
     toast({ title: "Exporting Data", description: "Fetching student details and marks, please wait..." });
 
     const studentDetailsSheetData: any[] = [];
     const studentMarksDataSheet: any[] = [];
 
     const studentDetailHeaders = ["System ID", "Roll No", "Registration No", "Name", "Father Name", "Mother Name", "Date of Birth", "Gender", "Faculty", "Class", "Academic Session"];
-    const studentMarkHeaders = ["System ID", "Roll No", "Name", "Subject Name", "Subject Category", "Max Marks", "Pass Marks", "Theory Marks Obtained", "Practical Marks Obtained", "Obtained Total Marks"];
+    const studentMarkHeaders = ["System ID", "Roll No", "Registration No", "Name", "Subject Name", "Subject Category", "Max Marks", "Pass Marks", "Theory Marks Obtained", "Practical Marks Obtained", "Obtained Total Marks"];
 
     try {
       for (const displayedStudent of displayedStudents) {
@@ -365,7 +373,7 @@ export default function AdminDashboardPage() {
         if (marksDetails && marksDetails.length > 0) {
           for (const mark of marksDetails) {
             studentMarksDataSheet.push({
-              "System ID": studentDetails.id, "Roll No": studentDetails.roll_no, "Name": studentDetails.name,
+              "System ID": studentDetails.id, "Roll No": studentDetails.roll_no, "Registration No": studentDetails.registration_no || '', "Name": studentDetails.name,
               "Subject Name": mark.subject_name, "Subject Category": mark.category, "Max Marks": mark.max_marks,
               "Pass Marks": mark.pass_marks, "Theory Marks Obtained": mark.theory_marks_obtained,
               "Practical Marks Obtained": mark.practical_marks_obtained, "Obtained Total Marks": mark.obtained_total_marks,
@@ -373,7 +381,7 @@ export default function AdminDashboardPage() {
           }
         } else {
              studentMarksDataSheet.push({
-              "System ID": studentDetails.id, "Roll No": studentDetails.roll_no, "Name": studentDetails.name,
+              "System ID": studentDetails.id, "Roll No": studentDetails.roll_no, "Registration No": studentDetails.registration_no || '', "Name": studentDetails.name,
               "Subject Name": "N/A", "Subject Category": "N/A", "Max Marks": "N/A", "Pass Marks": "N/A",
               "Theory Marks Obtained": "N/A", "Practical Marks Obtained": "N/A", "Obtained Total Marks": "N/A",
             });
@@ -383,7 +391,6 @@ export default function AdminDashboardPage() {
       if (studentDetailsSheetData.length === 0 && studentMarksDataSheet.length === 0) {
         toast({ title: "No Detailed Data", description: "Could not fetch detailed data for the selected students.", variant: "destructive" });
         setIsExporting(false);
-        // hideLoader();
         return;
       }
 
@@ -427,7 +434,6 @@ export default function AdminDashboardPage() {
       toast({ title: "Export Failed", description: error.message || "An unknown error occurred.", variant: "destructive" });
     } finally {
       setIsExporting(false);
-      // hideLoader();
     }
   };
 
@@ -464,42 +470,62 @@ export default function AdminDashboardPage() {
     }
 
     setIsDeletingSelected(true);
-    // showLoader();
     let deletedCount = 0;
     let errorCount = 0;
+    const studentsToDelete = Array.from(selectedStudents); 
 
-    for (const studentSystemId of selectedStudents) {
+    for (const studentSystemId of studentsToDelete) {
+      console.log(`Attempting to delete student with system_id: ${studentSystemId}`);
       try {
+        // First, delete associated marks
         const { error: marksError } = await supabase
           .from('student_marks_details')
           .delete()
-          .eq('student_detail_id', studentSystemId);
+          .eq('student_detail_id', studentSystemId); 
 
-        if (marksError) console.error(`Failed to delete marks for student ID ${studentSystemId.substring(0,8)}...: ${marksError.message}`);
+        if (marksError) {
+          console.error(`Failed to delete marks for student ID ${studentSystemId}: ${marksError.message}`);
+          toast({ 
+            title: "Marks Deletion Error", 
+            description: `Could not delete marks for student ID ${studentSystemId.substring(0,8)}... Details: ${marksError.message}`, 
+            variant: "destructive" 
+          });
+          errorCount++;
+          continue; // Skip deleting this student if marks deletion failed
+        }
         
+        // Then, delete the student
         const { error: studentError } = await supabase
           .from('student_details')
           .delete()
           .eq('id', studentSystemId);
 
-        if (studentError) throw new Error(`Failed to delete student ID ${studentSystemId.substring(0,8)}...: ${studentError.message}`);
+        if (studentError) {
+          console.error(`Failed to delete student ID ${studentSystemId}: ${studentError.message}`);
+          throw new Error(`Failed to delete student ID ${studentSystemId.substring(0,8)}... Details: ${studentError.message}`);
+        }
         deletedCount++;
       } catch (error: any) {
-        console.error(error);
-        toast({ title: "Deletion Error", description: error.message, variant: "destructive" });
+        // This catch block will now primarily catch errors from student deletion or re-thrown mark deletion errors
+        console.error(`Overall deletion error for student ID ${studentSystemId}:`, error);
+        toast({ 
+            title: "Deletion Error", 
+            description: error.message || `An unexpected error occurred while deleting student ID ${studentSystemId.substring(0,8)}...`, 
+            variant: "destructive" 
+        });
         errorCount++;
       }
     }
 
-    if (deletedCount > 0) toast({ title: "Deletion Successful", description: `${deletedCount} student(s) deleted.` });
-    if (errorCount > 0) toast({ title: "Deletion Partially Failed", description: `${errorCount} student(s) could not be deleted. Check console.`, variant: "destructive" });
+    if (deletedCount > 0) toast({ title: "Deletion Processed", description: `${deletedCount} student(s) successfully deleted.` });
+    if (errorCount > 0) toast({ title: "Deletion Partially Failed", description: `${errorCount} student(s) could not be fully deleted. Check console for details.`, variant: "destructive" });
     
-    setSelectedStudents(new Set());
-    await handleLoadStudentData(); 
+    setSelectedStudents(new Set()); // Clear selection
+    await handleLoadStudentData(); // Refresh the data
     
     setIsDeletingSelected(false);
-    // hideLoader();
   };
+
 
   if (authStatus === 'loading') {
     return (
@@ -543,7 +569,7 @@ export default function AdminDashboardPage() {
                     className="text-primary-foreground hover:bg-accent hover:text-accent-foreground"
                     disabled={isDeletingSelected || isLoadingData || isExporting}
                   >
-                    <Download className="mr-2 h-4 w-4" /> Import Data
+                    <Download className="mr-2 h-4 w-4" /> Import Data 
                   </Button>
                 </Link>
                 <Button variant="ghost" size="sm" className="text-primary-foreground hover:bg-accent hover:text-accent-foreground" onClick={handleExportToExcel} disabled={isExporting || isDeletingSelected || allStudents.length === 0 || isLoadingData}>
@@ -612,6 +638,15 @@ export default function AdminDashboardPage() {
                   </SelectContent>
                 </Select>
               </div>
+               <div>
+                <Label htmlFor="faculty">Faculty</Label>
+                <Select value={facultyFilter} onValueChange={setFacultyFilter} disabled={isDeletingSelected || isLoadingData || isExporting}>
+                  <SelectTrigger id="faculty"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {dynamicFacultyOptions.map(fac => <SelectItem key={fac} value={fac} disabled={fac === 'All Faculties' && dynamicFacultyOptions.length === 1}>{fac}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -654,7 +689,7 @@ export default function AdminDashboardPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {isLoadingData && !isDeletingSelected && !isExporting ? ( // Show loader only if it's initial data loading
+                  {isLoadingData && !isDeletingSelected && !isExporting ? ( 
                     <TableRow>
                       <TableCell colSpan={8} className="text-center py-8">
                         <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto" />
@@ -731,3 +766,5 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
+
+    
