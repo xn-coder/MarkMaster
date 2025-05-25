@@ -1,15 +1,17 @@
+// NewMarksheetPage.tsx
+
 'use client';
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { supabase } from '@/lib/supabase/client'; // KEEP for AUTH
+import { supabase } from '@/lib/supabase/client';
 import { MarksheetForm } from '@/components/app/marksheet-form';
 import { MarksheetDisplay } from '@/components/app/marksheet-display';
 import type { MarksheetFormData, MarksheetDisplayData, MarksheetSubjectDisplayEntry } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Loader2, ArrowLeft } from 'lucide-react';
-import { format } from 'date-fns'; // Keep for client-side date formatting
+import { format } from 'date-fns';
 import { AppHeader } from '@/components/app/app-header';
 import { numberToWords } from '@/lib/utils';
 
@@ -17,13 +19,17 @@ import { numberToWords } from '@/lib/utils';
 import {
   checkExistingStudentAction,
   saveMarksheetAction,
-  type SaveMarksheetResult // Optional import for type safety
-} from '@/app/admin/actions'; // Adjust path if needed
+  type SaveMarksheetResult
+} from '@/app/admin/actions';
 
 const defaultPageSubtitle = `(Affiliated By Bihar School Examination Board, Patna)
 [Estd. - 1983] College Code: 53010
 Chitragupta Nagar, Mohanpur, Samastipur, Bihar - 848101
 www.saryugcollege.com`;
+
+// UPDATED: Fixed thresholds for fallback if subject-specific pass marks are not provided
+const FIXED_THEORY_PASS_THRESHOLD = 21;
+const FIXED_PRACTICAL_PASS_THRESHOLD = 9;
 
 export default function NewMarksheetPage() {
   const router = useRouter();
@@ -34,7 +40,6 @@ export default function NewMarksheetPage() {
   const [marksheetData, setMarksheetData] = useState<MarksheetDisplayData | null>(null);
   const [footerYear, setFooterYear] = useState<number | null>(null);
 
-  // --- AUTHENTICATION LOGIC (NO CHANGE) ---
   useEffect(() => {
     const checkAuthentication = async () => {
       try {
@@ -63,7 +68,6 @@ export default function NewMarksheetPage() {
     }
   }, [authStatus, router]);
 
-  // --- CLIENT-SIDE DATA PROCESSING LOGIC (NO CHANGE) ---
   const generateMarksheetNo = (faculty: string, rollNumber: string, sessionEndYear: number): string => {
     const facultyCode = faculty.substring(0, 2).toUpperCase();
     const month = format(new Date(), 'MMM').toUpperCase();
@@ -72,10 +76,40 @@ export default function NewMarksheetPage() {
   };
   
   const processFormData = (data: MarksheetFormData, systemId: string): MarksheetDisplayData => {
-    const subjectsDisplay: MarksheetSubjectDisplayEntry[] = data.subjects.map(s => ({
-      ...s,
-      obtainedTotal: (s.theoryMarksObtained || 0) + (s.practicalMarksObtained || 0),
-    }));
+    const subjectsDisplay: MarksheetSubjectDisplayEntry[] = data.subjects.map(s => {
+      const obtainedTotal = (s.theoryMarksObtained || 0) + (s.practicalMarksObtained || 0);
+      
+      let isTheoryFailed = false;
+      let isPracticalFailed = false;
+
+      // Determine theory failure: use subject's theoryPassMarks if present, otherwise fixed threshold
+      const theoryPassThreshold = s.theoryPassMarks !== null && s.theoryPassMarks !== undefined 
+                                  ? s.theoryPassMarks 
+                                  : FIXED_THEORY_PASS_THRESHOLD;
+      if (typeof s.theoryMarksObtained === 'number' && s.theoryMarksObtained < theoryPassThreshold) {
+        isTheoryFailed = true;
+      }
+
+      // Determine practical failure: use subject's practicalPassMarks if present, otherwise fixed threshold
+      const practicalPassThreshold = s.practicalPassMarks !== null && s.practicalPassMarks !== undefined
+                                    ? s.practicalPassMarks
+                                    : FIXED_PRACTICAL_PASS_THRESHOLD;
+      if (typeof s.practicalMarksObtained === 'number' && s.practicalMarksObtained < practicalPassThreshold) {
+        isPracticalFailed = true;
+      }
+
+      // A subject fails if either theory or practical component fails
+      const isSubjectFailed = isTheoryFailed || isPracticalFailed; 
+      
+      return {
+        ...s,
+        id: s.id || crypto.randomUUID(),
+        obtainedTotal,
+        isFailed: isSubjectFailed,
+        isTheoryFailed,
+        isPracticalFailed,
+      };
+    });
 
     const compulsoryElectiveSubjects = subjectsDisplay.filter(
       s => s.category === 'Compulsory' || s.category === 'Elective'
@@ -97,25 +131,21 @@ export default function NewMarksheetPage() {
     const totalMarksInWords = numberToWords(aggregateMarksCompulsoryElective);
 
     let overallResult: 'Pass' | 'Fail' = 'Pass';
+    if (subjectsDisplay.some(subject => subject.isFailed && (subject.category === 'Compulsory' || subject.category === 'Elective'))) {
+      overallResult = 'Fail';
+    }
     if (overallPercentageDisplay < data.overallPassingThresholdPercentage) {
       overallResult = 'Fail';
     }
-    for (const subject of subjectsDisplay) {
-      if (subject.obtainedTotal < subject.passMarks) {
-        overallResult = 'Fail';
-        break;
-      }
-    }
 
-    // Generate marksheet number client-side if needed for immediate display,
-    // or consider generating it server-side and returning it.
     const marksheetNo = generateMarksheetNo(data.faculty, data.rollNumber, data.sessionEndYear);
 
     return {
       ...data,
       system_id: systemId,
       collegeCode: "53010",
-      registrationNo: data.registrationNo,
+      registrationNo: data.registrationNo || null,
+      marksheetNo: marksheetNo,
       subjects: subjectsDisplay,
       sessionDisplay: `${data.sessionStartYear}-${data.sessionEndYear}`,
       classDisplay: `${data.academicYear}`,
@@ -129,77 +159,46 @@ export default function NewMarksheetPage() {
     };
   };
 
-  // --- MODIFIED: HANDLE FORM SUBMIT ---
   const handleFormSubmit = async (data: MarksheetFormData) => {
     setIsLoadingFormSubmission(true);
     const academicSessionString = `${data.sessionStartYear}-${data.sessionEndYear}`;
 
     try {
-      // Client-side check (optional, server will also check)
       const checkResult = await checkExistingStudentAction(
-        data.rollNumber,
-        academicSessionString,
-        data.academicYear, // Use data.academicYear for class
-        data.faculty,
-        data.registrationNo
+        data.rollNumber, academicSessionString, data.academicYear, data.faculty, data.registrationNo
       );
 
       if (checkResult.error) {
-        toast({
-          title: 'Error',
-          description: `Failed to check for existing student: ${checkResult.error}`,
-          variant: 'destructive',
-        });
+        toast({ title: 'Error', description: `Failed to check for existing student: ${checkResult.error}`, variant: 'destructive' });
         setIsLoadingFormSubmission(false);
         return;
       }
-
       if (checkResult.exists) {
-        toast({
-          title: 'Student Already Exists',
-          description: 'A student with the same Roll No., Academic Session, Class, and Faculty already exists (client check).',
-          variant: 'destructive',
-        });
+        toast({ title: 'Student Already Exists', description: 'A student with the same Roll No., Academic Session, Class, Faculty, and Registration No. (if provided) already exists.', variant: 'destructive' });
         setIsLoadingFormSubmission(false);
         return;
       }
 
-      // Call the server action to save the data
-      const saveResult: SaveMarksheetResult = await saveMarksheetAction(data);
+      const saveResult = await saveMarksheetAction(data);
 
       if (saveResult.success && saveResult.studentId) {
-        toast({
-          title: 'Marksheet Data Saved',
-          description: saveResult.message,
-        });
+        toast({ title: 'Marksheet Data Saved', description: saveResult.message });
         const processedDataForDisplay = processFormData(data, saveResult.studentId);
         setMarksheetData(processedDataForDisplay);
       } else {
-        toast({
-          title: 'Failed to Save Marksheet',
-          description: saveResult.message + (saveResult.errorDetails ? ` Details: ${saveResult.errorDetails}` : ''),
-          variant: 'destructive',
-        });
+        toast({ title: 'Failed to Save Marksheet', description: saveResult.message + (saveResult.errorDetails ? ` Details: ${saveResult.errorDetails}` : ''), variant: 'destructive' });
       }
     } catch (error) {
       console.error("Error during form submission process:", error);
       let message = 'An unexpected error occurred during submission.';
-      if (error instanceof Error) {
-        message = error.message;
-      }
-      toast({
-        title: 'Operation Error',
-        description: message,
-        variant: 'destructive',
-      });
+      if (error instanceof Error) { message = error.message; }
+      toast({ title: 'Operation Error', description: message, variant: 'destructive' });
     } finally {
       setIsLoadingFormSubmission(false);
     }
   };
 
-  const handleCreateNew = () => {
-    setMarksheetData(null);
-  };
+  const handleCreateNew = () => { setMarksheetData(null); };
 
   if (authStatus === 'loading') {
     return (
@@ -210,8 +209,6 @@ export default function NewMarksheetPage() {
     );
   }
 
-  // --- REMAINDER OF THE COMPONENT (JSX) - NO SIGNIFICANT CHANGES NEEDED ---
-  // The JSX structure remains the same as it's driven by the component's state.
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col print:h-full">
       <AppHeader pageSubtitle={defaultPageSubtitle} />

@@ -1,32 +1,37 @@
+// EditMarksheetPage.tsx
+
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { supabase } from '@/lib/supabase/client'; // KEEP for AUTH
+import { supabase } from '@/lib/supabase/client';
 import { MarksheetForm } from '@/components/app/marksheet-form';
 import { MarksheetDisplay } from '@/components/app/marksheet-display';
-import type { MarksheetFormData, MarksheetDisplayData, MarksheetSubjectDisplayEntry } from '@/types';
+import type { MarksheetFormData, MarksheetDisplayData, MarksheetSubjectDisplayEntry, SubjectEntryFormData } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
-import { Loader2, ArrowLeft } from 'lucide-react';
-import { format, parseISO } from 'date-fns'; // Keep for client-side formatting
+import { Loader2, ArrowLeft, Edit } from 'lucide-react';
+import { format, parseISO } from 'date-fns';
 import { AppHeader } from '@/components/app/app-header';
 import { numberToWords } from '@/lib/utils';
+import type { ACADEMIC_YEAR_OPTIONS } from '@/components/app/marksheet-form-schema';
 
-// IMPORT SERVER ACTIONS
+// IMPORT SERVER ACTIONS for MySQL data interaction
 import {
   fetchMarksheetForEditAction,
   updateMarksheetAction,
-  type FetchMarksheetForEditResult, // Optional for type safety
-  type UpdateMarksheetResult         // Optional for type safety
-} from '@/app/admin/actions'; // Adjust path if needed
-
+  type FetchMarksheetForEditResult,
+  type UpdateMarksheetResult
+} from '@/app/admin/actions';
 
 const defaultPageSubtitle = `(Affiliated By Bihar School Examination Board, Patna)
 [Estd. - 1983] College Code: 53010
 Chitragupta Nagar, Mohanpur, Samastipur, Bihar - 848101
 www.saryugcollege.com`;
 
+// UPDATED: Fixed thresholds for fallback if subject-specific pass marks are not provided
+const FIXED_THEORY_PASS_THRESHOLD = 21;
+const FIXED_PRACTICAL_PASS_THRESHOLD = 9;
 
 export default function EditMarksheetPage() {
   const router = useRouter();
@@ -42,7 +47,6 @@ export default function EditMarksheetPage() {
   const [marksheetData, setMarksheetData] = useState<MarksheetDisplayData | null>(null);
   const [footerYear, setFooterYear] = useState<number | null>(null);
 
-  // --- AUTHENTICATION LOGIC (NO CHANGE) ---
   useEffect(() => {
     const checkAuthentication = async () => {
       try {
@@ -60,52 +64,80 @@ export default function EditMarksheetPage() {
     checkAuthentication();
   }, []);
 
-  // --- MODIFIED: DATA FETCHING LOGIC ---
   useEffect(() => {
     if (authStatus === 'unauthenticated') {
       router.push('/login');
     } else if (authStatus === 'authenticated' && studentSystemId) {
       setFooterYear(new Date().getFullYear());
-      setIsLoadingData(true);
-
-      const loadInitialData = async () => {
+      
+      const fetchStudentData = async () => {
+        setIsLoadingData(true);
         try {
-          // CALL SERVER ACTION TO FETCH DATA
           const result: FetchMarksheetForEditResult = await fetchMarksheetForEditAction(studentSystemId);
 
           if (result.success && result.data) {
             setInitialData(result.data);
+            toast({ title: 'Student Data Loaded', description: 'Data loaded successfully for editing.' });
           } else {
-            toast({ title: 'Error Fetching Student', description: result.message || `Student data not found for ID: ${studentSystemId}.`, variant: 'destructive' });
+            toast({ 
+                title: 'Error Loading Student Data', 
+                description: result.message || `Student data not found for ID: ${studentSystemId}.`, 
+                variant: 'destructive' 
+            });
             setInitialData(null);
+            router.push('/');
           }
-        } catch (error) {
-          console.error("Error fetching student data for edit (client):", error);
-          toast({ title: 'Fetch Error', description: 'Could not load student data.', variant: 'destructive' });
+        } catch (error: any) {
+          console.error("Error fetching student data for edit:", error);
+          toast({ title: 'Fetch Error', description: `Could not load student data: ${error.message}`, variant: 'destructive' });
           setInitialData(null);
         } finally {
           setIsLoadingData(false);
         }
       };
-      loadInitialData();
+      fetchStudentData();
+    } else if (authStatus === 'authenticated' && !studentSystemId) {
+        toast({ title: 'Error', description: 'No student ID provided for editing.', variant: 'destructive' });
+        setIsLoadingData(false);
+        router.push('/');
     }
   }, [authStatus, studentSystemId, toast, router]);
 
-  // --- CLIENT-SIDE DATA PROCESSING (NO CHANGE) ---
-  const generateMarksheetNo = useCallback((faculty: string, rollNumber: string, sessionEndYearNumber: number): string => {
-    // ... (same implementation)
-    const facultyCode = faculty.substring(0, 2).toUpperCase();
-    const month = format(new Date(), 'MMM').toUpperCase();
-    const sequence = String(Math.floor(Math.random() * 900) + 100);
-    return `${facultyCode}/${month}/${sessionEndYearNumber}/${rollNumber.slice(-3) || sequence}`;
-  }, []);
-
+  // --- CLIENT-SIDE DATA PROCESSING FOR DISPLAY (UPDATED for new pass marks) ---
   const processFormData = (data: MarksheetFormData): MarksheetDisplayData => {
-    // ... (same implementation, ensure data.system_id is correctly handled)
-    const subjectsDisplay: MarksheetSubjectDisplayEntry[] = data.subjects.map(s => ({
-      ...s,
-      obtainedTotal: (s.theoryMarksObtained || 0) + (s.practicalMarksObtained || 0),
-    }));
+    const subjectsDisplay: MarksheetSubjectDisplayEntry[] = data.subjects.map(s => {
+      const obtainedTotal = (s.theoryMarksObtained || 0) + (s.practicalMarksObtained || 0);
+      
+      let isTheoryFailed = false;
+      let isPracticalFailed = false;
+
+      // Determine theory failure: use subject's theoryPassMarks if present, otherwise fixed threshold
+      const theoryPassThreshold = s.theoryPassMarks !== null && s.theoryPassMarks !== undefined 
+                                  ? s.theoryPassMarks 
+                                  : FIXED_THEORY_PASS_THRESHOLD;
+      if (typeof s.theoryMarksObtained === 'number' && s.theoryMarksObtained < theoryPassThreshold) {
+        isTheoryFailed = true;
+      }
+
+      // Determine practical failure: use subject's practicalPassMarks if present, otherwise fixed threshold
+      const practicalPassThreshold = s.practicalPassMarks !== null && s.practicalPassMarks !== undefined
+                                    ? s.practicalPassMarks
+                                    : FIXED_PRACTICAL_PASS_THRESHOLD;
+      if (!isTheoryFailed && typeof s.practicalMarksObtained === 'number' && s.practicalMarksObtained < practicalPassThreshold) {
+         isPracticalFailed = true;
+      }
+      
+      const isSubjectFailed = isTheoryFailed || isPracticalFailed;
+
+      return {
+        ...s,
+        id: s.id || crypto.randomUUID(),
+        obtainedTotal,
+        isFailed: isSubjectFailed,
+        isTheoryFailed,
+        isPracticalFailed,
+      };
+    });
 
     const compulsoryElectiveSubjects = subjectsDisplay.filter(
       s => s.category === 'Compulsory' || s.category === 'Elective'
@@ -127,21 +159,26 @@ export default function EditMarksheetPage() {
     const totalMarksInWords = numberToWords(aggregateMarksCompulsoryElective);
 
     let overallResult: 'Pass' | 'Fail' = 'Pass';
-    if (overallPercentageDisplay < data.overallPassingThresholdPercentage) {
+    if (subjectsDisplay.some(subject => subject.isFailed && (subject.category === 'Compulsory' || subject.category === 'Elective'))) {
       overallResult = 'Fail';
     }
-    for (const subject of subjectsDisplay) {
-      if (subject.obtainedTotal < subject.passMarks) {
+    if (overallPercentageDisplay < data.overallPassingThresholdPercentage) {
         overallResult = 'Fail';
-        break;
-      }
     }
+
+    const generateMarksheetNo = (faculty: string, rollNumber: string, sessionEndYear: number): string => {
+        const facultyCode = faculty.substring(0, 2).toUpperCase();
+        const month = format(new Date(), 'MMM').toUpperCase();
+        const sequence = String(Math.floor(Math.random() * 900) + 100);
+        return `${facultyCode}/${month}/${sessionEndYear}/${rollNumber.slice(-3) || sequence}`;
+    };
     const marksheetNo = generateMarksheetNo(data.faculty, data.rollNumber, data.sessionEndYear);
 
     return {
       ...data,
-      system_id: data.system_id || studentSystemId, // Use existing system_id
+      system_id: data.system_id || studentSystemId,
       collegeCode: "53010",
+      marksheetNo: marksheetNo,
       subjects: subjectsDisplay,
       sessionDisplay: `${data.sessionStartYear}-${data.sessionEndYear}`,
       classDisplay: `${data.academicYear}`,
@@ -150,13 +187,12 @@ export default function EditMarksheetPage() {
       totalMarksInWords,
       overallResult,
       overallPercentageDisplay,
-      dateOfIssue: format(new Date(data.dateOfIssue), 'MMMM yyyy'), // Ensure data.dateOfIssue is a Date
+      dateOfIssue: format(data.dateOfIssue, 'MMMM yyyy'),
       place: 'Samastipur',
-      registrationNo: data.registrationNo,
+      registrationNo: data.registrationNo || null,
     };
   };
 
-  // --- MODIFIED: HANDLE FORM SUBMIT ---
   const handleFormSubmit = async (data: MarksheetFormData) => {
     setIsLoadingFormSubmission(true);
 
@@ -167,16 +203,15 @@ export default function EditMarksheetPage() {
     }
 
     try {
-      // CALL SERVER ACTION TO UPDATE DATA
       const result: UpdateMarksheetResult = await updateMarksheetAction(studentSystemId, data);
 
       if (result.success) {
-        const processedData = processFormData(data); // Process the submitted data for display
-        setMarksheetData(processedData);
         toast({
           title: 'Marksheet Updated Successfully',
           description: result.message,
         });
+        const processedData = processFormData(data);
+        setMarksheetData(processedData);
       } else {
         toast({
           title: 'Update Failed',
@@ -185,10 +220,10 @@ export default function EditMarksheetPage() {
         });
       }
     } catch (error: any) {
-      console.error("Error updating marksheet (client):", error);
+      console.error("Error updating marksheet via server action:", error);
       toast({
-        title: 'Update Failed',
-        description: `Could not update marksheet data: ${error.message || 'Unknown error'}`,
+        title: 'Operation Error',
+        description: `An unexpected error occurred during update: ${error.message || 'Unknown error'}`,
         variant: 'destructive',
       });
     } finally {
@@ -197,11 +232,10 @@ export default function EditMarksheetPage() {
   };
 
   const handleBackToForm = () => {
-    setMarksheetData(null); // This will hide the display and show the form with initialData
-  }
+    setMarksheetData(null);
+  };
 
-  // --- LOADING AND ERROR STATES (NO MAJOR CHANGE, BUT DRIVEN BY NEW DATA FLOW) ---
-  if (authStatus === 'loading' || (authStatus === 'authenticated' && isLoadingData)) {
+  if (authStatus === 'loading' || (authStatus === 'authenticated' && isLoadingData && !initialData)) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background print:hidden">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -209,9 +243,8 @@ export default function EditMarksheetPage() {
       </div>
     );
   }
-
-  if (authStatus === 'authenticated' && !isLoadingData && !initialData) {
-    // ... (Student Not Found JSX - no change)
+  
+  if (authStatus === 'authenticated' && !isLoadingData && !initialData && studentSystemId) {
     return (
       <div className="min-h-screen bg-background text-foreground flex flex-col print:h-full print:bg-white">
         <div className="print:hidden">
@@ -232,14 +265,13 @@ export default function EditMarksheetPage() {
         <footer className="py-4 border-t border-border mt-auto print:hidden">
           <div className="container mx-auto px-4 sm:px-6 lg:px-8 text-center text-xs text-muted-foreground max-w-screen-xl">
             {footerYear && <p>Copyright ©{footerYear} by Saryug College, Samastipur, Bihar. Design By Mantix.</p>}
+             {!footerYear && <p>Copyright by Saryug College, Samastipur, Bihar. Design By Mantix.</p>}
           </div>
         </footer>
       </div>
     );
   }
-  
-  // --- REMAINDER OF THE COMPONENT (JSX) - NO SIGNIFICANT CHANGES NEEDED ---
-  // The JSX structure remains the same as it's driven by the component's state.
+
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col print:h-full print:bg-white">
        <div className="print:hidden">
@@ -247,7 +279,7 @@ export default function EditMarksheetPage() {
       </div>
       <main className="flex-grow container mx-auto px-4 py-8 sm:px-6 lg:px-8 print:p-0 print:m-0 print:h-full print:container-none print:max-w-none max-w-screen-xl">
         <div className="flex justify-start mb-6 print:hidden">
-            <Button variant="outline" onClick={() => router.back()}>
+            <Button variant="outline" onClick={() => marksheetData ? handleBackToForm() : router.back()}>
               <ArrowLeft className="mr-2 h-4 w-4" /> Back
             </Button>
         </div>
@@ -263,10 +295,6 @@ export default function EditMarksheetPage() {
         {!marksheetData ? (
           initialData && <MarksheetForm onSubmit={handleFormSubmit} isLoading={isLoadingFormSubmission} initialData={initialData} isEditMode={true} />
         ) : (
-          // Pass initialData to MarksheetDisplay if you want the "edit back" button to work with original pre-edit state.
-          // Otherwise, if onEditBack should just clear the preview and show the form again for further edits on the *already submitted* data,
-          // then the `initialData` for the form might need to be the `data` that was last submitted.
-          // For simplicity, onEditBack here will revert to showing the form which will be pre-filled with `initialData` (the state from page load).
           <MarksheetDisplay data={marksheetData} onEditBack={handleBackToForm} />
         )}
       </main>

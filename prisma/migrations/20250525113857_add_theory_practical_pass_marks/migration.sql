@@ -1,19 +1,18 @@
 -- CreateTable
 CREATE TABLE `student_details` (
     `id` VARCHAR(191) NOT NULL,
-    `roll_no` VARCHAR(191) NOT NULL,
-    `name` VARCHAR(191) NOT NULL,
-    `father_name` VARCHAR(191) NOT NULL,
-    `mother_name` VARCHAR(191) NOT NULL,
-    `dob` DATE NOT NULL,
-    `gender` VARCHAR(191) NOT NULL,
-    `faculty` VARCHAR(191) NOT NULL,
-    `class` VARCHAR(191) NOT NULL,
-    `academic_year` VARCHAR(191) NOT NULL,
-    `registration_no` VARCHAR(191) NOT NULL,
+    `roll_no` VARCHAR(191) NULL,
+    `name` VARCHAR(191) NULL,
+    `father_name` VARCHAR(191) NULL,
+    `mother_name` VARCHAR(191) NULL,
+    `dob` DATE NULL,
+    `gender` VARCHAR(191) NULL,
+    `faculty` VARCHAR(191) NULL,
+    `class` VARCHAR(191) NULL,
+    `academic_year` VARCHAR(191) NULL,
+    `registrationNo` VARCHAR(191) NULL,
     `created_at` TIMESTAMP(0) NOT NULL DEFAULT CURRENT_TIMESTAMP(0),
 
-    UNIQUE INDEX `student_details_registration_no_key`(`registration_no`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
@@ -21,13 +20,14 @@ CREATE TABLE `student_details` (
 CREATE TABLE `student_marks_details` (
     `mark_id` INTEGER NOT NULL AUTO_INCREMENT,
     `student_detail_id` VARCHAR(191) NOT NULL,
-    `subject_name` VARCHAR(191) NOT NULL,
-    `category` VARCHAR(191) NOT NULL,
-    `max_marks` INTEGER NOT NULL,
-    `pass_marks` INTEGER NOT NULL,
-    `theory_marks_obtained` INTEGER NOT NULL,
-    `practical_marks_obtained` INTEGER NOT NULL,
-    `obtained_total_marks` INTEGER NOT NULL,
+    `subject_name` VARCHAR(191) NULL,
+    `category` VARCHAR(191) NULL,
+    `max_marks` INTEGER NULL,
+    `theory_pass_marks` DOUBLE NULL,
+    `practical_pass_marks` DOUBLE NULL,
+    `theory_marks_obtained` INTEGER NULL,
+    `practical_marks_obtained` INTEGER NULL,
+    `obtained_total_marks` INTEGER NULL,
     `created_at` TIMESTAMP(0) NOT NULL DEFAULT CURRENT_TIMESTAMP(0),
 
     PRIMARY KEY (`mark_id`)

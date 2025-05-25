@@ -1,26 +1,51 @@
+// app/admin/actions.ts
+
 'use server';
 
-import prisma from '@/lib/prisma'; // This connects to your MySQL database
+import { cookies } from 'next/headers';
+import { createServerClient, type CookieOptions } from '@supabase/ssr';
+import prisma from '@/lib/prisma';
 import * as XLSX from 'xlsx';
 import { format, parse, isValid, parseISO } from 'date-fns';
-import type { StudentDetail, StudentMarksDetail, Prisma  } from '@prisma/client';
-import type { ImportProcessingResults, StudentImportFeedbackItem, MarksImportFeedbackItem, MarksheetFormData, MarksheetDisplayData, MarksheetSubjectDisplayEntry } from '@/types'; // Added types for clarity
+import type { StudentDetail, StudentMarksDetail, Prisma } from '@prisma/client';
+import type { ImportProcessingResults, StudentImportFeedbackItem, MarksImportFeedbackItem, MarksheetFormData, MarksheetDisplayData, MarksheetSubjectDisplayEntry, StudentRowData } from '@/types';
 import { numberToWords } from '@/lib/utils';
 
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
-// Helper for date parsing (can be kept in actions or a shared util)
+// UPDATED: Fixed thresholds for fallback if subject-specific pass marks are not provided
+const FIXED_THEORY_PASS_THRESHOLD = 21;
+const FIXED_PRACTICAL_PASS_THRESHOLD = 9;
+
+// async function getAuthenticatedUser() {
+//     const cookieStore = cookies();
+//     const supabase = createServerClient(
+//         supabaseUrl,
+//         supabaseAnonKey,
+//         {
+//             cookies: {
+//                 get: (name: string) => cookieStore.get(name)?.value,
+//                 set: (name: string, value: string, options: CookieOptions) => cookieStore.set({ name, value, ...options }),
+//                 remove: (name: string, options: CookieOptions) => cookieStore.set({ name, value: '', ...options }),
+//             },
+//         }
+//     );
+//     const { data: { session }, error } = await supabase.auth.getSession();
+//     if (error) { console.error("Supabase authentication error in server action:", error.message); throw new Error(`Authentication error: ${error.message}`); }
+//     if (!session) { throw new Error('User not authenticated. Access denied.'); }
+//     return session.user;
+// }
+
 const parseExcelDateServer = (excelDate: any): string | null => {
   if (typeof excelDate === 'number') {
-    // XLSX can sometimes return a number for dates (Excel date serial number)
     const date = XLSX.SSF.parse_date_code(excelDate);
     if (date) {
-      // Ensure month and day are two digits
       const month = String(date.m).padStart(2, '0');
       const day = String(date.d).padStart(2, '0');
-      return `${date.y}-${month}-${day}`; // Format as yyyy-MM-dd
+      return `${date.y}-${month}-${day}`;
     }
   } else if (typeof excelDate === 'string') {
-    // Try parsing common date string formats
     const formatsToTry = ["yyyy-MM-dd", "dd-MM-yyyy", "MM/dd/yyyy", "dd/MM/yyyy", "yyyy/MM/dd"];
     for (const fmt of formatsToTry) {
       try {
@@ -30,47 +55,59 @@ const parseExcelDateServer = (excelDate: any): string | null => {
         }
       } catch (e) { /* ignore */ }
     }
-    // Try ISO format as a fallback
     if(isValid(parseISO(excelDate))){
         return format(parseISO(excelDate), 'yyyy-MM-dd');
     }
   }
-  return null; // Return null if parsing fails
+  return null;
 };
 
-function convertEmptyToNull(value: string | null | undefined): string | null {
-    if (value === null || value === undefined || value.trim() === '') {
+const ACADEMIC_YEAR_OPTIONS = ['11th', '12th', '1st Year', '2nd Year', '3rd Year'] as const;
+const SUBJECT_CATEGORIES_OPTIONS = ['Compulsory', 'Elective', 'Additional'] as const;
+
+function convertEmptyToNull(value: string | number | null | undefined): string | null {
+    if (value === null || value === undefined || (typeof value === 'string' && value.trim() === '')) {
         return null;
     }
-    return value.trim();
+    return String(value).trim(); // Convert number to string for trim, then return string or null
 }
 
+interface StudentFilters {
+  academicYear: string | null;
+  rollNo: string | null;
+  name: string | null;
+  className: string | null;
+  faculty: string | null;
+}
 
 export async function importDataAction(
   fileContentBase64: string,
   selectedAcademicSession: string
 ): Promise<ImportProcessingResults> {
+  try {
+    // await getAuthenticatedUser();
+  } catch (authError: any) {
+    return {
+      summaryMessages: [{ type: 'error', message: authError.message || 'Authentication failed.' }],
+      studentFeedback: [], marksFeedback: [],
+      totalStudentsProcessed: 0, totalStudentsAdded: 0, totalStudentsSkipped: 0,
+      totalMarksProcessed: 0, totalMarksAdded: 0, totalMarksSkipped: 0,
+    };
+  }
 
   const results: ImportProcessingResults = {
-    summaryMessages: [],
-    studentFeedback: [],
-    marksFeedback: [],
-    totalStudentsProcessed: 0,
-    totalStudentsAdded: 0,
-    totalStudentsSkipped: 0,
-    totalMarksProcessed: 0,
-    totalMarksAdded: 0,
-    totalMarksSkipped: 0,
+    summaryMessages: [], studentFeedback: [], marksFeedback: [],
+    totalStudentsProcessed: 0, totalStudentsAdded: 0, totalStudentsSkipped: 0,
+    totalMarksProcessed: 0, totalMarksAdded: 0, totalMarksSkipped: 0,
   };
 
   const excelStudentIdToSystemIdMap = new Map<string, string>();
-  const processedSubjectKeysForImport = new Set<string>(); // To prevent duplicate subject entries for the same student from the file
+  const processedSubjectKeysForImport = new Set<string>();
 
   try {
     const fileBuffer = Buffer.from(fileContentBase64, 'base64');
-    const workbook = XLSX.read(fileBuffer, { type: 'buffer', cellDates: false }); // cellDates: false to handle dates manually
+    const workbook = XLSX.read(fileBuffer, { type: 'buffer', cellDates: false });
 
-    // --- Process "Student Details" Sheet ---
     const studentDetailsSheetName = 'Student Details';
     const studentDetailsSheet = workbook.Sheets[studentDetailsSheetName];
     if (!studentDetailsSheet) {
@@ -78,23 +115,23 @@ export async function importDataAction(
     } else {
       const studentDetailsJson = XLSX.utils.sheet_to_json<any>(studentDetailsSheet, { raw: false, defval: null });
       results.totalStudentsProcessed = studentDetailsJson.length;
-      const studentDataToInsert = []; // Prepare data for Prisma createMany
+      const studentDataToInsert: Prisma.StudentDetailCreateManyInput[] = [];
 
       for (let i = 0; i < studentDetailsJson.length; i++) {
         const row = studentDetailsJson[i];
-        const rowNum = i + 2; // Excel row number (1-based, +1 for header)
+        const rowNum = i + 2;
 
         const excelStudentId = String(row['Student ID'] || '').trim();
         const studentName = String(row['Student Name'] || '').trim();
         const fatherName = String(row['Father Name'] || '').trim();
         const motherName = String(row['Mother Name'] || '').trim();
-        const dobRaw = row['Date of Birth']; // Keep raw for parsing
+        const dobRaw = row['Date of Birth'];
         const gender = String(row['Gender'] || '').trim();
-        const registrationNo = String(row['Registration No'] || '').trim();
+        const rawRegistrationNo = String(row['Registration No'] || '').trim();
         const faculty = String(row['Faculty'] || '').trim();
         const studentClass = String(row['Class'] || '').trim();
         
-        const currentFeedback: StudentImportFeedbackItem = { rowNumber: rowNum, excelStudentId, name: studentName, status: 'skipped', message: '' };
+        const currentFeedback: StudentImportFeedbackItem = { rowNumber: rowNum, excelStudentId, name: studentName, status: 'skipped', message: '', registrationNo: rawRegistrationNo || undefined };
 
         if (!excelStudentId || !studentName || !fatherName || !motherName || !dobRaw || !gender || !faculty || !studentClass) {
           currentFeedback.message = "Missing one or more required fields (Student ID, Student Name, Father Name, Mother Name, DOB, Gender, Faculty, Class).";
@@ -111,49 +148,36 @@ export async function importDataAction(
           continue;
         }
 
-        const registrationNoForDb = convertEmptyToNull(registrationNo);
+        const registrationNoForDb = convertEmptyToNull(rawRegistrationNo);
 
-        const checkResult = await checkExistingStudentAction(
-            excelStudentId,
-            selectedAcademicSession,
-            studentClass,
-            faculty,
-            registrationNoForDb // Pass the converted value
-        );
+        const existingStudent = await prisma.studentDetail.findFirst({
+          where: { rollNo: excelStudentId, academicYear: selectedAcademicSession, class: studentClass, faculty: faculty, registrationNo: registrationNoForDb },
+          select: { id: true },
+        });
 
-        if (checkResult.error) {
-            currentFeedback.message = `Failed to check for existing student: ${checkResult.error}`;
-            results.studentFeedback.push(currentFeedback);
-            results.totalStudentsSkipped++;
-            continue;
+        if (existingStudent) {
+          currentFeedback.message = `Student with Roll No ${excelStudentId}, Reg No ${rawRegistrationNo || '(empty)'} in Session ${selectedAcademicSession}, Class ${studentClass}, Faculty ${faculty} already exists in DB. Skipped.`;
+          results.studentFeedback.push(currentFeedback);
+          results.totalStudentsSkipped++;
+          excelStudentIdToSystemIdMap.set(excelStudentId, existingStudent.id);
+          continue;
         }
-
-        if (checkResult.exists) {
-            currentFeedback.message = `Student with Roll No ${excelStudentId}, Reg No ${registrationNo || '(empty)'} in Session ${selectedAcademicSession}, Class ${studentClass}, Faculty ${faculty} already exists in DB. Skipped.`;
+        
+        if (excelStudentIdToSystemIdMap.has(excelStudentId)) {
+            currentFeedback.message = `Duplicate Student ID "${excelStudentId}" found within the 'Student Details' sheet. Only the first instance will be processed for database insertion. Subsequent marks will map to the first instance.`;
             results.studentFeedback.push(currentFeedback);
             results.totalStudentsSkipped++;
-            excelStudentIdToSystemIdMap.set(excelStudentId, checkResult.studentId!); // Map to existing DB ID
             continue;
         }
 
         const systemGeneratedId = crypto.randomUUID();
-        excelStudentIdToSystemIdMap.set(excelStudentId, systemGeneratedId); // Map Excel ID to new system ID
+        excelStudentIdToSystemIdMap.set(excelStudentId, systemGeneratedId);
         currentFeedback.generatedSystemId = systemGeneratedId;
 
-        results.totalStudentsAdded++;
-
         studentDataToInsert.push({
-          id: systemGeneratedId,
-          rollNo: excelStudentId,
-          name: studentName,
-          fatherName: fatherName,
-          motherName: motherName,
-          dob: new Date(dobFormatted),
-          gender: gender,
-          registrationNo: registrationNoForDb, // Use the converted value
-          faculty: faculty,
-          class: studentClass,
-          academicYear: selectedAcademicSession,
+          id: systemGeneratedId, rollNo: excelStudentId, name: studentName, fatherName: fatherName, motherName: motherName,
+          dob: new Date(dobFormatted), gender: gender, registrationNo: registrationNoForDb, faculty: faculty,
+          class: studentClass, academicYear: selectedAcademicSession,
         });
         currentFeedback.status = 'added';
         currentFeedback.message = 'Prepared for database insertion.';
@@ -164,11 +188,10 @@ export async function importDataAction(
         try {
           const creationResult = await prisma.studentDetail.createMany({
             data: studentDataToInsert,
-            skipDuplicates: true, // This might not be needed if pre-check is robust
+            skipDuplicates: true,
           });
           results.totalStudentsAdded = creationResult.count;
           results.summaryMessages.push({ type: 'success', message: `${creationResult.count} new student(s) details successfully inserted.` });
-          // Update feedback for successfully added students
           studentDataToInsert.forEach(sdi => {
             const fb = results.studentFeedback.find(f => f.generatedSystemId === sdi.id && f.status === 'added');
             if (fb) fb.message = 'Successfully added to database.';
@@ -176,7 +199,6 @@ export async function importDataAction(
 
         } catch (e: any) {
           results.summaryMessages.push({ type: 'error', message: `Error inserting student details: ${e.message}` });
-          // Mark all pending as error
            studentDataToInsert.forEach(sdi => {
             const fb = results.studentFeedback.find(f => f.generatedSystemId === sdi.id && f.status === 'added');
             if (fb) { fb.status = 'error'; fb.message = `DB insert failed: ${e.message}`; }
@@ -201,20 +223,22 @@ export async function importDataAction(
     } else {
       const studentMarksJson = XLSX.utils.sheet_to_json<any>(studentMarksSheet, { raw: false, defval: null });
       results.totalMarksProcessed = studentMarksJson.length;
-      const marksDataToInsert = [];
+      const marksDataToInsert: Prisma.StudentMarksDetailCreateManyInput[] = [];
 
       for (let i = 0; i < studentMarksJson.length; i++) {
         const row = studentMarksJson[i];
         const rowNum = i + 2;
 
         const excelStudentIdForMarks = String(row['Student ID'] || '').trim();
-        const studentNameForFeedback = String(row['Name'] || '').trim(); // For feedback only
+        const studentNameForFeedback = String(row['Name'] || '').trim();
         const subjectName = String(row['Subject Name'] || '').trim();
         const subjectCategory = String(row['Subject Category'] || '').trim();
         const maxMarksRaw = row['Max Marks'];
-        const passMarksRaw = row['Pass Marks'];
-        const theoryMarksRaw = row['Theory Marks Obtained'];
-        const practicalMarksRaw = row['Practical Marks Obtained'];
+        // NEW: Read theory and practical pass marks
+        const theoryPassMarksRaw = row['Theory Pass Marks'];
+        const practicalPassMarksRaw = row['Practical Pass Marks'];
+        const theoryMarksObtainedRaw = row['Theory Marks Obtained'];
+        const practicalMarksObtainedRaw = row['Practical Marks Obtained'];
 
         const currentFeedback: MarksImportFeedbackItem = { rowNumber: rowNum, excelStudentId: excelStudentIdForMarks, studentName: studentNameForFeedback, subjectName, status: 'skipped', message: '' };
 
@@ -233,7 +257,6 @@ export async function importDataAction(
           continue;
         }
 
-        // Prevent duplicate subject entries for the same student *within this import file*
         const subjectKey = `${systemIdForMarks}_${subjectName.trim().toLowerCase()}`;
         if (processedSubjectKeysForImport.has(subjectKey)) {
           currentFeedback.message = `Duplicate subject "${subjectName}" for Student (System ID: ${systemIdForMarks.substring(0,8)}...) in this file. Skipped.`;
@@ -242,23 +265,35 @@ export async function importDataAction(
           continue;
         }
 
-
         const maxMarks = parseFloat(String(maxMarksRaw));
-        const passMarks = parseFloat(String(passMarksRaw));
-        const theoryMarks = parseFloat(String(theoryMarksRaw));
-        const practicalMarks = parseFloat(String(practicalMarksRaw));
+        const theoryPassMarks = parseFloat(String(theoryPassMarksRaw));
+        const practicalPassMarks = parseFloat(String(practicalPassMarksRaw));
+        const theoryMarksObtained = parseFloat(String(theoryMarksObtainedRaw));
+        const practicalMarksObtained = parseFloat(String(practicalMarksObtainedRaw));
 
-        if (isNaN(maxMarks) || isNaN(passMarks)) {
-          currentFeedback.message = "Invalid Max Marks or Pass Marks. Must be numbers.";
+        if (isNaN(maxMarks) || maxMarks < 0) {
+          currentFeedback.message = "Invalid Max Marks. Must be a non-negative number.";
           results.marksFeedback.push(currentFeedback);
           results.totalMarksSkipped++;
           continue;
         }
-        // Add to set after validation, before pushing to insert array
+        // NEW: Validate new pass marks
+        if (!isNaN(theoryPassMarks) && (theoryPassMarks < 0 || theoryPassMarks > maxMarks)) {
+            currentFeedback.message = `Invalid Theory Pass Marks (${theoryPassMarks}). Must be non-negative and not exceed Max Marks.`;
+            results.marksFeedback.push(currentFeedback);
+            results.totalMarksSkipped++;
+            continue;
+        }
+        if (!isNaN(practicalPassMarks) && (practicalPassMarks < 0 || practicalPassMarks > maxMarks)) {
+            currentFeedback.message = `Invalid Practical Pass Marks (${practicalPassMarks}). Must be non-negative and not exceed Max Marks.`;
+            results.marksFeedback.push(currentFeedback);
+            results.totalMarksSkipped++;
+            continue;
+        }
+
         processedSubjectKeysForImport.add(subjectKey);
 
-
-        const obtainedTotalMarks = (isNaN(theoryMarks) ? 0 : theoryMarks) + (isNaN(practicalMarks) ? 0 : practicalMarks);
+        const obtainedTotalMarks = (isNaN(theoryMarksObtained) ? 0 : theoryMarksObtained) + (isNaN(practicalMarksObtained) ? 0 : practicalMarksObtained);
 
         if (obtainedTotalMarks > maxMarks) {
             currentFeedback.message = `Obtained marks (${obtainedTotalMarks}) exceed Max Marks (${maxMarks}). Skipped.`;
@@ -266,21 +301,13 @@ export async function importDataAction(
             results.totalMarksSkipped++;
             continue;
         }
-        if (passMarks > maxMarks) {
-            currentFeedback.message = `Pass Marks (${passMarks}) exceed Max Marks (${maxMarks}). Skipped.`;
-            results.marksFeedback.push(currentFeedback);
-            results.totalMarksSkipped++;
-            continue;
-        }
 
         marksDataToInsert.push({
-          studentDetailId: systemIdForMarks,
-          subjectName: subjectName,
-          category: subjectCategory,
-          maxMarks: maxMarks,
-          passMarks: passMarks,
-          theoryMarksObtained: isNaN(theoryMarks) ? null : theoryMarks,
-          practicalMarksObtained: isNaN(practicalMarks) ? null : practicalMarks,
+          studentDetailId: systemIdForMarks, subjectName: subjectName, category: subjectCategory, maxMarks: maxMarks,
+          theoryPassMarks: isNaN(theoryPassMarks) ? null : theoryPassMarks,
+          practicalPassMarks: isNaN(practicalPassMarks) ? null : practicalPassMarks,
+          theoryMarksObtained: isNaN(theoryMarksObtained) ? null : theoryMarksObtained,
+          practicalMarksObtained: isNaN(practicalMarksObtained) ? null : practicalMarksObtained,
           obtainedTotalMarks: obtainedTotalMarks,
         });
         currentFeedback.status = 'added';
@@ -292,19 +319,18 @@ export async function importDataAction(
          try {
             const creationResult = await prisma.studentMarksDetail.createMany({
                 data: marksDataToInsert,
-                skipDuplicates: true, // Skip if a subject for a student somehow already exists (e.g. student_detail_id + subject_name unique constraint)
+                skipDuplicates: true,
             });
             results.totalMarksAdded = creationResult.count;
             results.summaryMessages.push({ type: 'success', message: `${creationResult.count} marks records successfully inserted.` });
-            // Update feedback
             marksDataToInsert.forEach(mdi => {
-                const fb = results.marksFeedback.find(f => f.status === 'added' && excelStudentIdToSystemIdMap.get(f.excelStudentId as string) === mdi.studentDetailId && f.subjectName === mdi.subjectName);
+                const fb = results.marksFeedback.find(f => f.status === 'added' && excelStudentIdToSystemIdMap.get(f.excelStudentId) === mdi.studentDetailId && f.subjectName === mdi.subjectName);
                 if (fb) fb.message = 'Successfully added to database.';
             });
          } catch (e: any) {
             results.summaryMessages.push({ type: 'error', message: `Error inserting marks details: ${e.message}` });
             marksDataToInsert.forEach(mdi => {
-                const fb = results.marksFeedback.find(f => f.status === 'added' && excelStudentIdToSystemIdMap.get(f.excelStudentId as string) === mdi.studentDetailId && f.subjectName === mdi.subjectName);
+                const fb = results.marksFeedback.find(f => f.status === 'added' && excelStudentIdToSystemIdMap.get(f.excelStudentId) === mdi.studentDetailId && f.subjectName === mdi.subjectName);
                 if (fb) { fb.status = 'error'; fb.message = `DB insert failed: ${e.message}`; }
             });
          }
@@ -315,10 +341,10 @@ export async function importDataAction(
       }
     }
 
-    if(results.summaryMessages.length === 0) { // If no major sheet errors
+    if(results.summaryMessages.length === 0) {
         if (results.totalStudentsProcessed === 0 && results.totalMarksProcessed === 0) {
             results.summaryMessages.push({type: 'info', message: "Both 'Student Details' and 'Student Marks Details' sheets were empty or had no data."});
-        } else if (results.totalStudentsAdded === 0 && results.totalMarksAdded === 0 && (results.totalStudentsSkipped > 0 || results.totalMarksSkipped > 0)) {
+        } else if (results.totalStudentsAdded === 0 && results.totalMarksAdded === 0 && (results.totalStudentsSkipped > 0 || results.totalStudentsSkipped > 0)) {
              results.summaryMessages.push({type: 'info', message: "Import complete. No new data was added. All records were either skipped due to issues or already existed."});
         } else if (results.totalStudentsAdded > 0 || results.totalMarksAdded > 0) {
             results.summaryMessages.push({type: 'success', message: "Import processing complete."});
@@ -327,7 +353,6 @@ export async function importDataAction(
         }
     }
 
-
   } catch (error: any) {
     console.error("Error during Excel import processing (server action):", error);
     results.summaryMessages.push({ type: 'error', message: `Import failed at a high level: ${error.message || "An unknown error occurred."}` });
@@ -335,60 +360,92 @@ export async function importDataAction(
   return results;
 }
 
-export interface DashboardStudentData {
-  system_id: string;
-  roll_no: string | null;
-  name: string | null;
-  academicYear: string | null;
-  studentClass: string | null;
-  faculty: string | null;
-}
-
-export async function loadStudentsForDashboardAction(): Promise<DashboardStudentData[]> {
+export async function fetchDistinctStudentFiltersAction(): Promise<{
+  academicYears: string[]; classes: string[]; faculties: string[]; error?: string;
+}> {
   try {
-    const students = await prisma.studentDetail.findMany({
-      select: {
-        id: true,
-        rollNo: true, // Prisma uses camelCase
-        name: true,
-        academicYear: true,
-        class: true, // Prisma uses 'class'
-        faculty: true,
-      },
-      orderBy: [
-        { academicYear: 'desc' }, // Example sorting
-        { name: 'asc' },
-      ],
-    });
+    // await getAuthenticatedUser();
 
-    // Map to the structure your client component expects (StudentRowData)
-    return students.map(s => ({
-      system_id: s.id,
-      roll_no: s.rollNo,
-      name: s.name,
-      academicYear: s.academicYear,
-      studentClass: s.class,
-      faculty: s.faculty,
-    }));
-  } catch (error) {
-    console.error("Error in loadStudentsForDashboardAction:", error);
-    if (error instanceof Error) throw new Error(error.message);
-    throw new Error("An unknown error occurred while fetching student data.");
+    const [academicYearsResult, classesResult, facultiesResult] = await prisma.$transaction([
+      prisma.studentDetail.findMany({ select: { academicYear: true }, distinct: ['academicYear'] }),
+      prisma.studentDetail.findMany({ select: { class: true }, distinct: ['class'] }),
+      prisma.studentDetail.findMany({ select: { faculty: true }, distinct: ['faculty'] }),
+    ]);
+
+    const academicYears = academicYearsResult.map(item => item.academicYear).filter(Boolean).sort() as string[];
+    const classes = classesResult.map(item => item.class).filter(Boolean).sort() as string[];
+    const faculties = facultiesResult.map(item => item.faculty).filter(Boolean).sort() as string[];
+
+    return { academicYears, classes, faculties };
+
+  } catch (error: any) {
+    console.error("Error fetching distinct student filters:", error);
+    return {
+      academicYears: [], classes: [], faculties: [],
+      error: error instanceof Error ? error.message : "An unknown error occurred while fetching filter options."
+    };
   }
 }
 
-export async function deleteStudentAction(studentSystemId: string): Promise<{ success: boolean; message: string }> {
+export async function loadStudentsForDashboardAction(
+  filters: StudentFilters, limit: number, offset: number
+): Promise<{ students: StudentRowData[]; totalCount: number; error?: string }> {
   try {
-    // Use a transaction to ensure atomicity
-    await prisma.$transaction(async (tx) => {
-      await tx.studentMarksDetail.deleteMany({
-        where: { studentDetailId: studentSystemId },
-      });
-      await tx.studentDetail.delete({
-        where: { id: studentSystemId },
-      });
+    // await getAuthenticatedUser();
+
+    let whereClause: Prisma.StudentDetailWhereInput = {};
+
+    if (filters.academicYear) { whereClause.academicYear = filters.academicYear; }
+    if (filters.rollNo) { whereClause.rollNo = { contains: filters.rollNo }; }
+    if (filters.name) { whereClause.name = { contains: filters.name }; }
+    if (filters.className) { whereClause.class = filters.className; }
+    if (filters.faculty) { whereClause.faculty = filters.faculty; }
+
+    const totalCount = await prisma.studentDetail.count({ where: whereClause });
+
+    const students = await prisma.studentDetail.findMany({
+      where: whereClause,
+      select: {
+        id: true, rollNo: true, name: true, academicYear: true, class: true, faculty: true, registrationNo: true,
+      },
+      orderBy: [{ academicYear: 'desc' }, { name: 'asc' }],
+      skip: offset, take: limit,
     });
-    return { success: true, message: 'Student and their marks deleted successfully.' };
+
+    const mappedStudents: StudentRowData[] = students.map(s => ({
+      system_id: s.id, roll_no: s.rollNo || '', registrationNo: s.registrationNo || null,
+      name: s.name || '', academic_year: s.academicYear || '', class: s.class || '', faculty: s.faculty || '',
+    }));
+
+    return { students: mappedStudents, totalCount: totalCount };
+
+  } catch (error: any) {
+    console.error("Error in loadStudentsForDashboardAction:", error);
+    return {
+      students: [], totalCount: 0,
+      error: error instanceof Error ? error.message : "An unknown error occurred while fetching student data."
+    };
+  }
+}
+
+export async function deleteStudentAction(studentSystemIds: string[]): Promise<{ success: boolean; message: string }> {
+  try {
+    // await getAuthenticatedUser();
+    
+    if (studentSystemIds.length === 0) { return { success: false, message: 'No student IDs provided for deletion.' }; }
+
+    for (const studentSystemId of studentSystemIds) {
+        await prisma.$transaction(async (tx) => {
+            await tx.studentMarksDetail.deleteMany({ where: { studentDetailId: studentSystemId }, });
+            await tx.studentDetail.delete({ where: { id: studentSystemId }, });
+        });
+    }
+    
+    const message = studentSystemIds.length > 1 
+        ? `${studentSystemIds.length} students and their marks deleted successfully.`
+        : 'Student and their marks deleted successfully.';
+
+    return { success: true, message: message };
   } catch (error) {
     console.error("Error in deleteStudentAction:", error);
     const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
@@ -396,23 +453,24 @@ export async function deleteStudentAction(studentSystemId: string): Promise<{ su
   }
 }
 
-export interface StudentDataForExport extends StudentDetail {
-  marks: StudentMarksDetail[];
-}
-
-export async function fetchStudentsForExportAction(studentSystemIds: string[]): Promise<StudentDataForExport[]> {
+export async function fetchStudentsForExportAction(filters: StudentFilters): Promise<(StudentDetail & { marks: StudentMarksDetail[] })[]> {
   try {
+    // await getAuthenticatedUser();
+
+    let whereClause: Prisma.StudentDetailWhereInput = {};
+
+    if (filters.academicYear) { whereClause.academicYear = filters.academicYear; }
+    if (filters.rollNo) { whereClause.rollNo = { contains: filters.rollNo }; }
+    if (filters.name) { whereClause.name = { contains: filters.name }; }
+    if (filters.className) { whereClause.class = filters.className; }
+    if (filters.faculty) { whereClause.faculty = filters.faculty; }
+
     const studentsWithMarks = await prisma.studentDetail.findMany({
-      where: {
-        id: {
-          in: studentSystemIds,
-        },
-      },
-      include: {
-        marks: true, // Eager load marks
-      },
+      where: whereClause,
+      include: { marks: true },
+      orderBy: [{ academicYear: 'desc' }, { name: 'asc' }],
     });
-    return studentsWithMarks; // Prisma types are already well-structured
+    return studentsWithMarks;
   } catch (error) {
     console.error("Error in fetchStudentsForExportAction:", error);
     if (error instanceof Error) throw new Error(error.message);
@@ -421,32 +479,15 @@ export async function fetchStudentsForExportAction(studentSystemIds: string[]): 
 }
 
 export async function checkExistingStudentAction(
-  rollNumber: string,
-  academicYearString: string,
-  studentClass: string, // Changed from academicYear to studentClass to match form data
-  faculty: string,
-  registrationNo: string | null
+  rollNumber: string, academicYearString: string, studentClass: string, faculty: string, registrationNo: string | null
 ): Promise<{ exists: boolean; studentId?: string; error?: string }> {
   try {
-
-    const whereClause: Prisma.StudentDetailWhereInput = {
-      rollNo: rollNumber,
-      academicYear: academicYearString,
-      class: studentClass,
-      faculty: faculty,
-    };
-
-    if (registrationNo !== null) { // If a non-null value was passed
-      whereClause.registrationNo = registrationNo;
-    } else { // If null was passed (meaning it was empty from input)
-      whereClause.registrationNo = null; // Specifically check for DB records where registrationNo is NULL
-    }
-
+    // await getAuthenticatedUser();
     const existingStudent = await prisma.studentDetail.findFirst({
-      where: whereClause,
-      select: { id: true },
+      where: {
+        rollNo: rollNumber, academicYear: academicYearString, class: studentClass, faculty: faculty, registrationNo: registrationNo,
+      }, select: { id: true },
     });
-
     return { exists: !!existingStudent, studentId: existingStudent?.id };
   } catch (error) {
     console.error("Error in checkExistingStudentAction:", error);
@@ -454,117 +495,74 @@ export async function checkExistingStudentAction(
   }
 }
 
-
 export interface SaveMarksheetResult {
-  success: boolean;
-  message: string;
-  studentId?: string; // Return the ID of the newly created student
-  errorDetails?: string;
+  success: boolean; message: string; studentId?: string; errorDetails?: string;
 }
 
 export async function saveMarksheetAction(formData: MarksheetFormData): Promise<SaveMarksheetResult> {
-  try {
-  } catch (authError: any) {
-    return { success: false, message: authError.message || 'Authentication failed.' };
-  }
+  // try { await getAuthenticatedUser(); } catch (authError: any) { return { success: false, message: authError.message || 'Authentication failed.' }; }
 
   const academicSessionString = `${formData.sessionStartYear}-${formData.sessionEndYear}`;
-  const systemGeneratedId = crypto.randomUUID(); // Generate ID on the server
+  const systemGeneratedId = crypto.randomUUID();
 
   try {
-    // Check for existing student again on the server as a safeguard
-    const existingStudent = await prisma.studentDetail.findFirst({
-      where: {
-        rollNo: formData.rollNumber,
-        academicYear: academicSessionString,
-        class: formData.academicYear, // Matches form data
-        faculty: formData.faculty,
-      },
-    });
+    const registrationNoForDb = convertEmptyToNull(formData.registrationNo);
+    const checkResult = await checkExistingStudentAction(
+        formData.rollNumber, academicSessionString, formData.academicYear, formData.faculty, registrationNoForDb
+    );
+    if (checkResult.error) { return { success: false, message: `Failed to check for existing student: ${checkResult.error}` }; }
+    if (checkResult.exists) { return { success: false, message: 'Student already exists.', errorDetails: 'A student with the same Roll No., Academic Session, Class, Faculty, and Registration No. (if provided) already exists.', }; }
 
-    if (existingStudent) {
-      return {
-        success: false,
-        message: 'Student already exists (checked on server).',
-        errorDetails: 'A student with the same Roll No., Academic Session, Class, and Faculty already exists.',
-      };
-    }
+    const dobFormatted = format(new Date(formData.dateOfBirth), 'yyyy-MM-dd');
 
-    const dobFormatted = format(new Date(formData.dateOfBirth), 'yyyy-MM-dd'); // Ensure dateOfBirth is a Date object or valid string
-
-    // Use a transaction to insert student and marks together
     const createdStudent = await prisma.$transaction(async (tx) => {
       const student = await tx.studentDetail.create({
         data: {
-          id: systemGeneratedId,
-          rollNo: formData.rollNumber,
-          name: formData.studentName,
-          fatherName: formData.fatherName,
-          motherName: formData.motherName,
-          dob: new Date(dobFormatted), 
-          gender: formData.gender,
-          faculty: formData.faculty,
-          class: formData.academicYear, 
-          academicYear: academicSessionString,
-          registrationNo: formData.registrationNo,
-          // createdAt and updatedAt will be handled by Prisma if @default(now()) and @updatedAt are set
+          id: systemGeneratedId, rollNo: formData.rollNumber, name: formData.studentName, fatherName: formData.fatherName,
+          motherName: formData.motherName, dob: new Date(dobFormatted), gender: formData.gender,
+          faculty: formData.faculty, class: formData.academicYear, academicYear: academicSessionString,
+          registrationNo: registrationNoForDb,
         },
       });
 
       if (formData.subjects && formData.subjects.length > 0) {
         const subjectMarksToInsert = formData.subjects.map(subject => ({
-          studentDetailId: student.id,
-          subjectName: subject.subjectName,
-          category: subject.category,
+          studentDetailId: student.id, subjectName: subject.subjectName, category: subject.category,
           maxMarks: subject.totalMarks,
-          passMarks: subject.passMarks,
+          theoryPassMarks: subject.theoryPassMarks, // NEW: Directly save the provided value
+          practicalPassMarks: subject.practicalPassMarks, // NEW: Directly save the provided value
           theoryMarksObtained: subject.theoryMarksObtained || 0,
           practicalMarksObtained: subject.practicalMarksObtained || 0,
           obtainedTotalMarks: (subject.theoryMarksObtained || 0) + (subject.practicalMarksObtained || 0),
         }));
 
-        await tx.studentMarksDetail.createMany({
-          data: subjectMarksToInsert,
-        });
+        await tx.studentMarksDetail.createMany({ data: subjectMarksToInsert });
       }
-      return student; // Return the created student detail
+      return student;
     });
 
-    return {
-      success: true,
-      message: 'Marksheet data saved successfully.',
-      studentId: createdStudent.id,
-    };
+    return { success: true, message: 'Marksheet data saved successfully.', studentId: createdStudent.id };
 
   } catch (error) {
     console.error("Error in saveMarksheetAction:", error);
     const errorMessage = error instanceof Error ? error.message : "An unknown error occurred while saving marksheet data.";
-    return {
-      success: false,
-      message: 'Failed to save marksheet data.',
-      errorDetails: errorMessage,
-    };
+    return { success: false, message: 'Failed to save marksheet data.', errorDetails: errorMessage };
   }
 }
 
 export interface FetchMarksheetForEditResult {
-  success: boolean;
-  data?: MarksheetFormData;
-  message?: string;
+  success: boolean; data?: MarksheetFormData; message?: string;
 }
 
 export async function fetchMarksheetForEditAction(studentSystemId: string): Promise<FetchMarksheetForEditResult> {
   try {
+    // await getAuthenticatedUser();
     const studentDetails = await prisma.studentDetail.findUnique({
       where: { id: studentSystemId },
-      include: {
-        marks: true, // Eager load marks
-      },
+      include: { marks: true },
     });
 
-    if (!studentDetails) {
-      return { success: false, message: `Student data not found for ID: ${studentSystemId}.` };
-    }
+    if (!studentDetails) { return { success: false, message: `Student data not found for ID: ${studentSystemId}.` }; }
 
     let sessionStartYear = new Date().getFullYear() - 1;
     let sessionEndYear = new Date().getFullYear();
@@ -574,28 +572,21 @@ export async function fetchMarksheetForEditAction(studentSystemId: string): Prom
       sessionEndYear = parseInt(years[1], 10);
     }
     
-    // Transform to MarksheetFormData
     const transformedData: MarksheetFormData = {
-      system_id: studentDetails.id,
-      studentName: studentDetails.name ?? '',
-      fatherName: studentDetails.fatherName ?? '',
-      motherName: studentDetails.motherName ?? '',
-      rollNumber: studentDetails.rollNo ?? '',
-      registrationNo: studentDetails.registrationNo ?? '',
-      dateOfBirth: studentDetails.dob ? new Date(studentDetails.dob) : new Date(), // Ensure it's a Date object
-      dateOfIssue: new Date(), // Default or fetch if stored
-      gender: studentDetails.gender as MarksheetFormData['gender'] ?? 'Male',
-      faculty: studentDetails.faculty as MarksheetFormData['faculty'] ?? 'Arts',
-      academicYear: studentDetails.class as typeof ACADEMIC_YEAR_OPTIONS[number] ?? 'Intermediate Year 1',
-      sessionStartYear: sessionStartYear,
-      sessionEndYear: sessionEndYear,
-      overallPassingThresholdPercentage: 33, // Default
+      system_id: studentDetails.id, studentName: studentDetails.name ?? '', fatherName: studentDetails.fatherName ?? '',
+      motherName: studentDetails.motherName ?? '', rollNumber: studentDetails.rollNo ?? '',
+      registrationNo: studentDetails.registrationNo, dateOfBirth: studentDetails.dob ? new Date(studentDetails.dob) : new Date(),
+      dateOfIssue: new Date(), gender: studentDetails.gender as MarksheetFormData['gender'] ?? 'Male',
+      faculty: studentDetails.faculty as MarksheetFormData['faculty'] ?? 'ARTS',
+      academicYear: studentDetails.class as typeof ACADEMIC_YEAR_OPTIONS[number] ?? '11th',
+      sessionStartYear: sessionStartYear, sessionEndYear: sessionEndYear,
+      overallPassingThresholdPercentage: 33,
       subjects: studentDetails.marks?.map(mark => ({
-        id: mark.markId.toString(), // Use markId from DB
-        subjectName: mark.subjectName ?? '',
+        id: mark.markId ? mark.markId.toString() : crypto.randomUUID(), subjectName: mark.subjectName ?? '',
         category: mark.category as MarksheetSubjectDisplayEntry['category'] ?? 'Compulsory',
         totalMarks: mark.maxMarks ?? 0,
-        passMarks: mark.passMarks ?? 0,
+        theoryPassMarks: mark.theoryPassMarks ?? null, // NEW: Fetch from DB
+        practicalPassMarks: mark.practicalPassMarks ?? null, // NEW: Fetch from DB
         theoryMarksObtained: mark.theoryMarksObtained ?? 0,
         practicalMarksObtained: mark.practicalMarksObtained ?? 0,
       })) || [],
@@ -610,62 +601,42 @@ export async function fetchMarksheetForEditAction(studentSystemId: string): Prom
 }
 
 export interface UpdateMarksheetResult {
-  success: boolean;
-  message: string;
-  errorDetails?: string;
+  success: boolean; message: string; errorDetails?: string;
 }
 
 export async function updateMarksheetAction(studentSystemId: string, formData: MarksheetFormData): Promise<UpdateMarksheetResult> {
-  try {
-  } catch (authError: any) {
-    return { success: false, message: authError.message || 'Authentication failed.' };
-  }
+  // try { await getAuthenticatedUser(); } catch (authError: any) { return { success: false, message: authError.message || 'Authentication failed.' }; }
 
-  if (!studentSystemId) {
-    return { success: false, message: "Student System ID is missing." };
-  }
+  if (!studentSystemId) { return { success: false, message: "Student System ID is missing." }; }
 
   try {
-    const dobFormatted = format(new Date(formData.dateOfBirth), 'yyyy-MM-dd'); // Ensure date
+    const dobFormatted = format(new Date(formData.dateOfBirth), 'yyyy-MM-dd');
+    const registrationNoForDb = convertEmptyToNull(formData.registrationNo);
 
     await prisma.$transaction(async (tx) => {
-      // Update student details
       await tx.studentDetail.update({
         where: { id: studentSystemId },
         data: {
-          name: formData.studentName,
-          fatherName: formData.fatherName,
-          motherName: formData.motherName,
-          rollNo: formData.rollNumber,
-          registrationNo: formData.registrationNo,
-          dob: new Date(dobFormatted), // Prisma expects Date object
-          gender: formData.gender,
-          faculty: formData.faculty,
-          class: formData.academicYear,
+          name: formData.studentName, fatherName: formData.fatherName, motherName: formData.motherName,
+          rollNo: formData.rollNumber, registrationNo: registrationNoForDb, dob: new Date(dobFormatted),
+          gender: formData.gender, faculty: formData.faculty, class: formData.academicYear,
           academicYear: `${formData.sessionStartYear}-${formData.sessionEndYear}`,
         },
       });
 
-      // Delete existing marks
-      await tx.studentMarksDetail.deleteMany({
-        where: { studentDetailId: studentSystemId },
-      });
+      await tx.studentMarksDetail.deleteMany({ where: { studentDetailId: studentSystemId }, });
 
-      // Insert new marks
       if (formData.subjects && formData.subjects.length > 0) {
         const marksToInsert = formData.subjects.map(subject => ({
-          studentDetailId: studentSystemId, // Link to the student
-          subjectName: subject.subjectName,
-          category: subject.category,
+          studentDetailId: studentSystemId, subjectName: subject.subjectName, category: subject.category,
           maxMarks: subject.totalMarks,
-          passMarks: subject.passMarks,
+          theoryPassMarks: subject.theoryPassMarks, // NEW: Directly save the provided value
+          practicalPassMarks: subject.practicalPassMarks, // NEW: Directly save the provided value
           theoryMarksObtained: subject.theoryMarksObtained || 0,
           practicalMarksObtained: subject.practicalMarksObtained || 0,
           obtainedTotalMarks: (subject.theoryMarksObtained || 0) + (subject.practicalMarksObtained || 0),
         }));
-        await tx.studentMarksDetail.createMany({
-          data: marksToInsert,
-        });
+        await tx.studentMarksDetail.createMany({ data: marksToInsert });
       }
     });
 
@@ -679,39 +650,26 @@ export async function updateMarksheetAction(studentSystemId: string, formData: M
 }
 
 export interface FetchMarksheetForDisplayResult {
-  success: boolean;
-  data?: MarksheetDisplayData;
-  message?: string;
+  success: boolean; data?: MarksheetDisplayData; message?: string;
 }
 
-// Helper function to generate marksheet number (can be co-located or imported)
 const generateMarksheetNoServer = (faculty: string, rollNumber: string, sessionEndYear: number): string => {
   const facultyCode = faculty.substring(0, 2).toUpperCase();
-  const month = format(new Date(), 'MMM').toUpperCase(); // Consider if date of issue should be fixed or current
+  const month = format(new Date(), 'MMM').toUpperCase();
   const sequence = String(Math.floor(Math.random() * 900) + 100);
   return `${facultyCode}/${month}/${sessionEndYear}/${rollNumber.slice(-3) || sequence}`;
 };
 
-// Define ACADEMIC_YEAR_OPTIONS for proper type inference in fetchMarksheetForEditAction
-// This should match your actual options defined elsewhere, e.g., in types.ts or a constants file
-const ACADEMIC_YEAR_OPTIONS = ['11th', '12th', '1st Year', '2nd Year', '3rd Year'] as const;
-const SUBJECT_CATEGORIES_OPTIONS = ['Compulsory', 'Elective', 'Additional'] as const;
-
-
 export async function fetchMarksheetForDisplayAction(studentSystemId: string): Promise<FetchMarksheetForDisplayResult> {
   try {
+    // await getAuthenticatedUser();
     const studentDetails = await prisma.studentDetail.findUnique({
       where: { id: studentSystemId },
-      include: {
-        marks: true, // Eager load marks
-      },
+      include: { marks: true },
     });
 
-    if (!studentDetails) {
-      return { success: false, message: `Student data not found for ID: ${studentSystemId}.` };
-    }
+    if (!studentDetails) { return { success: false, message: `Student data not found for ID: ${studentSystemId}.` }; }
 
-    // --- Start: Data processing logic (moved from client) ---
     let sessionStartYear = new Date().getFullYear() - 1;
     let sessionEndYear = new Date().getFullYear();
     if (studentDetails.academicYear && studentDetails.academicYear.includes('-')) {
@@ -720,37 +678,58 @@ export async function fetchMarksheetForDisplayAction(studentSystemId: string): P
       sessionEndYear = parseInt(years[1], 10);
     }
 
-    // Intermediate structure similar to MarksheetFormData to hold raw DB values
     const formDataFromDb: MarksheetFormData = {
-        system_id: studentDetails.id,
-        studentName: studentDetails.name ?? '',
-        fatherName: studentDetails.fatherName ?? '',
-        motherName: studentDetails.motherName ?? '',
-        registrationNo: studentDetails.registrationNo ?? '',
-        rollNumber: studentDetails.rollNo ?? '',
-        dateOfBirth: studentDetails.dob ? new Date(studentDetails.dob) : new Date(),
-        dateOfIssue: new Date(), // Date of issue for viewing will be current date by default
-        gender: studentDetails.gender as MarksheetFormData['gender'] ?? 'Male',
-        faculty: studentDetails.faculty as MarksheetFormData['faculty'] ?? 'Arts',
+        system_id: studentDetails.id, studentName: studentDetails.name ?? '', fatherName: studentDetails.fatherName ?? '',
+        motherName: studentDetails.motherName ?? '', registrationNo: studentDetails.registrationNo,
+        rollNumber: studentDetails.rollNo ?? '', dateOfBirth: studentDetails.dob ? new Date(studentDetails.dob) : new Date(),
+        dateOfIssue: new Date(), gender: studentDetails.gender as MarksheetFormData['gender'] ?? 'Male',
+        faculty: studentDetails.faculty as MarksheetFormData['faculty'] ?? 'ARTS',
         academicYear: studentDetails.class as typeof ACADEMIC_YEAR_OPTIONS[number] ?? '11th',
-        sessionStartYear: sessionStartYear,
-        sessionEndYear: sessionEndYear,
-        overallPassingThresholdPercentage: 33, // Default
+        sessionStartYear: sessionStartYear, sessionEndYear: sessionEndYear,
+        overallPassingThresholdPercentage: 33,
         subjects: studentDetails.marks?.map(mark => ({
-            id: mark.markId.toString(),
-            subjectName: mark.subjectName ?? '',
+            id: mark.markId ? mark.markId.toString() : crypto.randomUUID(), subjectName: mark.subjectName ?? '',
             category: mark.category as MarksheetSubjectDisplayEntry['category'] ?? 'Compulsory',
             totalMarks: mark.maxMarks ?? 0,
-            passMarks: mark.passMarks ?? 0,
+            theoryPassMarks: mark.theoryPassMarks ?? null, // NEW: Fetch from DB
+            practicalPassMarks: mark.practicalPassMarks ?? null, // NEW: Fetch from DB
             theoryMarksObtained: mark.theoryMarksObtained ?? 0,
             practicalMarksObtained: mark.practicalMarksObtained ?? 0,
         })) || [],
     };
 
-    const subjectsDisplay: MarksheetSubjectDisplayEntry[] = formDataFromDb.subjects.map(s => ({
-      ...s,
-      obtainedTotal: (s.theoryMarksObtained || 0) + (s.practicalMarksObtained || 0),
-    }));
+    const subjectsDisplay: MarksheetSubjectDisplayEntry[] = formDataFromDb.subjects.map(s => {
+      const obtainedTotal = (s.theoryMarksObtained || 0) + (s.practicalMarksObtained || 0);
+      
+      let isTheoryFailed = false;
+      let isPracticalFailed = false;
+
+      // Determine theory failure: use subject's theoryPassMarks if present, otherwise fixed threshold
+      const theoryPassThreshold = s.theoryPassMarks !== null && s.theoryPassMarks !== undefined 
+                                  ? s.theoryPassMarks 
+                                  : FIXED_THEORY_PASS_THRESHOLD;
+      if (typeof s.theoryMarksObtained === 'number' && s.theoryMarksObtained < theoryPassThreshold) {
+        isTheoryFailed = true;
+      }
+
+      // Determine practical failure: use subject's practicalPassMarks if present, otherwise fixed threshold
+      const practicalPassThreshold = s.practicalPassMarks !== null && s.practicalPassMarks !== undefined
+                                    ? s.practicalPassMarks
+                                    : FIXED_PRACTICAL_PASS_THRESHOLD;
+      if (typeof s.practicalMarksObtained === 'number' && s.practicalMarksObtained < practicalPassThreshold) {
+        isPracticalFailed = true;
+      }
+
+      const isSubjectFailed = isTheoryFailed || isPracticalFailed; 
+
+      return {
+        ...s,
+        obtainedTotal,
+        isFailed: isSubjectFailed,
+        isTheoryFailed,
+        isPracticalFailed,
+      };
+    });
 
     const compulsoryElectiveSubjects = subjectsDisplay.filter(
       s => s.category === 'Compulsory' || s.category === 'Elective'
@@ -772,22 +751,19 @@ export async function fetchMarksheetForDisplayAction(studentSystemId: string): P
     const totalMarksInWords = numberToWords(aggregateMarksCompulsoryElective);
 
     let overallResult: 'Pass' | 'Fail' = 'Pass';
-    if (overallPercentageDisplay < formDataFromDb.overallPassingThresholdPercentage) {
+    if (subjectsDisplay.some(subject => subject.isFailed && (subject.category === 'Compulsory' || subject.category === 'Elective'))) {
       overallResult = 'Fail';
     }
-    for (const subject of subjectsDisplay) {
-      if (subject.obtainedTotal < subject.passMarks) {
+    if (overallPercentageDisplay < formDataFromDb.overallPassingThresholdPercentage) {
         overallResult = 'Fail';
-        break;
-      }
     }
-    // --- End: Data processing logic ---
 
+    const marksheetNo = generateMarksheetNoServer(formDataFromDb.faculty, formDataFromDb.rollNumber, formDataFromDb.sessionEndYear);
 
     const processedDataForDisplay: MarksheetDisplayData = {
-      ...formDataFromDb, // Spreads common fields
-      system_id: studentDetails.id, // ensure this comes from the DB studentDetails
+      ...formDataFromDb,
       collegeCode: "53010",
+      marksheetNo: marksheetNo,
       subjects: subjectsDisplay,
       sessionDisplay: `${formDataFromDb.sessionStartYear}-${formDataFromDb.sessionEndYear}`,
       classDisplay: `${formDataFromDb.academicYear}`,
@@ -796,9 +772,8 @@ export async function fetchMarksheetForDisplayAction(studentSystemId: string): P
       totalMarksInWords,
       overallResult,
       overallPercentageDisplay,
-      dateOfIssue: format(new Date(formDataFromDb.dateOfIssue), 'MMMM yyyy'), // Format the date for display
+      dateOfIssue: format(new Date(formDataFromDb.dateOfIssue), 'MMMM yyyy'),
       place: 'Samastipur',
-      registrationNo: formDataFromDb.registrationNo, // ensure this is included
     };
 
     return { success: true, data: processedDataForDisplay };

@@ -79,7 +79,7 @@ export function AppHeader({
         </div>
 
         <div className="text-center mx-4 flex-grow">
-          <h1 className="text-lg sm:text-xl font-bold text-primary">
+          <h1 className="text-lg sm:text-xl font-bold text-primary" style={{ color: '#032781' }}>
             {pageTitle}
           </h1>
           {renderSubtitle()}

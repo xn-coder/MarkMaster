@@ -1,3 +1,4 @@
+// components/app/marksheet-form-schema.ts
 
 import { z } from 'zod';
 
@@ -13,15 +14,26 @@ export const subjectEntrySchema = z.object({
     required_error: 'Subject category is required.',
   }),
   totalMarks: z.coerce.number().min(1, 'Total marks must be at least 1').max(500, 'Total marks seem too high'),
-  passMarks: z.coerce.number().min(0, 'Pass marks cannot be negative').max(500, 'Pass marks seem too high'),
+  // NEW: Pass marks for theory and practical components
+  theoryPassMarks: z.coerce.number().min(0, 'Pass marks cannot be negative').nullable().optional(),
+  practicalPassMarks: z.coerce.number().min(0, 'Pass marks cannot be negative').nullable().optional(),
   theoryMarksObtained: z.coerce.number().min(0, 'Theory marks cannot be negative').optional().default(0),
   practicalMarksObtained: z.coerce.number().min(0, 'Practical marks cannot be negative').optional().default(0),
 }).refine(data => (data.theoryMarksObtained || 0) + (data.practicalMarksObtained || 0) <= data.totalMarks, {
   message: 'Obtained marks (Theory + Practical) cannot exceed Total Marks',
   path: ['practicalMarksObtained'],
-}).refine(data => data.passMarks <= data.totalMarks, {
-  message: 'Pass Marks cannot exceed Total Marks',
-  path: ['passMarks'],
+}).refine(data => {
+  // Validate that individual pass marks do not exceed total marks
+  if (data.theoryPassMarks !== null && data.theoryPassMarks !== undefined && data.theoryPassMarks > data.totalMarks) {
+    return false;
+  }
+  if (data.practicalPassMarks !== null && data.practicalPassMarks !== undefined && data.practicalPassMarks > data.totalMarks) {
+    return false;
+  }
+  return true;
+}, {
+  message: 'Pass marks cannot exceed total marks.',
+  path: ['theoryPassMarks'], // Point to theoryPassMarks for the error, or choose another appropriate path
 });
 
 export const marksheetFormSchema = z.object({
@@ -30,7 +42,7 @@ export const marksheetFormSchema = z.object({
   fatherName: z.string().min(1, "Father's name is required").max(100, "Father's name too long"),
   motherName: z.string().min(1, "Mother's name is required").max(100, "Mother's name too long"),
   rollNumber: z.string().min(1, 'Roll number is required').max(20, 'Roll number too long'),
-  registrationNo: z.string().min(0, 'Registration No. is required'),
+  registrationNo: z.string().max(50, 'Registration number too long').nullable().optional(),
   dateOfBirth: z.date({ required_error: 'Date of birth is required' }),
   dateOfIssue: z.date({ required_error: 'Date of issue is required' }),
   gender: z.enum(['Male', 'Female', 'Other'], { required_error: 'Gender is required' }),
@@ -38,7 +50,7 @@ export const marksheetFormSchema = z.object({
   academicYear: z.enum(ACADEMIC_YEAR_OPTIONS, { required_error: 'Academic year (Class) is required' }),
   sessionStartYear: z.coerce.number().min(1950, 'Year too old').max(currentYear + 5, `Year too far in future`),
   sessionEndYear: z.coerce.number().min(1951, 'Year too old').max(currentYear + 6, `Year too far in future`),
-  overallPassingThresholdPercentage: z.coerce.number().min(0, 'Percentage cannot be negative').max(100, 'Percentage cannot exceed 100'),
+  overallPassingThresholdPercentage: z.coerce.number().min(0).max(100).optional().default(33), // Keep this if you want it
   subjects: z.array(subjectEntrySchema)
     .min(1, 'At least one subject is required.')
     .refine(

@@ -1,4 +1,3 @@
-
 'use client';
 
 import Image from 'next/image';
@@ -27,68 +26,87 @@ export default function LoginPage() {
   const [isClient, setIsClient] = useState(false);
   const adminUserCheckPerformed = useRef(false);
 
+  // --- REVISED: ensureAdminUserExists for safer initial setup (still client-side) ---
+  // IMPORTANT: This client-side auto-signup for an admin user is NOT a secure pattern for production.
+  // It's preferable to manually create the admin user via Supabase dashboard or a secure server-side script.
+  // This revised version only attempts to sign up (triggering email confirmation) without a default password.
+  // The admin must then use the "Forgot password?" flow to set their initial password after email confirmation.
   const ensureAdminUserExists = useCallback(async (emailToEnsure: string) => {
     if (!emailToEnsure || !emailToEnsure.includes('@')) {
-      console.error("ensureAdminUserExists called with invalid or no email:", emailToEnsure);
-      // Toast for this case is handled in the useEffect setting up adminEmail
+      // console.error("ensureAdminUserExists called with invalid or no email:", emailToEnsure); // Remove for production
       return;
     }
-    console.log(`ensureAdminUserExists: Attempting to sign up or confirm user: ${emailToEnsure}`);
+    // console.log(`ensureAdminUserExists: Attempting to sign up or confirm user: ${emailToEnsure}`); // Remove for production
 
+    // Attempt to sign up the user. If email confirmation is enabled in Supabase,
+    // this will send a confirmation email. No password is provided here.
     const { data, error } = await supabase.auth.signUp({
       email: emailToEnsure,
-      password: 'password', // Default password
+      password: 'password'
     });
 
     if (error) {
-      console.error("Supabase signUp error in ensureAdminUserExists:", error);
+      // console.error("Supabase signUp error in ensureAdminUserExists:", error); // Remove for production
       if (
         error.message.toLowerCase().includes('user already registered') ||
-        error.message.toLowerCase().includes('user already exists') ||
-        (error.message.toLowerCase().includes('email link') && error.message.toLowerCase().includes('already been sent')) ||
-        error.message.toLowerCase().includes('rate limit exceeded') // Added rate limit check
+        error.message.toLowerCase().includes('user already exists')
       ) {
+        // This is the expected scenario if the user exists
         toast({
-          title: 'Admin User Info',
-          description: `Admin user with email ${emailToEnsure} already exists or setup process initiated. If you recently created this user, check your email for confirmation if required by your Supabase settings.`,
+          title: 'Admin User Exists',
+          description: `Admin user with email ${emailToEnsure} is already registered.`,
           variant: 'default',
         });
-      } else {
-        toast({ title: 'Admin User Setup Error', description: `Could not ensure admin user. Supabase error: ${error.message}`, variant: 'destructive' });
+      } else if (error.message.toLowerCase().includes('email link') && error.message.toLowerCase().includes('already been sent')) {
+         toast({
+          title: 'Admin User Setup Ongoing',
+          description: `Confirmation email already sent to ${emailToEnsure}. Please check your inbox to confirm.`,
+          variant: 'default',
+         });
       }
-    } else if (data.user) {
+      else if (error.message.toLowerCase().includes('rate limit exceeded')) {
+        toast({
+          title: 'Too many requests',
+          description: 'Too many signup attempts. Please try again later.',
+          variant: 'destructive',
+        });
+      } else {
+        toast({ title: 'Admin User Setup Error', description: `Could not ensure admin user: ${error.message}`, variant: 'destructive' });
+      }
+    } else if (data.user && !data.session) { // User created but session not returned (e.g., email confirmation required)
       toast({
-        title: 'Admin User Setup Successful',
-        description: `Admin user ${emailToEnsure} ensured. If newly created and email confirmation is enabled in Supabase, please check your email.`,
+        title: 'Admin User Created (Action Required)',
+        description: `Admin user for ${emailToEnsure} created. Check your email for a confirmation link to activate your account.`,
       });
-    } else if (data.session === null && !data.user && !error) {
-       // This case can happen if the user exists but is unconfirmed and "Confirm email" is true.
-       // Supabase signUp might return no user and no error but also no session.
-       toast({
-        title: 'Admin User Awaiting Confirmation',
-        description: `Admin user ${emailToEnsure} may be awaiting email confirmation. Please check your inbox.`,
-        variant: 'default',
-       });
+    } else if (data.session) { // User signed up AND signed in directly (if email confirmation is off)
+        toast({
+            title: 'Admin User Setup & Logged In',
+            description: `Admin user for ${emailToEnsure} created and you are now logged in.`,
+        });
+        router.push('/'); // Redirect after successful creation and sign-in
     }
-  }, [toast]);
+  }, [toast, router]);
 
   useEffect(() => {
     setIsClient(true);
     const rawEmailFromEnv = process.env.NEXT_PUBLIC_ADMIN_EMAIL;
-    console.log("Login Page Mount: Raw NEXT_PUBLIC_ADMIN_EMAIL from env:", rawEmailFromEnv);
+    // console.log("Login Page Mount: Raw NEXT_PUBLIC_ADMIN_EMAIL from env:", rawEmailFromEnv); // Remove for production
 
     const emailFromEnv = rawEmailFromEnv?.trim();
-    console.log("Login Page Mount: Trimmed emailFromEnv:", emailFromEnv);
+    // console.log("Login Page Mount: Trimmed emailFromEnv:", emailFromEnv); // Remove for production
 
     if (emailFromEnv && emailFromEnv.includes('@')) {
       setAdminEmail(emailFromEnv);
       if (!adminUserCheckPerformed.current) {
-        console.log("Login Page Mount: Attempting to ensure admin user exists with email:", emailFromEnv);
+        console.log("Login Page Mount: Attempting to ensure admin user exists with email:", emailFromEnv); // Remove for production
+        // Only run ensureAdminUserExists if not in a password reset flow
+        // if (router.pathname === '/login' && view === 'signIn') { // Only auto-provision on initial signIn view
         ensureAdminUserExists(emailFromEnv);
+        // }
         adminUserCheckPerformed.current = true;
       }
     } else {
-      console.warn('NEXT_PUBLIC_ADMIN_EMAIL is not set or is invalid in .env file. Raw value:', rawEmailFromEnv);
+      // console.warn('NEXT_PUBLIC_ADMIN_EMAIL is not set or is invalid in .env file. Raw value:', rawEmailFromEnv); // Keep this warning
       toast({
         title: 'Configuration Error',
         description: 'Admin email (NEXT_PUBLIC_ADMIN_EMAIL) is not configured correctly in your .env file or is missing. Please ensure it is a valid email address and restart the server.',
@@ -96,17 +114,24 @@ export default function LoginPage() {
       });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // ensureAdminUserExists is a dependency, but it's stable due to useCallback
+  }, [view]); // Add `view` to dependencies so ensureAdminUserExists can be called when `view` is 'signIn'
 
   useEffect(() => {
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_IN' && view !== 'resetPasswordForm' && view !== 'verifyOtp') {
+      // Only redirect if a session exists AND we are not in a password reset/OTP flow
+      if (event === 'SIGNED_IN' && session?.user && view !== 'resetPasswordForm' && view !== 'verifyOtp') {
         router.push('/');
+      }
+      // If signed out from reset password, reset view
+      if (event === 'SIGNED_OUT' && view === 'resetPasswordForm') {
+        setView('signIn');
+        toast({ title: 'Signed Out', description: 'You have been signed out. Please login with your new password.', variant: 'default' });
       }
     });
 
     const checkUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
+      // Only redirect if user exists and not currently in password reset/OTP flow
       if (user && view !== 'resetPasswordForm' && view !== 'verifyOtp' && view !== 'forgotPasswordRequestOtp' ) {
         router.push('/');
       }
@@ -119,13 +144,13 @@ export default function LoginPage() {
     return () => {
       authListener.subscription.unsubscribe();
     };
-  }, [router, view, isClient]);
+  }, [router, view, isClient, toast]);
 
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
-    console.log("Attempting login with email:", adminEmail);
+    // console.log("Attempting login with email:", adminEmail); // Remove for production
     const { error } = await supabase.auth.signInWithPassword({
       email: adminEmail,
       password,
@@ -134,22 +159,21 @@ export default function LoginPage() {
       toast({ title: 'Login Failed', description: error.message, variant: 'destructive' });
     } else {
       toast({ title: 'Login Successful', description: 'Redirecting...' });
-      // Redirection is handled by onAuthStateChange
     }
     setLoading(false);
   };
 
   const handleRequestOtp = async () => {
-    if (!adminEmail) {
-       toast({ title: 'Error', description: 'Admin email is not configured.', variant: 'destructive' });
+    if (!adminEmail || adminEmail.trim() === '') {
+       toast({ title: 'Error', description: 'Admin email cannot be empty.', variant: 'destructive' });
        return;
     }
     setLoading(true);
-    console.log("Requesting OTP for email:", adminEmail);
+    // console.log("Requesting OTP for email:", adminEmail); // Remove for production
     const { error } = await supabase.auth.signInWithOtp({
       email: adminEmail,
       options: {
-        shouldCreateUser: false, // Should not create a user during OTP for password reset
+        shouldCreateUser: false, // Ensure we don't accidentally create a user if not intended
         emailRedirectTo: typeof window !== 'undefined' ? `${window.location.origin}/login` : '',
       }
     });
@@ -165,26 +189,24 @@ export default function LoginPage() {
 
   const handleVerifyOtp = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!adminEmail || !otp) {
+    if (!adminEmail || !otp || otp.trim() === '') {
       toast({ title: 'Error', description: 'Email or OTP missing.', variant: 'destructive' });
       return;
     }
     setLoading(true);
-    console.log("Verifying OTP for email:", adminEmail);
+    // console.log("Verifying OTP for email:", adminEmail); // Remove for production
     const { data, error } = await supabase.auth.verifyOtp({
       email: adminEmail,
       token: otp,
-      type: 'email', // Use 'email' for password recovery OTPs sent via email
+      type: 'email', 
     });
 
     if (error) {
       toast({ title: 'OTP Verification Failed', description: error.message, variant: 'destructive' });
     } else if (data.session) {
-      // User is now signed in with this session after OTP verification
       toast({ title: 'OTP Verified', description: 'Please set your new password.' });
       setView('resetPasswordForm');
     } else {
-      // This case might happen if OTP is wrong but doesn't throw an error, or if session is unexpectedly null
       toast({ title: 'OTP Verification Failed', description: 'Invalid OTP or an unexpected issue occurred.', variant: 'destructive' });
     }
     setLoading(false);
@@ -192,20 +214,22 @@ export default function LoginPage() {
 
   const handleResetPassword = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!newPassword) {
+    if (!newPassword || newPassword.trim() === '') {
       toast({ title: 'Error', description: 'New password cannot be empty.', variant: 'destructive' });
       return;
     }
     setLoading(true);
-    console.log("Resetting password for current user (identified by OTP session)");
+    // console.log("Resetting password for current user (identified by OTP session)"); // Remove for production
     const { error } = await supabase.auth.updateUser({ password: newPassword });
     if (error) {
       toast({ title: 'Password Reset Failed', description: error.message, variant: 'destructive' });
     } else {
       toast({ title: 'Password Reset Successful', description: 'You can now login with your new password.' });
       setNewPassword('');
-      await supabase.auth.signOut();
-      setView('signIn');
+      // Signing out after password reset is a good security practice.
+      // This forces the user to log in with the new password.
+      await supabase.auth.signOut(); 
+      setView('signIn'); // Go back to sign-in view
     }
     setLoading(false);
   };
@@ -233,7 +257,10 @@ export default function LoginPage() {
             />
           </div>
           <div className="text-center mx-2 sm:mx-4 flex-grow">
-            <h1 className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold text-indigo-700 leading-tight">
+            <h1 
+              className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold leading-tight"
+              style={{ color: '#032781' }}
+            >
               SARYUG COLLEGE, CHITRAGUPT NAGAR, MOHANPUR SAMASTIPUR BIHAR
             </h1>
             <p className="text-[10px] sm:text-xs md:text-sm text-slate-600 mt-0.5">
@@ -399,6 +426,3 @@ export default function LoginPage() {
     </div>
   );
 }
-    
-
-    

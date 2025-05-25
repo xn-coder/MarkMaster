@@ -1,16 +1,23 @@
 'use client';
 
 import type * as React from 'react';
-import { useForm, useFieldArray, Controller } from 'react-hook-form';
+import { useForm, useFieldArray, Controller } from 'react-hook-form'; // Controller might not be strictly needed here, but doesn't hurt
 import { zodResolver } from '@hookform/resolvers/zod';
-import { studentFormSchema } from './student-form-schema';
-import type { StudentFormData } from '@/types';
+import { studentFormSchema, ACADEMIC_YEAR_OPTIONS } from './student-form-schema'; // Import ACADEMIC_YEAR_OPTIONS
+import type { StudentFormData } from '@/types'; // Ensure StudentFormData matches the schema
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { PlusCircle, XCircle } from 'lucide-react';
+import {
+  Select, // Import Select components for dropdowns
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { PlusCircle, XCircle, Loader2 } from 'lucide-react'; // Added Loader2 for button loading state
 
 interface StudentFormProps {
   onSubmit: (data: StudentFormData) => void;
@@ -22,15 +29,16 @@ export function StudentForm({ onSubmit, isLoading }: StudentFormProps) {
     resolver: zodResolver(studentFormSchema),
     defaultValues: {
       studentName: '',
-      studentId: '',
-      studentClass: '',
-      subjects: [{ subjectName: '', marksObtained: 0, maxMarks: 100 }],
+      rollNumber: '', // Renamed from studentId
+      studentClass: undefined, // Changed to undefined to allow Select placeholder
+      subjects: [{ id: crypto.randomUUID(), subjectName: '', marksObtained: 0, maxMarks: 100 }], // Added id for useFieldArray
     },
   });
 
   const { fields, append, remove } = useFieldArray({
     control: form.control,
     name: 'subjects',
+    keyName: 'id', // Use 'id' for unique keys
   });
 
   const handleFormSubmit = (data: StudentFormData) => {
@@ -61,10 +69,10 @@ export function StudentForm({ onSubmit, isLoading }: StudentFormProps) {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <FormField
                 control={form.control}
-                name="studentId"
+                name="rollNumber" // Changed from studentId
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Student ID</FormLabel>
+                    <FormLabel>Roll Number</FormLabel> {/* Changed label */}
                     <FormControl>
                       <Input placeholder="e.g., S12345" {...field} />
                     </FormControl>
@@ -78,9 +86,20 @@ export function StudentForm({ onSubmit, isLoading }: StudentFormProps) {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Class</FormLabel>
-                    <FormControl>
-                      <Input placeholder="e.g., 10th Grade A" {...field} />
-                    </FormControl>
+                    <Select onValueChange={field.onChange} value={field.value || undefined}> {/* Use Select for enum */}
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select class" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {ACADEMIC_YEAR_OPTIONS.map((cls) => (
+                          <SelectItem key={cls} value={cls}>
+                            {cls}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -112,7 +131,13 @@ export function StudentForm({ onSubmit, isLoading }: StudentFormProps) {
                         <FormItem>
                           <FormLabel>Marks Obtained</FormLabel>
                           <FormControl>
-                            <Input type="number" placeholder="e.g., 85" {...field} />
+                            <Input
+                              type="number"
+                              placeholder="e.g., 85"
+                              {...field}
+                              onChange={e => field.onChange(e.target.value === '' ? undefined : parseInt(e.target.value, 10))} // Handle empty string to undefined
+                              value={field.value === undefined ? '' : String(field.value)} // Display empty string for undefined
+                            />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -125,13 +150,19 @@ export function StudentForm({ onSubmit, isLoading }: StudentFormProps) {
                         <FormItem>
                           <FormLabel>Max Marks</FormLabel>
                           <FormControl>
-                            <Input type="number" placeholder="e.g., 100" {...field} />
+                            <Input
+                              type="number"
+                              placeholder="e.g., 100"
+                              {...field}
+                              onChange={e => field.onChange(e.target.value === '' ? undefined : parseInt(e.target.value, 10))} // Handle empty string to undefined
+                              value={field.value === undefined ? '' : String(field.value)} // Display empty string for undefined
+                            />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
-                    {fields.length > 1 && (
+                    {fields.length > 1 && ( // Only show remove button if more than one subject
                        <Button
                         type="button"
                         variant="destructive"
@@ -148,11 +179,12 @@ export function StudentForm({ onSubmit, isLoading }: StudentFormProps) {
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => append({ subjectName: '', marksObtained: 0, maxMarks: 100 })}
+                onClick={() => append({ id: crypto.randomUUID(), subjectName: '', marksObtained: 0, maxMarks: 100 })} // Ensure new subjects have an ID
                 className="w-full"
               >
                 <PlusCircle className="mr-2 h-4 w-4" /> Add Subject
               </Button>
+              {/* Display general subject array errors */}
               {form.formState.errors.subjects && !form.formState.errors.subjects.root && (
                  <p className="text-sm font-medium text-destructive">{form.formState.errors.subjects.message}</p>
               )}
@@ -163,6 +195,7 @@ export function StudentForm({ onSubmit, isLoading }: StudentFormProps) {
           </CardContent>
           <CardFooter>
             <Button type="submit" className="w-full" disabled={isLoading}>
+              {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null} {/* Loading spinner */}
               {isLoading ? 'Generating...' : 'Generate Marksheet'}
             </Button>
           </CardFooter>

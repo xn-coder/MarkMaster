@@ -32,7 +32,8 @@ model StudentMarksDetail { // <-- IS IT EXACTLY 'StudentMarksDetail'?
   subjectName             String?   @map("subject_name")
   category                String?
   maxMarks                Int?      @map("max_marks")
-  passMarks               Int?      @map("pass_marks")
+  theoryPassMarks        Float?   @map("theory_pass_marks") // NEW FIELD
+  practicalPassMarks     Float?   @map("practical_pass_marks") // NEW FIELD
   theoryMarksObtained     Int?      @map("theory_marks_obtained")
   practicalMarksObtained  Int?      @map("practical_marks_obtained")
   obtainedTotalMarks      Int?      @map("obtained_total_marks")
