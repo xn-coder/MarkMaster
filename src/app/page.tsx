@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase/client';
 import { useToast } from "@/hooks/use-toast";
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button'; // Added buttonVariants here
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { AppHeader } from '@/components/app/app-header';
@@ -62,6 +62,7 @@ import {
 import * as XLSX from 'xlsx';
 import { format, parseISO } from 'date-fns';
 import type { StudentRowData } from '@/types';
+
 
 const dashboardPageTitle = "SARYUG COLLEGE";
 const dashboardPageSubtitle = `(Affiliated By Bihar School Examination Board, Patna)
@@ -179,10 +180,10 @@ export default function AdminDashboardPage() {
           system_id: s.id,
           roll_no: s.roll_no || '',
           registrationNo: s.registration_no || '',
-          name: s.name,
-          academicYear: s.academic_year,
-          class: s.class,
-          faculty: s.faculty,
+          name: s.name || '',
+          academicYear: s.academic_year || '',
+          class: s.class || '',
+          faculty: s.faculty || '',
         }));
         setAllStudents(formattedStudents);
         populateDynamicFilterOptions(formattedStudents);
