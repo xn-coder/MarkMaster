@@ -211,8 +211,8 @@ export default function AdminDashboardPage() {
         }));
         setStudentsOnPage(formattedStudents);
         setTotalStudentsCount(count || 0);
-        if (pageToLoad === 1) { // Only show toast for initial load/refresh, not every pagination click
-            toast({ title: "Student Data Loaded", description: `${formattedStudents.length} records fetched for this page. Total: ${count || 0}` });
+        // if (pageToLoad === 1) { // Only show toast for initial load/refresh, not every pagination click
+        //     toast({ title: "Student Data Loaded", description: `${formattedStudents.length} records fetched for this page. Total: ${count || 0}` });
         }
       } else {
         setStudentsOnPage([]);
