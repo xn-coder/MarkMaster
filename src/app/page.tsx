@@ -58,6 +58,7 @@ import {
   ChevronRight,
   Loader2,
   Trash2,
+  ArrowLeft
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { format, parseISO } from 'date-fns';
@@ -147,13 +148,13 @@ export default function AdminDashboardPage() {
       return;
     }
 
-    const academicYears = [...new Set(students.map(s => s.academicYear).filter(Boolean) as string[])].sort();
+    const academicYears = [...new Set(students.map(s => s.academic_year).filter(Boolean) as string[])].sort();
     setDynamicAcademicYearOptions(['All Academic Years', ...academicYears]);
 
-    const startYears = [...new Set(students.map(s => s.academicYear?.split('-')[0]).filter(Boolean) as string[])].sort((a, b) => parseInt(b) - parseInt(a));
+    const startYears = [...new Set(students.map(s => s.academic_year?.split('-')[0]).filter(Boolean) as string[])].sort((a, b) => parseInt(b) - parseInt(a));
     setDynamicStartYearOptions(['All Start Years', ...startYears]);
 
-    const endYears = [...new Set(students.map(s => s.academicYear?.split('-')[1]).filter(Boolean) as string[])].sort((a, b) => parseInt(b) - parseInt(a));
+    const endYears = [...new Set(students.map(s => s.academic_year?.split('-')[1]).filter(Boolean) as string[])].sort((a, b) => parseInt(b) - parseInt(a));
     setDynamicEndYearOptions(['All End Years', ...endYears]);
 
     const classes = [...new Set(students.map(s => s.class).filter(Boolean) as string[])].sort();
@@ -169,7 +170,7 @@ export default function AdminDashboardPage() {
     try {
       const { data: studentsData, error } = await supabase
         .from('student_details')
-        .select('id, roll_no, name, faculty, class, academic_year, registration_no'); // registration_no added
+        .select('id, roll_no, name, faculty, class, academic_year, registration_no'); 
 
       if (error) {
         throw error;
@@ -179,9 +180,9 @@ export default function AdminDashboardPage() {
         const formattedStudents: StudentRowData[] = studentsData.map(s => ({
           system_id: s.id,
           roll_no: s.roll_no || '',
-          registrationNo: s.registration_no || null, // Mapped here
+          registrationNo: s.registration_no || null,
           name: s.name || '',
-          academicYear: s.academic_year || '',
+          academic_year: s.academic_year || '',
           class: s.class || '',
           faculty: s.faculty || '',
         }));
@@ -206,7 +207,7 @@ export default function AdminDashboardPage() {
     let filtered = allStudents;
 
     if (academicYearFilter !== 'All Academic Years') {
-      filtered = filtered.filter(student => student.academicYear === academicYearFilter);
+      filtered = filtered.filter(student => student.academic_year === academicYearFilter);
     }
 
     const filterStartYearNum = startYearFilter !== 'All Start Years' ? parseInt(startYearFilter, 10) : null;
@@ -214,10 +215,10 @@ export default function AdminDashboardPage() {
 
     if (filterStartYearNum !== null || filterEndYearNum !== null) {
       filtered = filtered.filter(student => {
-        if (!student.academicYear || !student.academicYear.includes('-')) {
+        if (!student.academic_year || !student.academic_year.includes('-')) {
           return false;
         }
-        const [studentSessionStartStr, studentSessionEndStr] = student.academicYear.split('-');
+        const [studentSessionStartStr, studentSessionEndStr] = student.academic_year.split('-');
         const studentSessionStartYear = parseInt(studentSessionStartStr, 10);
         const studentSessionEndYear = parseInt(studentSessionEndStr, 10);
 
@@ -292,7 +293,7 @@ export default function AdminDashboardPage() {
     const studentMarksDataSheet: any[] = [];
 
     const studentDetailHeaders = ["System ID", "Roll No", "Registration No", "Name", "Father Name", "Mother Name", "Date of Birth", "Gender", "Faculty", "Class", "Academic Session"];
-    const studentMarkHeaders = ["System ID", "Roll No", "Registration No", "Name", "Subject Name", "Subject Category", "Max Marks", "Theory Marks Obtained", "Practical Marks Obtained", "Obtained Total Marks"]; // Pass Marks removed
+    const studentMarkHeaders = ["System ID", "Roll No", "Registration No", "Name", "Subject Name", "Subject Category", "Max Marks", "Theory Marks Obtained", "Practical Marks Obtained", "Obtained Total Marks"]; 
 
     try {
       for (const displayedStudent of displayedStudents) {
@@ -333,7 +334,6 @@ export default function AdminDashboardPage() {
             studentMarksDataSheet.push({
               "System ID": studentDetails.id, "Roll No": studentDetails.roll_no, "Registration No": studentDetails.registration_no || '', "Name": studentDetails.name,
               "Subject Name": mark.subject_name, "Subject Category": mark.category, "Max Marks": mark.max_marks,
-              // Pass Marks removed
               "Theory Marks Obtained": mark.theory_marks_obtained,
               "Practical Marks Obtained": mark.practical_marks_obtained, "Obtained Total Marks": mark.obtained_total_marks,
             });
@@ -342,7 +342,6 @@ export default function AdminDashboardPage() {
              studentMarksDataSheet.push({
               "System ID": studentDetails.id, "Roll No": studentDetails.roll_no, "Registration No": studentDetails.registration_no || '', "Name": studentDetails.name,
               "Subject Name": "N/A", "Subject Category": "N/A", "Max Marks": "N/A",
-              // Pass Marks removed
               "Theory Marks Obtained": "N/A", "Practical Marks Obtained": "N/A", "Obtained Total Marks": "N/A",
             });
         }
@@ -447,10 +446,11 @@ export default function AdminDashboardPage() {
         console.log('Marks deletion response:', { marksData, marksError });
 
         if (marksError) {
-          console.error(`Failed to delete marks for student ID ${studentSystemId}: ${marksError.message}`);
+          const errMsg = `Could not delete marks for student ID ${studentSystemId.substring(0,8)}... Details: ${marksError.message}`;
+          console.error(errMsg);
           toast({ 
             title: "Marks Deletion Error", 
-            description: `Could not delete marks for student ID ${studentSystemId.substring(0,8)}... Details: ${marksError.message}`, 
+            description: errMsg, 
             variant: "destructive" 
           });
           errorCount++;
@@ -465,8 +465,9 @@ export default function AdminDashboardPage() {
         console.log('Student deletion response:', { studentData, studentError });
 
         if (studentError) {
-          console.error(`Failed to delete student ID ${studentSystemId}: ${studentError.message}`);
-          throw new Error(`Failed to delete student ID ${studentSystemId.substring(0,8)}... Details: ${studentError.message}`);
+          const errMsg = `Failed to delete student ID ${studentSystemId.substring(0,8)}... Details: ${studentError.message}`;
+          console.error(errMsg);
+          throw new Error(errMsg);
         }
         deletedCount++;
       } catch (error: any) {
@@ -671,9 +672,9 @@ export default function AdminDashboardPage() {
                         />
                       </TableCell>
                       <TableCell>{student.roll_no}</TableCell>
-                      <TableCell>{student.registrationNo || 'N/A'}</TableCell> {/* Display Registration No. */}
+                      <TableCell>{student.registrationNo || 'N/A'}</TableCell>
                       <TableCell>{student.name}</TableCell>
-                      <TableCell>{student.academicYear}</TableCell>
+                      <TableCell>{student.academic_year}</TableCell>
                       <TableCell>{student.class}</TableCell>
                       <TableCell>{student.faculty}</TableCell>
                       <TableCell className="text-center">
@@ -752,3 +753,4 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
+
