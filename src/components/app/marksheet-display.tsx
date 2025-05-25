@@ -529,6 +529,3 @@ export function MarksheetDisplay({ data, onCreateNew, onEditBack, onNavigateToEd
     </div>
   );
 }
-
-- marksheetNo to registrationNo
-- make pdf name same as roll no.

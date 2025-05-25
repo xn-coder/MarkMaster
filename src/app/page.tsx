@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase/client';
 import { useToast } from "@/hooks/use-toast";
-import { Button, buttonVariants } from '@/components/ui/button'; // Added buttonVariants here
+import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { AppHeader } from '@/components/app/app-header';
@@ -169,7 +169,7 @@ export default function AdminDashboardPage() {
     try {
       const { data: studentsData, error } = await supabase
         .from('student_details')
-        .select('id, roll_no, name, faculty, class, academic_year, registration_no');
+        .select('id, roll_no, name, faculty, class, academic_year, registration_no'); // registration_no added
 
       if (error) {
         throw error;
@@ -179,7 +179,7 @@ export default function AdminDashboardPage() {
         const formattedStudents: StudentRowData[] = studentsData.map(s => ({
           system_id: s.id,
           roll_no: s.roll_no || '',
-          registrationNo: s.registration_no || '',
+          registrationNo: s.registration_no || null, // Mapped here
           name: s.name || '',
           academicYear: s.academic_year || '',
           class: s.class || '',
@@ -271,7 +271,7 @@ export default function AdminDashboardPage() {
   };
 
   const handleDeleteStudent = async (student: StudentRowData) => {
-     setSelectedStudents(new Set([student.system_id])); // Set up for confirmation dialog
+     setSelectedStudents(new Set([student.system_id]));
      setShowDeleteConfirmDialog(true);
   };
 
@@ -292,7 +292,7 @@ export default function AdminDashboardPage() {
     const studentMarksDataSheet: any[] = [];
 
     const studentDetailHeaders = ["System ID", "Roll No", "Registration No", "Name", "Father Name", "Mother Name", "Date of Birth", "Gender", "Faculty", "Class", "Academic Session"];
-    const studentMarkHeaders = ["System ID", "Roll No", "Registration No", "Name", "Subject Name", "Subject Category", "Max Marks", "Pass Marks", "Theory Marks Obtained", "Practical Marks Obtained", "Obtained Total Marks"];
+    const studentMarkHeaders = ["System ID", "Roll No", "Registration No", "Name", "Subject Name", "Subject Category", "Max Marks", "Theory Marks Obtained", "Practical Marks Obtained", "Obtained Total Marks"]; // Pass Marks removed
 
     try {
       for (const displayedStudent of displayedStudents) {
@@ -333,14 +333,16 @@ export default function AdminDashboardPage() {
             studentMarksDataSheet.push({
               "System ID": studentDetails.id, "Roll No": studentDetails.roll_no, "Registration No": studentDetails.registration_no || '', "Name": studentDetails.name,
               "Subject Name": mark.subject_name, "Subject Category": mark.category, "Max Marks": mark.max_marks,
-              "Pass Marks": mark.pass_marks, "Theory Marks Obtained": mark.theory_marks_obtained,
+              // Pass Marks removed
+              "Theory Marks Obtained": mark.theory_marks_obtained,
               "Practical Marks Obtained": mark.practical_marks_obtained, "Obtained Total Marks": mark.obtained_total_marks,
             });
           }
         } else {
              studentMarksDataSheet.push({
               "System ID": studentDetails.id, "Roll No": studentDetails.roll_no, "Registration No": studentDetails.registration_no || '', "Name": studentDetails.name,
-              "Subject Name": "N/A", "Subject Category": "N/A", "Max Marks": "N/A", "Pass Marks": "N/A",
+              "Subject Name": "N/A", "Subject Category": "N/A", "Max Marks": "N/A",
+              // Pass Marks removed
               "Theory Marks Obtained": "N/A", "Practical Marks Obtained": "N/A", "Obtained Total Marks": "N/A",
             });
         }
@@ -437,7 +439,6 @@ export default function AdminDashboardPage() {
     for (const studentSystemId of studentsToDelete) {
       console.log(`Attempting to delete student with system_id: ${studentSystemId}`);
       try {
-        // First, delete associated marks
         console.log(`Deleting marks for student_detail_id: ${studentSystemId}`);
         const { data: marksData, error: marksError } = await supabase
           .from('student_marks_details')
@@ -456,7 +457,6 @@ export default function AdminDashboardPage() {
           continue; 
         }
         
-        // Then, delete the student
         console.log(`Deleting student details for id: ${studentSystemId}`);
         const { data: studentData, error: studentError } = await supabase
           .from('student_details')
@@ -487,7 +487,7 @@ export default function AdminDashboardPage() {
     await handleLoadStudentData(); 
     
     setIsDeletingSelected(false);
-    setShowDeleteConfirmDialog(false); // Close the dialog
+    setShowDeleteConfirmDialog(false);
   };
 
   if (authStatus === 'loading') {
@@ -671,7 +671,7 @@ export default function AdminDashboardPage() {
                         />
                       </TableCell>
                       <TableCell>{student.roll_no}</TableCell>
-                      <TableCell>{student.registrationNo}</TableCell>
+                      <TableCell>{student.registrationNo || 'N/A'}</TableCell> {/* Display Registration No. */}
                       <TableCell>{student.name}</TableCell>
                       <TableCell>{student.academicYear}</TableCell>
                       <TableCell>{student.class}</TableCell>

@@ -5,53 +5,54 @@ import type { MarksheetFormData, SubjectEntryFormData } from '@/types';
 // Consistent Category Type based on schema
 type FormSubjectCategory = SubjectEntryFormData['category'];
 
+// Updated: removed passMarks from templates
 const ALL_FACULTY_COMPULSORY_SUBJECTS_TEMPLATES: SubjectTemplateItem[] = [
-  { subjectName: "English", category: "Compulsory", totalMarks: 100, passMarks: 33 },
-  { subjectName: "Hindi", category: "Compulsory", totalMarks: 100, passMarks: 33 },
-  { subjectName: "Urdu", category: "Compulsory", totalMarks: 100, passMarks: 33 },
-  { subjectName: "Maithili", category: "Compulsory", totalMarks: 100, passMarks: 33 },
-  { subjectName: "Sanskrit", category: "Compulsory", totalMarks: 100, passMarks: 33 },
-  { subjectName: "Prakriti", category: "Compulsory", totalMarks: 100, passMarks: 33 },
-  { subjectName: "Magahi", category: "Compulsory", totalMarks: 100, passMarks: 33 },
-  { subjectName: "Bhojpuri", category: "Compulsory", totalMarks: 100, passMarks: 33 },
-  { subjectName: "Arabic", category: "Compulsory", totalMarks: 100, passMarks: 33 },
-  { subjectName: "Persian", category: "Compulsory", totalMarks: 100, passMarks: 33 },
-  { subjectName: "Pali", category: "Compulsory", totalMarks: 100, passMarks: 33 },
-  { subjectName: "Bangla", category: "Compulsory", totalMarks: 100, passMarks: 33 },
+  { subjectName: "English", category: "Compulsory", totalMarks: 100 },
+  { subjectName: "Hindi", category: "Compulsory", totalMarks: 100 },
+  { subjectName: "Urdu", category: "Compulsory", totalMarks: 100 },
+  { subjectName: "Maithili", category: "Compulsory", totalMarks: 100 },
+  { subjectName: "Sanskrit", category: "Compulsory", totalMarks: 100 },
+  { subjectName: "Prakriti", category: "Compulsory", totalMarks: 100 },
+  { subjectName: "Magahi", category: "Compulsory", totalMarks: 100 },
+  { subjectName: "Bhojpuri", category: "Compulsory", totalMarks: 100 },
+  { subjectName: "Arabic", category: "Compulsory", totalMarks: 100 },
+  { subjectName: "Persian", category: "Compulsory", totalMarks: 100 },
+  { subjectName: "Pali", category: "Compulsory", totalMarks: 100 },
+  { subjectName: "Bangla", category: "Compulsory", totalMarks: 100 },
 ];
 
 const ARTS_ELECTIVE_SUBJECT_TEMPLATES: SubjectTemplateItem[] = [
-  { subjectName: "Music", category: "Elective", totalMarks: 100, passMarks: 33 },
-  { subjectName: "Home Science", category: "Elective", totalMarks: 100, passMarks: 33 },
-  { subjectName: "Philosophy", category: "Elective", totalMarks: 100, passMarks: 33 },
-  { subjectName: "History", category: "Elective", totalMarks: 100, passMarks: 33 },
-  { subjectName: "Political Science", category: "Elective", totalMarks: 100, passMarks: 33 },
-  { subjectName: "Geography", category: "Elective", totalMarks: 100, passMarks: 33 },
-  { subjectName: "Psychology", category: "Elective", totalMarks: 100, passMarks: 33 },
-  { subjectName: "Sociology", category: "Elective", totalMarks: 100, passMarks: 33 },
-  { subjectName: "Economics", category: "Elective", totalMarks: 100, passMarks: 33 }, // Also in Commerce
-  { subjectName: "Mathematics", category: "Elective", totalMarks: 100, passMarks: 33 }, // Also in Science
+  { subjectName: "Music", category: "Elective", totalMarks: 100 },
+  { subjectName: "Home Science", category: "Elective", totalMarks: 100 },
+  { subjectName: "Philosophy", category: "Elective", totalMarks: 100 },
+  { subjectName: "History", category: "Elective", totalMarks: 100 },
+  { subjectName: "Political Science", category: "Elective", totalMarks: 100 },
+  { subjectName: "Geography", category: "Elective", totalMarks: 100 },
+  { subjectName: "Psychology", category: "Elective", totalMarks: 100 },
+  { subjectName: "Sociology", category: "Elective", totalMarks: 100 },
+  { subjectName: "Economics", category: "Elective", totalMarks: 100 },
+  { subjectName: "Mathematics", category: "Elective", totalMarks: 100 },
 ];
 
 const SCIENCE_ELECTIVE_SUBJECT_TEMPLATES: SubjectTemplateItem[] = [
-  { subjectName: "Physics", category: "Elective", totalMarks: 100, passMarks: 33 },
-  { subjectName: "Chemistry", category: "Elective", totalMarks: 100, passMarks: 33 },
-  { subjectName: "Biology", category: "Elective", totalMarks: 100, passMarks: 33 },
-  { subjectName: "Agriculture", category: "Elective", totalMarks: 100, passMarks: 33 },
-  { subjectName: "Mathematics", category: "Elective", totalMarks: 100, passMarks: 33 }, // Also in Arts
+  { subjectName: "Physics", category: "Elective", totalMarks: 100 },
+  { subjectName: "Chemistry", category: "Elective", totalMarks: 100 },
+  { subjectName: "Biology", category: "Elective", totalMarks: 100 },
+  { subjectName: "Agriculture", category: "Elective", totalMarks: 100 },
+  { subjectName: "Mathematics", category: "Elective", totalMarks: 100 },
 ];
 
 const COMMERCE_ELECTIVE_SUBJECT_TEMPLATES: SubjectTemplateItem[] = [
-  { subjectName: "Business Studies", category: "Elective", totalMarks: 100, passMarks: 33 },
-  { subjectName: "Entrepreneurship", category: "Elective", totalMarks: 100, passMarks: 33 },
-  { subjectName: "Economics", category: "Elective", totalMarks: 100, passMarks: 33 }, // Also in Arts
-  { subjectName: "Accountancy", category: "Elective", totalMarks: 100, passMarks: 33 },
+  { subjectName: "Business Studies", category: "Elective", totalMarks: 100 },
+  { subjectName: "Entrepreneurship", category: "Elective", totalMarks: 100 },
+  { subjectName: "Economics", category: "Elective", totalMarks: 100 },
+  { subjectName: "Accountancy", category: "Elective", totalMarks: 100 },
 ];
 
 const CORE_ADDITIONAL_SUBJECTS: SubjectTemplateItem[] = [
-    { subjectName: "Yoga and Physical Education", category: "Additional", totalMarks: 100, passMarks: 33 },
-    { subjectName: "Computer Science", category: "Additional", totalMarks: 100, passMarks: 33 },
-    { subjectName: "Multimedia and Web Tech", category: "Additional", totalMarks: 100, passMarks: 33 },
+    { subjectName: "Yoga and Physical Education", category: "Additional", totalMarks: 100 },
+    { subjectName: "Computer Science", category: "Additional", totalMarks: 100 },
+    { subjectName: "Multimedia and Web Tech", category: "Additional", totalMarks: 100 },
 ];
 
 function getUniqueAdditionalSubjects(facultyElectives: SubjectTemplateItem[]): SubjectTemplateItem[] {
@@ -120,7 +121,7 @@ export function findSubjectTemplate(
     return suggestions.find(s => s.subjectName === subjectName);
 }
 
-// --- START: New Default Subjects Definitions ---
+// Default Subjects Definitions for auto-population
 interface DefaultSubjectDefinition {
   subjectName: string;
   category: FormSubjectCategory;
@@ -151,7 +152,5 @@ export const DEFAULT_SUBJECTS_BY_FACULTY: Record<
     { subjectName: 'Economics', category: 'Elective' },
     { subjectName: 'Accountancy', category: 'Elective' },
     { subjectName: 'Business Studies', category: 'Elective' },
-    // No additional subject for Commerce as per user request
   ],
 };
-// --- END: New Default Subjects Definitions ---

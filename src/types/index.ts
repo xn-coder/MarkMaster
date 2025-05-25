@@ -1,18 +1,24 @@
+'use client';
+
 import type { z } from 'zod';
 import type { marksheetFormSchema, subjectEntrySchema, ACADEMIC_YEAR_OPTIONS, SUBJECT_CATEGORIES_OPTIONS } from '@/components/app/marksheet-form-schema';
 
 // For the form itself
-export type SubjectEntryFormData = z.infer<typeof subjectEntrySchema>;
-export interface MarksheetFormData extends z.infer<typeof marksheetFormSchema> {
-  system_id?: string; // To hold the UUID when editing
-  registrationNo: string | null; // Can be optional
+export interface SubjectEntryFormData extends Omit<z.infer<typeof subjectEntrySchema>, 'passMarks'> {
+  id: string; // Ensure id is always present for useFieldArray
+}
+
+export interface MarksheetFormData extends Omit<z.infer<typeof marksheetFormSchema>, 'overallPassingThresholdPercentage' | 'subjects'> {
+  system_id?: string;
+  registrationNo: string | null;
   dateOfIssue: Date;
+  subjects: SubjectEntryFormData[];
 }
 
 // For displaying the processed marksheet
-export interface MarksheetSubjectDisplayEntry extends SubjectEntryFormData {
+export interface MarksheetSubjectDisplayEntry extends Omit<SubjectEntryFormData, 'passMarks'> {
   obtainedTotal: number;
-  isFailed?: boolean; // New field to mark if failed in this subject
+  isFailed?: boolean;
 }
 
 export interface MarksheetDisplayData {
@@ -25,40 +31,39 @@ export interface MarksheetDisplayData {
   dateOfBirth: Date;
   gender: 'Male' | 'Female' | 'Other';
   faculty: 'ARTS' | 'COMMERCE' | 'SCIENCE';
-  academicYear: typeof ACADEMIC_YEAR_OPTIONS[number]; // This is the Class like "11th"
+  academicYear: typeof ACADEMIC_YEAR_OPTIONS[number];
   sessionStartYear: number;
   sessionEndYear: number;
-  overallPassingThresholdPercentage: number;
+  // overallPassingThresholdPercentage removed
   dateOfIssue: string;
 
   subjects: MarksheetSubjectDisplayEntry[];
 
   collegeCode: string;
   sessionDisplay: string;
-  classDisplay: string; // This is the Class like "11th"
+  classDisplay: string;
 
   aggregateMarksCompulsoryElective: number;
   totalPossibleMarksCompulsoryElective: number;
-  totalMarksInWords:string;
+  totalMarksInWords: string;
 
   overallResult: 'Pass' | 'Fail';
-  overallPercentageDisplay: number;
+  overallPercentageDisplay: number; // Still useful for display, not for pass/fail logic
 
   place: string;
-  marksheetNo?: string; // Kept for backward compatibility if needed by display code you provide
 }
 
 export interface SubjectTemplateItem {
   subjectName: string;
   category: typeof SUBJECT_CATEGORIES_OPTIONS[number];
   totalMarks: number;
-  passMarks: number;
+  // passMarks removed
 }
 
 export interface StudentImportFeedbackItem {
   rowNumber: number;
-  excelStudentId?: string; // This is the Roll No from Excel
-  registrationNo?: string; // Registration No from Excel
+  excelStudentId?: string;
+  registrationNo?: string;
   name: string;
   generatedSystemId?: string;
   status: 'added' | 'skipped' | 'error';
@@ -68,7 +73,7 @@ export interface StudentImportFeedbackItem {
 
 export interface MarksImportFeedbackItem {
   rowNumber: number;
-  excelStudentId?: string; // This is the Roll No from Excel used to link marks
+  excelStudentId?: string;
   studentName: string;
   subjectName: string;
   status: 'added' | 'skipped' | 'error';
@@ -94,11 +99,11 @@ export interface ImportProcessingResults {
 }
 
 export interface StudentRowData {
-  system_id: string; // UUID
+  system_id: string;
   roll_no: string;
   registrationNo: string | null;
   name: string;
-  academicYear: string; // Session like "2023-2024"
-  class: string; // Class like "11th"
+  academicYear: string;
+  class: string;
   faculty: string;
 }

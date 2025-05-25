@@ -23,7 +23,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from '@/components/ui/label';
-// Removed import for useLoadingIndicator
 
 const pageSubtitle = `(Affiliated By Bihar School Examination Board, Patna)
 [Estd. - 1983] College Code: 53010
@@ -68,13 +67,14 @@ const parseExcelDate = (excelDate: any): string | null => {
   return null;
 };
 
+const THEORY_PASS_THRESHOLD = 30;
+const PRACTICAL_PASS_THRESHOLD = 33;
 
 export default function ImportDataPage() {
   const router = useRouter();
   const { toast } = useToast();
-  // Removed showLoader, hideLoader from useLoadingIndicator
   const [file, setFile] = useState<File | null>(null);
-  const [isLoading, setIsLoading] = useState(false); // This state will now control the import button's loader
+  const [isLoading, setIsLoading] = useState(false);
   const [importResults, setImportResults] = useState<ImportProcessingResults | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [authStatus, setAuthStatus] = useState<'loading' | 'authenticated' | 'unauthenticated'>('loading');
@@ -100,9 +100,6 @@ export default function ImportDataPage() {
   useEffect(() => {
     if (authStatus === 'unauthenticated') {
       router.push('/login');
-      // hideLoader(); 
-    } else if (authStatus === 'authenticated') {
-      // hideLoader(); 
     }
   }, [authStatus, router]);
 
@@ -128,8 +125,8 @@ export default function ImportDataPage() {
     const studentDetailsHeaders = ["Student ID", "Registration No", "Student Name", "Father Name", "Mother Name", "Date of Birth", "Gender", "Faculty", "Class"];
     const sampleStudentRow = ["S001", "REG001", "John Doe", "Robert Doe", "Jane Doe", "15-07-2003", "Male", "SCIENCE", "12th"];
 
-    const studentMarksHeaders = ["Student ID", "Name", "Subject Name", "Subject Category", "Max Marks", "Pass Marks", "Theory Marks Obtained", "Practical Marks Obtained"];
-    const sampleMarkRow = ["S001", "John Doe", "Physics", "Elective", 100, 33, 65, 25];
+    const studentMarksHeaders = ["Student ID", "Name", "Subject Name", "Subject Category", "Max Marks", "Theory Marks Obtained", "Practical Marks Obtained"]; // Pass Marks removed
+    const sampleMarkRow = ["S001", "John Doe", "Physics", "Elective", 100, 65, 25]; // Pass Marks removed
 
     const studentDetailsData = [studentDetailsHeaders, sampleStudentRow];
     const studentMarksData = [studentMarksHeaders, sampleMarkRow];
@@ -162,7 +159,6 @@ export default function ImportDataPage() {
     }
 
     setIsLoading(true);
-    // showLoader();
     setImportResults(null);
     toast({ title: "Import Started", description: "Processing your Excel file..." });
 
@@ -172,7 +168,6 @@ export default function ImportDataPage() {
       if (!data) {
         toast({ title: "File Read Error", description: "Could not read the file content.", variant: "destructive" });
         setIsLoading(false);
-        // hideLoader();
         return;
       }
 
@@ -213,14 +208,16 @@ export default function ImportDataPage() {
             const motherName = String(row['Mother Name'] || '').trim();
             const dobRaw = row['Date of Birth'];
             const gender = String(row['Gender'] || '').trim();
-            const registrationNo = String(row['Registration No'] || '').trim(); 
+            const registrationNoRaw = row['Registration No'];
             const faculty = String(row['Faculty'] || '').trim();
             const studentClass = String(row['Class'] || '').trim();
             
-            const currentFeedback: StudentImportFeedbackItem = { rowNumber: rowNum, excelStudentId: excelStudentId, name: studentName, status: 'skipped', message: '', registrationNo: registrationNo };
+            const registrationNo = registrationNoRaw ? String(registrationNoRaw).trim() : null;
+
+            const currentFeedback: StudentImportFeedbackItem = { rowNumber: rowNum, excelStudentId: excelStudentId, name: studentName, status: 'skipped', message: '', registrationNo: registrationNo || undefined };
 
             if (!excelStudentId || !studentName || !fatherName || !motherName || !dobRaw || !gender || !faculty || !studentClass ) {
-              currentFeedback.message = "Missing one or more required fields (Student ID, Student Name, Father Name, Mother Name, DOB, Gender, Faculty, Class). Registration No. is optional.";
+              currentFeedback.message = "Missing one or more required fields (Student ID, Student Name, Father Name, Mother Name, DOB, Gender, Faculty, Class).";
               results.studentFeedback.push(currentFeedback);
               results.totalStudentsSkipped++;
               continue;
@@ -241,7 +238,7 @@ export default function ImportDataPage() {
               .eq('academic_year', selectedAcademicSession)
               .eq('class', studentClass)
               .eq('faculty', faculty)
-              .eq('registration_no', registrationNo || null) // Ensure registration_no is part of the uniqueness check
+              .(registrationNo ? 'eq' : 'is')('registration_no', registrationNo)
               .maybeSingle();
 
             if (checkError) {
@@ -279,7 +276,7 @@ export default function ImportDataPage() {
               mother_name: motherName,
               dob: dobFormatted,
               gender: gender,
-              registration_no: registrationNo || null,
+              registration_no: registrationNo,
               faculty: faculty,
               class: studentClass,
               academic_year: selectedAcademicSession,
@@ -343,7 +340,7 @@ export default function ImportDataPage() {
             const subjectName = String(row['Subject Name'] || '').trim();
             const subjectCategory = String(row['Subject Category'] || '').trim();
             const maxMarksRaw = row['Max Marks'];
-            const passMarksRaw = row['Pass Marks'];
+            // Pass Marks column removed
             const theoryMarksRaw = row['Theory Marks Obtained'];
             const practicalMarksRaw = row['Practical Marks Obtained'];
 
@@ -373,12 +370,12 @@ export default function ImportDataPage() {
             }
 
             const maxMarks = parseFloat(String(maxMarksRaw));
-            const passMarks = parseFloat(String(passMarksRaw));
+            // Pass Marks parsing removed
             const theoryMarks = parseFloat(String(theoryMarksRaw));
             const practicalMarks = parseFloat(String(practicalMarksRaw));
 
-            if (isNaN(maxMarks) || isNaN(passMarks)) {
-              currentFeedback.message = "Invalid Max Marks or Pass Marks. Must be numbers.";
+            if (isNaN(maxMarks)) { // Pass Marks check removed
+              currentFeedback.message = "Invalid Max Marks. Must be a number.";
               results.marksFeedback.push(currentFeedback);
               results.totalMarksSkipped++;
               continue;
@@ -393,19 +390,14 @@ export default function ImportDataPage() {
               results.totalMarksSkipped++;
               continue;
             }
-            if (passMarks > maxMarks) {
-              currentFeedback.message = `Pass Marks (${passMarks}) exceed Max Marks (${maxMarks}).`;
-              results.marksFeedback.push(currentFeedback);
-              results.totalMarksSkipped++;
-              continue;
-            }
+            // Pass Marks > Max Marks check removed
 
             marksInserts.push({
               student_detail_id: systemIdForMarks,
               subject_name: subjectName,
               category: subjectCategory,
               max_marks: maxMarks,
-              pass_marks: passMarks,
+              // pass_marks removed
               theory_marks_obtained: isNaN(theoryMarks) ? null : theoryMarks,
               practical_marks_obtained: isNaN(practicalMarks) ? null : practicalMarks,
               obtained_total_marks: obtainedTotalMarks,
@@ -471,13 +463,11 @@ export default function ImportDataPage() {
           fileInputRef.current.value = ''; 
         }
         setFile(null); 
-        // hideLoader();
       }
     };
     reader.onerror = () => {
       toast({ title: "File Read Error", description: "Could not read the file.", variant: "destructive" });
       setIsLoading(false);
-      // hideLoader();
     };
     reader.readAsArrayBuffer(file);
   };
@@ -650,3 +640,4 @@ export default function ImportDataPage() {
     </div>
   );
 }
+

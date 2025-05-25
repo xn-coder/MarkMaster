@@ -19,6 +19,9 @@ const defaultPageSubtitle = `(Affiliated By Bihar School Examination Board, Patn
 Chitragupta Nagar, Mohanpur, Samastipur, Bihar - 848101
 www.saryugcollege.com`;
 
+const THEORY_PASS_THRESHOLD = 30;
+const PRACTICAL_PASS_THRESHOLD = 33;
+
 export default function ViewMarksheetPage() {
   const router = useRouter();
   const params = useParams();
@@ -60,24 +63,23 @@ export default function ViewMarksheetPage() {
           const { data: studentDetails, error: studentError } = await supabase
             .from('student_details')
             .select('*')
-            .eq('id', studentSystemId)
+            .eq('id', studentSystemId) // Use 'id' for UUID
             .single();
 
           if (studentError || !studentDetails) {
             toast({ title: 'Error', description: `Student data not found for ID: ${studentSystemId}. ${studentError?.message || ''}`, variant: 'destructive' });
             setMarksheetData(null);
-            setIsLoadingData(false); // Ensure loading stops
+            setIsLoadingData(false);
             return;
           }
 
           const { data: subjectMarks, error: marksError } = await supabase
             .from('student_marks_details')
             .select('*')
-            .eq('student_detail_id', studentSystemId);
+            .eq('student_detail_id', studentSystemId); // Use 'student_detail_id'
 
           if (marksError) {
             toast({ title: 'Error Fetching Subjects', description: marksError.message, variant: 'destructive' });
-            // Continue processing with potentially empty marks
           }
 
           let sessionStartYearNum = new Date().getFullYear() - 1;
@@ -90,7 +92,7 @@ export default function ViewMarksheetPage() {
             }
           }
           
-          const formDataFromDb: MarksheetFormData = { // Use MarksheetFormData for consistent structure
+          const formDataFromDb: Omit<MarksheetFormData, 'overallPassingThresholdPercentage' | 'subjects'> & { subjects: Omit<SubjectEntryFormData, 'passMarks'>[] } = {
             system_id: studentDetails.id,
             studentName: studentDetails.name,
             fatherName: studentDetails.father_name,
@@ -98,19 +100,18 @@ export default function ViewMarksheetPage() {
             registrationNo: studentDetails.registration_no || null,
             rollNumber: studentDetails.roll_no,
             dateOfBirth: studentDetails.dob ? parseISO(studentDetails.dob) : new Date(),
-            dateOfIssue: new Date(), // Date of issue is dynamic for view
+            dateOfIssue: new Date(), 
             gender: studentDetails.gender as MarksheetFormData['gender'],
             faculty: studentDetails.faculty as MarksheetFormData['faculty'],
             academicYear: studentDetails.class as typeof ACADEMIC_YEAR_OPTIONS[number],
             sessionStartYear: sessionStartYearNum,
             sessionEndYear: sessionEndYearNum,
-            overallPassingThresholdPercentage: 33, // Default
             subjects: subjectMarks?.map(mark => ({
               id: mark.mark_id?.toString() || crypto.randomUUID(),
               subjectName: mark.subject_name,
-              category: mark.category as MarksheetSubjectDisplayEntry['category'],
+              category: mark.category as SubjectEntryFormData['category'],
               totalMarks: mark.max_marks,
-              passMarks: mark.pass_marks,
+              // passMarks removed
               theoryMarksObtained: mark.theory_marks_obtained ?? 0,
               practicalMarksObtained: mark.practical_marks_obtained ?? 0,
             })) || [],
@@ -118,10 +119,18 @@ export default function ViewMarksheetPage() {
 
           const subjectsDisplay: MarksheetSubjectDisplayEntry[] = formDataFromDb.subjects.map(s => {
             const obtainedTotal = (s.theoryMarksObtained || 0) + (s.practicalMarksObtained || 0);
+            let subjectFailed = false;
+            if ((s.theoryMarksObtained ?? 0) > 0 && (s.theoryMarksObtained ?? 0) < THEORY_PASS_THRESHOLD) {
+                subjectFailed = true;
+            }
+            if (!subjectFailed && (s.practicalMarksObtained ?? 0) > 0 && (s.practicalMarksObtained ?? 0) < PRACTICAL_PASS_THRESHOLD) {
+                subjectFailed = true;
+            }
             return {
               ...s,
+              id: s.id || crypto.randomUUID(),
               obtainedTotal,
-              isFailed: obtainedTotal < s.passMarks,
+              isFailed: subjectFailed,
             };
           });
 
@@ -145,15 +154,24 @@ export default function ViewMarksheetPage() {
           const totalMarksInWords = numberToWords(aggregateMarksCompulsoryElective);
 
           let overallResult: 'Pass' | 'Fail' = 'Pass';
-          if (overallPercentageDisplay < formDataFromDb.overallPassingThresholdPercentage) {
-            overallResult = 'Fail';
-          }
           if (subjectsDisplay.some(subject => subject.isFailed)) {
             overallResult = 'Fail';
           }
 
           const processedData: MarksheetDisplayData = {
-            ...formDataFromDb,
+            system_id: formDataFromDb.system_id,
+            studentName: formDataFromDb.studentName,
+            fatherName: formDataFromDb.fatherName,
+            motherName: formDataFromDb.motherName,
+            registrationNo: formDataFromDb.registrationNo,
+            rollNumber: formDataFromDb.rollNumber,
+            dateOfBirth: formDataFromDb.dateOfBirth,
+            dateOfIssue: format(formDataFromDb.dateOfIssue, 'MMMM yyyy'),
+            gender: formDataFromDb.gender,
+            faculty: formDataFromDb.faculty,
+            academicYear: formDataFromDb.academicYear,
+            sessionStartYear: formDataFromDb.sessionStartYear,
+            sessionEndYear: formDataFromDb.sessionEndYear,
             subjects: subjectsDisplay,
             collegeCode: "53010",
             sessionDisplay: `${formDataFromDb.sessionStartYear}-${formDataFromDb.sessionEndYear}`,
@@ -163,7 +181,6 @@ export default function ViewMarksheetPage() {
             totalMarksInWords,
             overallResult,
             overallPercentageDisplay,
-            dateOfIssue: format(formDataFromDb.dateOfIssue, 'MMMM yyyy'),
             place: 'Samastipur',
           };
           setMarksheetData(processedData);

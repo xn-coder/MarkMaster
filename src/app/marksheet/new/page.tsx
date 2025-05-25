@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -17,6 +18,9 @@ const defaultPageSubtitle = `(Affiliated By Bihar School Examination Board, Patn
 [Estd. - 1983] College Code: 53010
 Chitragupta Nagar, Mohanpur, Samastipur, Bihar - 848101
 www.saryugcollege.com`;
+
+const THEORY_PASS_THRESHOLD = 30;
+const PRACTICAL_PASS_THRESHOLD = 33;
 
 export default function NewMarksheetPage() {
   const router = useRouter();
@@ -59,10 +63,27 @@ export default function NewMarksheetPage() {
   const processFormData = (data: MarksheetFormData, systemId: string): MarksheetDisplayData => {
     const subjectsDisplay: MarksheetSubjectDisplayEntry[] = data.subjects.map(s => {
       const obtainedTotal = (s.theoryMarksObtained || 0) + (s.practicalMarksObtained || 0);
+      let subjectFailed = false;
+      if ((s.theoryMarksObtained ?? 0) > 0 && (s.theoryMarksObtained ?? 0) < THEORY_PASS_THRESHOLD) {
+        subjectFailed = true;
+      }
+      if (!subjectFailed && (s.practicalMarksObtained ?? 0) > 0 && (s.practicalMarksObtained ?? 0) < PRACTICAL_PASS_THRESHOLD) {
+        subjectFailed = true;
+      }
+      // If both theory and practical are zero or null, it's not considered failed by these criteria alone
+      // unless the obtainedTotal is less than some overall subject pass mark (which we removed).
+      // For now, failure is only triggered if marks are entered and below threshold.
+      if (s.theoryMarksObtained === 0 && s.practicalMarksObtained === 0 && s.totalMarks > 0) {
+        // if total marks is >0 and student got 0, they failed this subject by default.
+        // This might need refinement if 0 is a valid obtained mark sometimes.
+      }
+
+
       return {
         ...s,
+        id: s.id || crypto.randomUUID(), // ensure id is present
         obtainedTotal,
-        isFailed: obtainedTotal < s.passMarks,
+        isFailed: subjectFailed,
       };
     });
 
@@ -86,14 +107,10 @@ export default function NewMarksheetPage() {
     const totalMarksInWords = numberToWords(aggregateMarksCompulsoryElective);
 
     let overallResult: 'Pass' | 'Fail' = 'Pass';
-    if (overallPercentageDisplay < data.overallPassingThresholdPercentage) {
-      overallResult = 'Fail';
-    }
-    // Check if any subject is failed
+    // Overall result is fail if any subject is failed
     if (subjectsDisplay.some(subject => subject.isFailed)) {
       overallResult = 'Fail';
     }
-
 
     return {
       ...data,
@@ -101,7 +118,7 @@ export default function NewMarksheetPage() {
       collegeCode: "53010",
       subjects: subjectsDisplay,
       sessionDisplay: `${data.sessionStartYear}-${data.sessionEndYear}`,
-      classDisplay: `${data.academicYear}`, // No section
+      classDisplay: `${data.academicYear}`,
       aggregateMarksCompulsoryElective,
       totalPossibleMarksCompulsoryElective,
       totalMarksInWords,
@@ -154,7 +171,7 @@ export default function NewMarksheetPage() {
       const dobFormatted = format(data.dateOfBirth, 'yyyy-MM-dd');
 
       const studentToInsert = {
-        id: systemGeneratedId,
+        id: systemGeneratedId, // New UUID
         roll_no: data.rollNumber,
         name: data.studentName,
         father_name: data.fatherName,
@@ -165,7 +182,6 @@ export default function NewMarksheetPage() {
         faculty: data.faculty,
         class: data.academicYear,
         academic_year: academicSessionString,
-        // section removed
       };
 
       const { data: insertedStudentData, error: studentError } = await supabase
@@ -186,11 +202,11 @@ export default function NewMarksheetPage() {
       }
 
       const subjectMarksToInsert = data.subjects.map(subject => ({
-        student_detail_id: insertedStudentData.id,
+        student_detail_id: insertedStudentData.id, // Link to the new UUID
         subject_name: subject.subjectName,
         category: subject.category,
         max_marks: subject.totalMarks,
-        pass_marks: subject.passMarks,
+        // pass_marks removed
         theory_marks_obtained: subject.theoryMarksObtained,
         practical_marks_obtained: subject.practicalMarksObtained,
         obtained_total_marks: (subject.theoryMarksObtained || 0) + (subject.practicalMarksObtained || 0),

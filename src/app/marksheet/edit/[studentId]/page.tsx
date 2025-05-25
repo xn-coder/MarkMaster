@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -19,6 +20,8 @@ const defaultPageSubtitle = `(Affiliated By Bihar School Examination Board, Patn
 Chitragupta Nagar, Mohanpur, Samastipur, Bihar - 848101
 www.saryugcollege.com`;
 
+const THEORY_PASS_THRESHOLD = 30;
+const PRACTICAL_PASS_THRESHOLD = 33;
 
 export default function EditMarksheetPage() {
   const router = useRouter();
@@ -63,7 +66,7 @@ export default function EditMarksheetPage() {
           const { data: studentDetails, error: studentError } = await supabase
             .from('student_details')
             .select('*')
-            .eq('id', studentSystemId)
+            .eq('id', studentSystemId) // Use 'id' for UUID
             .single();
 
           if (studentError || !studentDetails) {
@@ -75,20 +78,22 @@ export default function EditMarksheetPage() {
           const { data: subjectMarks, error: marksError } = await supabase
             .from('student_marks_details')
             .select('*')
-            .eq('student_detail_id', studentSystemId);
+            .eq('student_detail_id', studentSystemId); // Use 'student_detail_id'
 
           if (marksError) {
             toast({ title: 'Error Fetching Subjects', description: marksError.message, variant: 'destructive' });
           }
 
-          let sessionStartYear = new Date().getFullYear() - 1;
-          let sessionEndYear = new Date().getFullYear();
+          let sessionStartYearNum = new Date().getFullYear() - 1;
+          let sessionEndYearNum = new Date().getFullYear();
           if (studentDetails.academic_year && studentDetails.academic_year.includes('-')) {
             const years = studentDetails.academic_year.split('-');
-            sessionStartYear = parseInt(years[0], 10);
-            sessionEndYear = parseInt(years[1], 10);
+            if (years.length === 2 && !isNaN(parseInt(years[0])) && !isNaN(parseInt(years[1]))) {
+                sessionStartYearNum = parseInt(years[0], 10);
+                sessionEndYearNum = parseInt(years[1], 10);
+            }
           }
-
+          
           const transformedData: MarksheetFormData = {
             system_id: studentDetails.id,
             studentName: studentDetails.name,
@@ -97,19 +102,19 @@ export default function EditMarksheetPage() {
             rollNumber: studentDetails.roll_no,
             registrationNo: studentDetails.registration_no || null,
             dateOfBirth: studentDetails.dob ? parseISO(studentDetails.dob) : new Date(),
-            dateOfIssue: new Date(), // This will default to current for edit, not stored
+            dateOfIssue: new Date(), // Default to current for edit, user can change
             gender: studentDetails.gender as MarksheetFormData['gender'],
             faculty: studentDetails.faculty as MarksheetFormData['faculty'],
             academicYear: studentDetails.class as typeof ACADEMIC_YEAR_OPTIONS[number],
-            sessionStartYear: sessionStartYear,
-            sessionEndYear: sessionEndYear,
-            overallPassingThresholdPercentage: 33, // Default, not stored
+            sessionStartYear: sessionStartYearNum,
+            sessionEndYear: sessionEndYearNum,
+            // overallPassingThresholdPercentage removed
             subjects: subjectMarks?.map(mark => ({
               id: mark.mark_id?.toString() || crypto.randomUUID(),
               subjectName: mark.subject_name,
-              category: mark.category as MarksheetFormData['subjects'][0]['category'],
+              category: mark.category as SubjectEntryFormData['category'],
               totalMarks: mark.max_marks,
-              passMarks: mark.pass_marks,
+              // passMarks removed
               theoryMarksObtained: mark.theory_marks_obtained ?? 0,
               practicalMarksObtained: mark.practical_marks_obtained ?? 0,
             })) || [],
@@ -135,10 +140,19 @@ export default function EditMarksheetPage() {
   const processFormData = (data: MarksheetFormData): MarksheetDisplayData => {
     const subjectsDisplay: MarksheetSubjectDisplayEntry[] = data.subjects.map(s => {
       const obtainedTotal = (s.theoryMarksObtained || 0) + (s.practicalMarksObtained || 0);
+      let subjectFailed = false;
+      if ((s.theoryMarksObtained ?? 0) > 0 && (s.theoryMarksObtained ?? 0) < THEORY_PASS_THRESHOLD) {
+        subjectFailed = true;
+      }
+      if (!subjectFailed && (s.practicalMarksObtained ?? 0) > 0 && (s.practicalMarksObtained ?? 0) < PRACTICAL_PASS_THRESHOLD) {
+        subjectFailed = true;
+      }
+      
       return {
         ...s,
+        id: s.id || crypto.randomUUID(),
         obtainedTotal,
-        isFailed: obtainedTotal < s.passMarks,
+        isFailed: subjectFailed,
       };
     });
 
@@ -162,9 +176,6 @@ export default function EditMarksheetPage() {
     const totalMarksInWords = numberToWords(aggregateMarksCompulsoryElective);
 
     let overallResult: 'Pass' | 'Fail' = 'Pass';
-    if (overallPercentageDisplay < data.overallPassingThresholdPercentage) {
-      overallResult = 'Fail';
-    }
     if (subjectsDisplay.some(subject => subject.isFailed)) {
       overallResult = 'Fail';
     }
@@ -208,27 +219,27 @@ export default function EditMarksheetPage() {
           dob: format(data.dateOfBirth, 'yyyy-MM-dd'),
           gender: data.gender,
           faculty: data.faculty,
-          class: data.academicYear, // Form's academicYear is the class
+          class: data.academicYear,
           academic_year: `${data.sessionStartYear}-${data.sessionEndYear}`,
         })
-        .eq('id', studentSystemId);
+        .eq('id', studentSystemId); // Use 'id' for UUID
 
       if (studentUpdateError) throw studentUpdateError;
 
       const { error: deleteMarksError } = await supabase
         .from('student_marks_details')
         .delete()
-        .eq('student_detail_id', studentSystemId);
+        .eq('student_detail_id', studentSystemId); // Use 'student_detail_id'
 
       if (deleteMarksError) throw deleteMarksError;
 
       if (data.subjects && data.subjects.length > 0) {
         const marksToInsert = data.subjects.map(subject => ({
-          student_detail_id: studentSystemId,
+          student_detail_id: studentSystemId, // Use UUID
           subject_name: subject.subjectName,
           category: subject.category,
           max_marks: subject.totalMarks,
-          pass_marks: subject.passMarks,
+          // pass_marks removed
           theory_marks_obtained: subject.theoryMarksObtained,
           practical_marks_obtained: subject.practicalMarksObtained,
           obtained_total_marks: (subject.theoryMarksObtained || 0) + (subject.practicalMarksObtained || 0),
@@ -290,6 +301,7 @@ export default function EditMarksheetPage() {
         <footer className="py-4 border-t border-border mt-auto print:hidden">
           <div className="container mx-auto px-4 sm:px-6 lg:px-8 text-center text-xs text-muted-foreground max-w-screen-xl">
             {footerYear && <p>Copyright ©{footerYear} by Saryug College, Samastipur, Bihar. Design By Mantix.</p>}
+             {!footerYear && <p>Copyright by Saryug College, Samastipur, Bihar. Design By Mantix.</p>}
           </div>
         </footer>
       </div>
