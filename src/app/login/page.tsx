@@ -30,7 +30,6 @@ export default function LoginPage() {
   const ensureAdminUserExists = useCallback(async (emailToEnsure: string) => {
     if (!emailToEnsure || !emailToEnsure.includes('@')) {
       console.error("ensureAdminUserExists called with invalid or no email:", emailToEnsure);
-      // Toast for this case is handled in the useEffect setting up adminEmail
       return;
     }
     console.log(`ensureAdminUserExists: Attempting to sign up or confirm user: ${emailToEnsure}`);
@@ -46,7 +45,7 @@ export default function LoginPage() {
         error.message.toLowerCase().includes('user already registered') ||
         error.message.toLowerCase().includes('user already exists') ||
         (error.message.toLowerCase().includes('email link') && error.message.toLowerCase().includes('already been sent')) ||
-        error.message.toLowerCase().includes('rate limit exceeded') // Added rate limit check
+        error.message.toLowerCase().includes('rate limit exceeded')
       ) {
         toast({
           title: 'Admin User Info',
@@ -62,8 +61,6 @@ export default function LoginPage() {
         description: `Admin user ${emailToEnsure} ensured. If newly created and email confirmation is enabled in Supabase, please check your email.`,
       });
     } else if (data.session === null && !data.user && !error) {
-       // This case can happen if the user exists but is unconfirmed and "Confirm email" is true.
-       // Supabase signUp might return no user and no error but also no session.
        toast({
         title: 'Admin User Awaiting Confirmation',
         description: `Admin user ${emailToEnsure} may be awaiting email confirmation. Please check your inbox.`,
@@ -96,7 +93,7 @@ export default function LoginPage() {
       });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // ensureAdminUserExists is a dependency, but it's stable due to useCallback
+  }, []);
 
   useEffect(() => {
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
@@ -134,7 +131,6 @@ export default function LoginPage() {
       toast({ title: 'Login Failed', description: error.message, variant: 'destructive' });
     } else {
       toast({ title: 'Login Successful', description: 'Redirecting...' });
-      // Redirection is handled by onAuthStateChange
     }
     setLoading(false);
   };
@@ -149,7 +145,7 @@ export default function LoginPage() {
     const { error } = await supabase.auth.signInWithOtp({
       email: adminEmail,
       options: {
-        shouldCreateUser: false, // Should not create a user during OTP for password reset
+        shouldCreateUser: false, 
         emailRedirectTo: typeof window !== 'undefined' ? `${window.location.origin}/login` : '',
       }
     });
@@ -174,17 +170,15 @@ export default function LoginPage() {
     const { data, error } = await supabase.auth.verifyOtp({
       email: adminEmail,
       token: otp,
-      type: 'email', // Use 'email' for password recovery OTPs sent via email
+      type: 'email', 
     });
 
     if (error) {
       toast({ title: 'OTP Verification Failed', description: error.message, variant: 'destructive' });
     } else if (data.session) {
-      // User is now signed in with this session after OTP verification
       toast({ title: 'OTP Verified', description: 'Please set your new password.' });
       setView('resetPasswordForm');
     } else {
-      // This case might happen if OTP is wrong but doesn't throw an error, or if session is unexpectedly null
       toast({ title: 'OTP Verification Failed', description: 'Invalid OTP or an unexpected issue occurred.', variant: 'destructive' });
     }
     setLoading(false);
@@ -233,7 +227,10 @@ export default function LoginPage() {
             />
           </div>
           <div className="text-center mx-2 sm:mx-4 flex-grow">
-            <h1 className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold text-indigo-700 leading-tight">
+            <h1 
+              className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold leading-tight"
+              style={{ color: '#032781' }}
+            >
               SARYUG COLLEGE, CHITRAGUPT NAGAR, MOHANPUR SAMASTIPUR BIHAR
             </h1>
             <p className="text-[10px] sm:text-xs md:text-sm text-slate-600 mt-0.5">
@@ -399,6 +396,8 @@ export default function LoginPage() {
     </div>
   );
 }
+    
+
     
 
     
