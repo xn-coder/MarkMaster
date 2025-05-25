@@ -72,6 +72,7 @@ export default function EditMarksheetPage() {
           if (studentError || !studentDetails) {
             toast({ title: 'Error Fetching Student', description: `Student data not found for ID: ${studentSystemId}. ${studentError?.message || ''}`, variant: 'destructive' });
             setInitialData(null);
+            setIsLoadingData(false);
             return;
           }
 
@@ -102,7 +103,7 @@ export default function EditMarksheetPage() {
             rollNumber: studentDetails.roll_no,
             registrationNo: studentDetails.registration_no || null,
             dateOfBirth: studentDetails.dob ? parseISO(studentDetails.dob) : new Date(),
-            dateOfIssue: new Date(), 
+            dateOfIssue: new Date(), // Default to current, will be user-editable in form
             gender: studentDetails.gender as MarksheetFormData['gender'],
             faculty: studentDetails.faculty as MarksheetFormData['faculty'],
             academicYear: studentDetails.class as typeof ACADEMIC_YEAR_OPTIONS[number],
@@ -118,9 +119,9 @@ export default function EditMarksheetPage() {
             })) || [],
           };
           setInitialData(transformedData);
-        } catch (error) {
+        } catch (error: any) {
           console.error("Error fetching student data for edit:", error);
-          toast({ title: 'Fetch Error', description: 'Could not load student data.', variant: 'destructive' });
+          toast({ title: 'Fetch Error', description: `Could not load student data: ${error.message}`, variant: 'destructive' });
           setInitialData(null);
         } finally {
           setIsLoadingData(false);
@@ -139,11 +140,17 @@ export default function EditMarksheetPage() {
     const subjectsDisplay: MarksheetSubjectDisplayEntry[] = data.subjects.map(s => {
       const obtainedTotal = (s.theoryMarksObtained || 0) + (s.practicalMarksObtained || 0);
       let subjectFailed = false;
-      if (typeof s.theoryMarksObtained === 'number' && s.theoryMarksObtained < THEORY_PASS_THRESHOLD) {
+      
+      const theoryMarks = s.theoryMarksObtained;
+      const practicalMarks = s.practicalMarksObtained;
+
+      if (typeof theoryMarks === 'number' && theoryMarks < THEORY_PASS_THRESHOLD) {
         subjectFailed = true;
       }
-      if (!subjectFailed && typeof s.practicalMarksObtained === 'number' && s.practicalMarksObtained < PRACTICAL_PASS_THRESHOLD) {
-        subjectFailed = true;
+      // Only check practical if theory hasn't already failed it.
+      // And ensure practicalMarks exists and is a number.
+      if (!subjectFailed && typeof practicalMarks === 'number' && practicalMarks < PRACTICAL_PASS_THRESHOLD) {
+         subjectFailed = true;
       }
       
       return {
@@ -266,7 +273,7 @@ export default function EditMarksheetPage() {
 
   const handleBackToForm = () => {
     setMarksheetData(null);
-  }
+  };
 
   if (authStatus === 'loading' || (authStatus === 'authenticated' && isLoadingData && !initialData)) {
     return (
@@ -312,7 +319,7 @@ export default function EditMarksheetPage() {
       </div>
       <main className="flex-grow container mx-auto px-4 py-8 sm:px-6 lg:px-8 print:p-0 print:m-0 print:h-full print:container-none print:max-w-none max-w-screen-xl">
         <div className="flex justify-start mb-6 print:hidden">
-            <Button variant="outline" onClick={() => router.back()}>
+            <Button variant="outline" onClick={() => marksheetData ? handleBackToForm() : router.back()}>
               <ArrowLeft className="mr-2 h-4 w-4" /> Back
             </Button>
         </div>
@@ -335,4 +342,9 @@ export default function EditMarksheetPage() {
       <footer className="py-4 border-t border-border mt-auto print:hidden">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 text-center text-xs text-muted-foreground max-w-screen-xl">
           {footerYear && <p>Copyright ©{footerYear} by Saryug College, Samastipur, Bihar. Design By Mantix.</p>}
-          {!footerYear && <p>Copyright by Saryug College, Samastipur,
+          {!footerYear && <p>Copyright by Saryug College, Samastipur, Bihar. Design By Mantix.</p>}
+        </div>
+      </footer>
+    </div>
+  );
+}
