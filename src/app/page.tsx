@@ -39,10 +39,20 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   RefreshCw,
   FilePlus2,
-  Download,
   Upload,
+  Download,
   MoreHorizontal,
   ChevronLeft,
   ChevronRight,
@@ -67,6 +77,7 @@ export default function AdminDashboardPage() {
   const [isLoadingData, setIsLoadingData] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [isDeletingSelected, setIsDeletingSelected] = useState(false);
+  const [showDeleteConfirmDialog, setShowDeleteConfirmDialog] = useState(false);
 
   const [allStudents, setAllStudents] = useState<StudentRowData[]>([]);
   const [selectedStudents, setSelectedStudents] = useState<Set<string>>(new Set());
@@ -259,44 +270,8 @@ export default function AdminDashboardPage() {
   };
 
   const handleDeleteStudent = async (student: StudentRowData) => {
-    if (!confirm(`Are you sure you want to delete student ${student.name} (Roll No: ${student.roll_no}) and all their marks? This action cannot be undone.`)) {
-      return;
-    }
-    setIsLoadingData(true);
-    try {
-      const { error: marksError } = await supabase
-        .from('student_marks_details')
-        .delete()
-        .eq('student_detail_id', student.system_id);
-
-      if (marksError) throw marksError;
-
-      const { error: studentError } = await supabase
-        .from('student_details')
-        .delete()
-        .eq('id', student.system_id);
-
-      if (studentError) throw studentError;
-
-      toast({
-        title: 'Student Deleted',
-        description: `${student.name} (Roll No: ${student.roll_no}) and their marks have been deleted.`,
-      });
-      
-      const newSelected = new Set(selectedStudents);
-      newSelected.delete(student.system_id);
-      setSelectedStudents(newSelected);
-
-      await handleLoadStudentData();
-    } catch (error: any) {
-      toast({
-        title: 'Deletion Failed',
-        description: error.message || 'An unexpected error occurred during deletion.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsLoadingData(false);
-    }
+     setSelectedStudents(new Set([student.system_id])); // Set up for confirmation dialog
+     setShowDeleteConfirmDialog(true);
   };
 
   const handleExportToExcel = async () => {
@@ -442,14 +417,16 @@ export default function AdminDashboardPage() {
   const numSelectedOnPage = paginatedStudents.filter(s => selectedStudents.has(s.system_id)).length;
   const isAllSelectedOnPage = paginatedStudents.length > 0 && numSelectedOnPage === paginatedStudents.length;
 
-  const handleDeleteSelectedStudents = async () => {
+  const confirmDeleteSelected = () => {
     if (selectedStudents.size === 0) {
       toast({ title: "No Students Selected", description: "Please select students to delete.", variant: "destructive" });
       return;
     }
-    if (!confirm(`Are you sure you want to delete ${selectedStudents.size} selected student(s) and all their marks? This action cannot be undone.`)) {
-      return;
-    }
+    setShowDeleteConfirmDialog(true);
+  };
+  
+  const executeDeleteSelectedStudents = async () => {
+    if (selectedStudents.size === 0) return;
 
     setIsDeletingSelected(true);
     let deletedCount = 0;
@@ -509,6 +486,7 @@ export default function AdminDashboardPage() {
     await handleLoadStudentData(); 
     
     setIsDeletingSelected(false);
+    setShowDeleteConfirmDialog(false); // Close the dialog
   };
 
   if (authStatus === 'loading') {
@@ -563,7 +541,7 @@ export default function AdminDashboardPage() {
                   <Button
                     variant="destructive"
                     size="sm"
-                    onClick={handleDeleteSelectedStudents}
+                    onClick={confirmDeleteSelected}
                     disabled={isDeletingSelected || isLoadingData || isExporting}
                     className="bg-red-600 hover:bg-red-700 text-white"
                   >
@@ -741,6 +719,29 @@ export default function AdminDashboardPage() {
         </Card>
       </main>
 
+      <AlertDialog open={showDeleteConfirmDialog} onOpenChange={setShowDeleteConfirmDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete {selectedStudents.size} student(s)
+              and all their associated marks.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={executeDeleteSelectedStudents}
+              className={buttonVariants({ variant: "destructive" })}
+              disabled={isDeletingSelected}
+            >
+              {isDeletingSelected ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <footer className="py-4 border-t border-border mt-auto print:hidden">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between text-xs text-muted-foreground max-w-screen-xl">
           <p className="mb-2 sm:mb-0 text-center sm:text-left">Copyright ©{footerYear || new Date().getFullYear()} by Saryug College, Samastipur, Bihar.</p>
@@ -750,5 +751,3 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
-
-    
